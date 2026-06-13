@@ -9,3 +9,4 @@ cordova/jks/
 .superpowers/
 .DS_Store
 *.log
+.codegraph/
