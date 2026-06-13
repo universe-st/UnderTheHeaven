@@ -1,0 +1,11 @@
+node_modules/
+dist/
+cordova/www/
+cordova/platforms/
+cordova/plugins/
+cordova/node_modules/
+cordova/jks/
+.opencode/
+.superpowers/
+.DS_Store
+*.log

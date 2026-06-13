@@ -1,0 +1,11 @@
+{
+  "android": {
+    "release": {
+      "keystore": "jks/key.jks",
+      "alias": "key0",
+      "storePassword": "responder123",
+      "password": "responder123",
+      "keystoreType": "jks"
+    }
+  }
+}

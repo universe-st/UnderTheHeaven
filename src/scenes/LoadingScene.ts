@@ -1,0 +1,146 @@
+import Phaser from 'phaser';
+
+export class LoadingScene extends Phaser.Scene {
+  private progressBar!: Phaser.GameObjects.Graphics;
+  private progressBox!: Phaser.GameObjects.Graphics;
+  private loadingText!: Phaser.GameObjects.Text;
+
+  constructor() {
+    super({ key: 'LoadingScene' });
+  }
+
+  preload(): void {
+    this.load.audio('bgm_battle_1', '普通战斗背景1_44100.mp3');
+    this.load.audio('bgm_battle_2', '普通战斗背景2_44100.mp3');
+    this.load.audio('bgm_battle_3', '普通战斗背景3_44100.mp3');
+    this.load.audio('bgm_battle_4', '普通战斗背景4_44100.mp3');
+    this.load.audio('victory_jingle', '旌旗归_44100.mp3');
+  }
+
+  async create(): Promise<void> {
+    const width = Number(this.scale.width) || Number(this.game.config.width) || 1280;
+    const height = Number(this.scale.height) || Number(this.game.config.height) || 720;
+    const cx = width / 2;
+
+    this.cameras.main.fadeIn(500);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x1a0f05, 1);
+    bg.fillRect(0, 0, width, height);
+
+    const border = this.add.graphics();
+    border.lineStyle(1.5, 0x2a1a0a, 0.6);
+    border.strokeRect(16, 16, width - 32, height - 32);
+
+    const corner = this.add.graphics();
+    corner.lineStyle(2, 0x4a3020, 0.4);
+    corner.lineBetween(16, 16, 16, 60);
+    corner.lineBetween(16, 16, 60, 16);
+    corner.lineBetween(width - 16, 16, width - 16, 60);
+    corner.lineBetween(width - 16, 16, width - 60, 16);
+    corner.lineBetween(16, height - 16, 16, height - 60);
+    corner.lineBetween(16, height - 16, 60, height - 16);
+    corner.lineBetween(width - 16, height - 16, width - 16, height - 60);
+    corner.lineBetween(width - 16, height - 16, width - 60, height - 16);
+
+    const centerLine = this.add.graphics();
+    centerLine.lineStyle(1, 0x3a2010, 0.3);
+    centerLine.lineBetween(0, height * 0.5, width, height * 0.5);
+    centerLine.lineBetween(width * 0.5, 0, width * 0.5, height);
+
+    // Wait for LXGWWenKai font to be fully loaded with retry
+    const fontLoaded = await this.loadFontWithRetry('LXGWWenKai', 72, 3);
+
+    this.add.text(cx, height * 0.38, '天 下 牌', {
+      fontSize: '72px',
+      fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
+      color: '#e8d5a3',
+      stroke: '#3a2010',
+      strokeThickness: 4,
+    }).setOrigin(0.5);
+
+    this.add.text(cx, height * 0.38 + 58, '一 局 定 天 下', {
+      fontSize: '22px',
+      fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
+      color: '#b89050',
+      stroke: '#1a0800',
+      strokeThickness: 2,
+    }).setOrigin(0.5);
+
+    const barW = 360;
+    const barH = 18;
+    const barX = cx - barW / 2;
+    const barY = height * 0.60;
+
+    this.progressBox = this.add.graphics();
+    this.progressBox.fillStyle(0x2a1a0f, 0.8);
+    this.progressBox.fillRoundedRect(barX, barY, barW, barH, 5);
+    this.progressBox.lineStyle(1.5, 0xc8a050, 0.5);
+    this.progressBox.strokeRoundedRect(barX, barY, barW, barH, 5);
+
+    this.progressBar = this.add.graphics();
+
+    this.loadingText = this.add.text(cx, barY + barH + 22, '加载中...', {
+      fontSize: '16px',
+      fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
+      color: '#8a7040',
+    }).setOrigin(0.5);
+
+    const progress = { value: 0 };
+    this.tweens.add({
+      targets: progress,
+      value: 1,
+      duration: 2500,
+      ease: 'Sine.easeInOut',
+      onUpdate: () => {
+        this.progressBar.clear();
+        const fillW = (barW - 4) * progress.value;
+        if (fillW > 0) {
+          this.progressBar.fillStyle(0xd4a843, 0.85);
+          this.progressBar.fillRoundedRect(barX + 2, barY + 2, fillW, barH - 4, 3);
+        }
+      },
+      onComplete: () => {
+        this.loadingText.setText('加载完成');
+        this.time.delayedCall(400, () => {
+          this.cameras.main.fadeOut(400, 0, 0, 0);
+          this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+            this.scene.start('MenuScene');
+          });
+        });
+      },
+    });
+  }
+
+  /**
+   * Load a font with retry logic. Tries multiple approaches:
+   * 1. document.fonts.load() API
+   * 2. FontFace API (more reliable on Android WebView)
+   * 3. Timeout-based wait
+   */
+  private async loadFontWithRetry(fontFamily: string, size: number, maxRetries: number): Promise<boolean> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Approach 1: Use document.fonts API
+        await document.fonts.load(`${size}px "${fontFamily}"`);
+        if (document.fonts.check(`${size}px "${fontFamily}"`)) {
+          return true;
+        }
+      } catch {
+        // Fall through to next approach
+      }
+
+      try {
+        // Approach 2: Wait a brief moment for CSS font to load
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+        if (document.fonts.check(`${size}px "${fontFamily}"`)) {
+          return true;
+        }
+      } catch {
+        // continue
+      }
+    }
+    // Font may not be available, continue with system fallback
+    return false;
+  }
+}
