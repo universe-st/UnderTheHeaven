@@ -5,6 +5,7 @@ import { identifyHand, canBeat, findAllPlays, findBeatingPlays } from '../engine
 import { calculateDamage, calculateDamageWithEmptyHand } from '../engine/DamageCalculator';
 import { decidePlay } from '../engine/AIBrain';
 import { loadAudioSettings } from '../AudioSettings';
+import { AudioManager } from '../utils/AudioManager';
 
 const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
 const CARD_W = 120;
@@ -79,6 +80,9 @@ export class GameScene extends Phaser.Scene {
     this.renderAllCards();
     this.updateVitalityBars();
     this.updateUIForPhase();
+
+    AudioManager.init(this);
+    AudioManager.unlock(this);
     this.initBattleBgm();
   }
 
@@ -1050,6 +1054,7 @@ export class GameScene extends Phaser.Scene {
     if (playerWin) {
       const settings = loadAudioSettings();
       const victory = this.sound.add('victory_jingle', { volume: settings.sfxVolume });
+      AudioManager.track(this, victory);
       victory.play();
     }
 
@@ -1111,10 +1116,6 @@ export class GameScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════
 
   private initBattleBgm(): void {
-    const ctx = (this.sound as Phaser.Sound.WebAudioSoundManager).context;
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume();
-    }
     this.playRandomBattleBgm();
   }
 
@@ -1127,6 +1128,7 @@ export class GameScene extends Phaser.Scene {
     this.currentBattleBgmIndex = index;
     const settings = loadAudioSettings();
     this.battleBgm = this.sound.add(this.battleBgmKeys[index], { loop: false, volume: settings.bgmVolume });
+    AudioManager.track(this, this.battleBgm);
     this.battleBgm.on('complete', () => this.onBattleBgmComplete());
     this.battleBgm.play();
   }

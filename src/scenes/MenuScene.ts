@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
+import { AudioManager } from '../utils/AudioManager';
 
 const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
 
@@ -7,7 +8,6 @@ export class MenuScene extends Phaser.Scene {
   private particles: Phaser.GameObjects.Graphics[] = [];
   private bgImage!: Phaser.GameObjects.Image;
   private muteIndicator: Phaser.GameObjects.Text | null = null;
-  private bgm: Phaser.Sound.BaseSound | null = null;
 
   private settingsOpen = false;
   private settingsContainer: Phaser.GameObjects.Container | null = null;
@@ -54,7 +54,7 @@ export class MenuScene extends Phaser.Scene {
     this.drawDivider(cx, titleY + 82);
 
     this.createButton(cx, height * 0.62, false, () => {
-      this.stopBGM();
+      AudioManager.stopBgm(this);
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         this.scene.start('GameScene');
@@ -71,9 +71,9 @@ export class MenuScene extends Phaser.Scene {
 
     this.createParticles(width, height);
 
-    this.initBGM();
-
-    this.events.on('shutdown', this.stopBGM, this);
+    AudioManager.init(this);
+    AudioManager.unlock(this);
+    this.playMenuBgm();
 
     this.input.keyboard!.on('keydown-M', () => this.toggleMute());
   }
@@ -263,23 +263,11 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
-  private initBGM(): void {
+  private playMenuBgm(): void {
     const settings = loadAudioSettings();
     this.bgmVolume = settings.bgmVolume;
     this.sfxVolume = settings.sfxVolume;
-
-    this.bgm = this.sound.add('bgm_menu', { loop: true, volume: this.bgmVolume });
-    const ctx = (this.sound as Phaser.Sound.WebAudioSoundManager).context;
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume();
-    }
-    this.bgm.play();
-  }
-
-  private stopBGM(): void {
-    if (this.bgm) {
-      this.bgm.stop();
-    }
+    AudioManager.playBgm(this, 'bgm_menu', { loop: true });
   }
 
   private toggleMute(): void {
@@ -372,7 +360,7 @@ export class MenuScene extends Phaser.Scene {
     const sliderX = px + 55;
     this.createSlider(container, sliderX, py + 105, trackW, '背景音乐', this.bgmVolume, (v) => {
       this.bgmVolume = v;
-      if (this.bgm) (this.bgm as any).volume = v;
+      AudioManager.setBgmVolume(v);
     });
 
     this.createSlider(container, sliderX, py + 190, trackW, '游戏音效', this.sfxVolume, (v) => {
