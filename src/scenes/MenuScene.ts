@@ -33,10 +33,10 @@ export class MenuScene extends Phaser.Scene {
 
     this.drawDivider(cx, titleY - 72);
 
-    this.drawTitleFrame(cx, titleY, 460, 116);
+    this.drawTitleFrame(cx, titleY, 580, 140);
 
     this.add.text(cx, titleY - 12, '天 下 牌', {
-      fontSize: '80px',
+      fontSize: '100px',
       fontFamily: FONT_FAMILY,
       color: '#e8d5a3',
       stroke: '#3a2010',
@@ -44,7 +44,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.text(cx, titleY + 40, '一 局 定 天 下', {
-      fontSize: '26px',
+      fontSize: '34px',
       fontFamily: FONT_FAMILY,
       color: '#b89050',
       stroke: '#1a0800',
@@ -53,18 +53,19 @@ export class MenuScene extends Phaser.Scene {
 
     this.drawDivider(cx, titleY + 82);
 
-    this.createButton(cx, height * 0.62, false, () => {
+    this.createButton(cx, height * 0.57, false, () => {
+      AudioManager.playSfx(this, 'sfx_button');
       AudioManager.stopBgm(this);
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         this.scene.start('GameScene');
       });
     }, '▸', '开始游戏');
-    this.createButton(cx, height * 0.71, true, () => console.log('continue'), '✦', '继续游戏');
-    this.createButton(cx, height * 0.80, false, () => this.showSettings(), '⚙', '设  置');
+    this.createButton(cx, height * 0.66, true, () => console.log('continue'), '✦', '继续游戏');
+    this.createButton(cx, height * 0.75, false, () => this.showSettings(), '⚙', '设  置');
 
     this.add.text(cx, height - 22, 'v0.1.0  ·  天下牌 Under The Heaven', {
-      fontSize: '12px',
+      fontSize: '16px',
       fontFamily: FONT_FAMILY,
       color: '#4a3020',
     }).setOrigin(0.5);
@@ -89,7 +90,7 @@ export class MenuScene extends Phaser.Scene {
 
   private drawDivider(cx: number, cy: number): void {
     const gfx = this.add.graphics();
-    const half = 110;
+    const half = 140;
 
     gfx.lineStyle(1, 0xb89040, 0.5);
     gfx.lineBetween(cx - half, cy, cx - 16, cy);
@@ -107,7 +108,7 @@ export class MenuScene extends Phaser.Scene {
     const gfx = this.add.graphics();
     const hw = w / 2;
     const hh = h / 2;
-    const corner = 20;
+    const corner = 24;
 
     gfx.lineStyle(2, 0xb48c3c, 0.5);
     gfx.strokeRect(cx - hw, cy - hh, w, h);
@@ -134,8 +135,8 @@ export class MenuScene extends Phaser.Scene {
     x: number, y: number, disabled: boolean,
     callback: () => void, icon: string, label: string
   ): void {
-    const w = 250;
-    const h = 52;
+    const w = 340;
+    const h = 72;
 
     const gfx = this.add.graphics();
 
@@ -176,7 +177,7 @@ export class MenuScene extends Phaser.Scene {
 
     const iconStr = icon === '⚙' ? '⚙' : icon;
     const text = this.add.text(x, y, `${iconStr}  ${label}`, {
-      fontSize: '24px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
       color: disabled ? '#665544' : '#e8d5a3',
       stroke: disabled ? '#1a0a00' : '#2a1008',
@@ -187,6 +188,7 @@ export class MenuScene extends Phaser.Scene {
       btn.on('pointerover', () => drawHover());
       btn.on('pointerout', () => drawNormal());
       btn.on('pointerdown', () => {
+        AudioManager.playSfx(this, 'sfx_button');
         gfx.clear();
         gfx.fillStyle(0x3a2010, 1);
         gfx.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
@@ -218,7 +220,7 @@ export class MenuScene extends Phaser.Scene {
       dot.setDepth(-1);
 
       const color = colors[Math.floor(Math.random() * colors.length)];
-      const size = 1.5 + Math.random() * 3;
+      const size = 2 + Math.random() * 4;
       dot.fillStyle(color, 0.5 + Math.random() * 0.5);
       dot.fillCircle(0, 0, size);
 
@@ -279,7 +281,7 @@ export class MenuScene extends Phaser.Scene {
     const { width } = this.scale;
     if (!this.muteIndicator) {
       this.muteIndicator = this.add.text(width - 16, 16, '', {
-        fontSize: '28px',
+        fontSize: '36px',
       }).setOrigin(1, 0).setAlpha(0).setDepth(100);
     }
     this.muteIndicator.setText(this.sound.mute ? '🔇' : '🔊');
@@ -307,8 +309,8 @@ export class MenuScene extends Phaser.Scene {
     this.settingsOpen = true;
 
     const { width: sw, height: sh } = this.scale;
-    const panelW = 500;
-    const panelH = 340;
+    const panelW = 680;
+    const panelH = 450;
     const px = (sw - panelW) / 2;
     const py = (sh - panelH) / 2;
 
@@ -333,7 +335,7 @@ export class MenuScene extends Phaser.Scene {
     container.add(panel);
 
     const title = this.add.text(px + panelW / 2, py + 40, '设  置', {
-      fontSize: '28px',
+      fontSize: '36px',
       fontFamily: FONT_FAMILY,
       color: '#e8d5a3',
       stroke: '#3a2010',
@@ -347,7 +349,7 @@ export class MenuScene extends Phaser.Scene {
     container.add(dividerT);
 
     const closeBtn = this.add.text(px + panelW - 36, py + 14, '✕', {
-      fontSize: '22px',
+      fontSize: '28px',
       fontFamily: FONT_FAMILY,
       color: '#8a7040',
     }).setOrigin(0.5).setInteractive({ cursor: 'pointer' });
@@ -356,7 +358,7 @@ export class MenuScene extends Phaser.Scene {
     closeBtn.on('pointerdown', () => this.hideSettings());
     container.add(closeBtn);
 
-    const trackW = panelW - 110;
+    const trackW = panelW - 150;
     const sliderX = px + 55;
     this.createSlider(container, sliderX, py + 105, trackW, '背景音乐', this.bgmVolume, (v) => {
       this.bgmVolume = v;
@@ -373,7 +375,7 @@ export class MenuScene extends Phaser.Scene {
     container.add(dividerB);
 
     const hint = this.add.text(px + panelW / 2, py + panelH - 30, '设置自动保存', {
-      fontSize: '14px',
+      fontSize: '18px',
       fontFamily: FONT_FAMILY,
       color: '#5a4030',
     }).setOrigin(0.5);
@@ -414,7 +416,7 @@ export class MenuScene extends Phaser.Scene {
     onChange: (value: number) => void,
   ): void {
     const labelText = this.add.text(lx, ty - 18, label, {
-      fontSize: '20px',
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
       color: '#c8a050',
     });
@@ -422,7 +424,7 @@ export class MenuScene extends Phaser.Scene {
 
     const pct = Math.round(initialValue * 100);
     const valueText = this.add.text(lx + trackW, ty - 18, `${pct}`, {
-      fontSize: '18px',
+      fontSize: '24px',
       fontFamily: FONT_FAMILY,
       color: '#e8d5a3',
     }).setOrigin(1, 0);

@@ -5,7 +5,7 @@ import { GameScene } from './scenes/GameScene';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 1920,
+  width: 2400,
   height: 1080,
   backgroundColor: '#1a0f05',
   scale: {

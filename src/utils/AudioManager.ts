@@ -57,6 +57,14 @@ export class AudioManager {
     }
   }
 
+  static playSfx(scene: Phaser.Scene, key: string, config?: Phaser.Types.Sound.SoundConfig): Phaser.Sound.BaseSound {
+    const settings = loadAudioSettings();
+    const sound = scene.sound.add(key, { ...config, volume: settings.sfxVolume });
+    sound.play();
+    AudioManager.track(scene, sound);
+    return sound;
+  }
+
   static setBgmVolume(volume: number): void {
     for (const bgm of AudioManager.bgmSounds.values()) {
       (bgm as any).volume = volume;
@@ -64,10 +72,37 @@ export class AudioManager {
   }
 
   static unlock(scene: Phaser.Scene): void {
-    const ctx = (scene.sound as Phaser.Sound.WebAudioSoundManager).context;
+    // Phaser 4: try multiple ways to get the AudioContext
+    const sm = scene.sound as any;
+    let ctx: AudioContext | null = null;
+
+    if (typeof AudioContext !== 'undefined') {
+      // Direct browser AudioContext as fallback
+      ctx = (window as any)._gameAudioCtx;
+    }
+
+    // Try Phaser's WebAudioSoundManager context
+    if (!ctx && sm.context) {
+      ctx = sm.context;
+    }
+
     if (ctx && ctx.state === 'suspended') {
       ctx.resume();
     }
+
+    // Also try Phaser 4's own unlock mechanism
+    if (typeof sm.unlock === 'function') {
+      sm.unlock();
+    }
+  }
+
+  /** Call this on first user interaction to ensure audio is unlocked */
+  static resumeOnInteraction(scene: Phaser.Scene): void {
+    const handler = () => {
+      AudioManager.unlock(scene);
+      scene.input.off('pointerdown', handler);
+    };
+    scene.input.on('pointerdown', handler);
   }
 
   private static stopBgmByKey(sceneKey: string): void {

@@ -15,11 +15,17 @@ export class LoadingScene extends Phaser.Scene {
     this.load.audio('bgm_battle_3', '普通战斗背景3_44100.mp3');
     this.load.audio('bgm_battle_4', '普通战斗背景4_44100.mp3');
     this.load.audio('victory_jingle', '旌旗归_44100.mp3');
+    this.load.audio('sfx_hurt', 'sfx_hurt.mp3');
+    this.load.audio('sfx_play_card', 'sfx_play_card.mp3');
+    this.load.audio('sfx_button', 'sfx_button.mp3');
+    this.load.audio('sfx_gong', 'sfx_gong.mp3');
+    this.load.audio('sfx_battle_start', 'sfx_battle_start.mp3');
+    this.load.audio('sfx_bomb', 'sfx_bomb.mp3');
   }
 
   async create(): Promise<void> {
-    const width = Number(this.scale.width) || Number(this.game.config.width) || 1280;
-    const height = Number(this.scale.height) || Number(this.game.config.height) || 720;
+    const width = Number(this.scale.width) || Number(this.game.config.width) || 2400;
+    const height = Number(this.scale.height) || Number(this.game.config.height) || 1080;
     const cx = width / 2;
 
     this.cameras.main.fadeIn(500);
@@ -30,18 +36,18 @@ export class LoadingScene extends Phaser.Scene {
 
     const border = this.add.graphics();
     border.lineStyle(1.5, 0x2a1a0a, 0.6);
-    border.strokeRect(16, 16, width - 32, height - 32);
+    border.strokeRect(20, 20, width - 40, height - 40);
 
     const corner = this.add.graphics();
     corner.lineStyle(2, 0x4a3020, 0.4);
-    corner.lineBetween(16, 16, 16, 60);
-    corner.lineBetween(16, 16, 60, 16);
-    corner.lineBetween(width - 16, 16, width - 16, 60);
-    corner.lineBetween(width - 16, 16, width - 60, 16);
-    corner.lineBetween(16, height - 16, 16, height - 60);
-    corner.lineBetween(16, height - 16, 60, height - 16);
-    corner.lineBetween(width - 16, height - 16, width - 16, height - 60);
-    corner.lineBetween(width - 16, height - 16, width - 60, height - 16);
+    corner.lineBetween(16, 16, 16, 80);
+    corner.lineBetween(16, 16, 80, 16);
+    corner.lineBetween(width - 16, 16, width - 16, 80);
+    corner.lineBetween(width - 16, 16, width - 80, 16);
+    corner.lineBetween(16, height - 16, 16, height - 80);
+    corner.lineBetween(16, height - 16, 80, height - 16);
+    corner.lineBetween(width - 16, height - 16, width - 16, height - 80);
+    corner.lineBetween(width - 16, height - 16, width - 80, height - 16);
 
     const centerLine = this.add.graphics();
     centerLine.lineStyle(1, 0x3a2010, 0.3);
@@ -52,7 +58,7 @@ export class LoadingScene extends Phaser.Scene {
     const fontLoaded = await this.loadFontWithRetry('LXGWWenKai', 72, 3);
 
     this.add.text(cx, height * 0.38, '天 下 牌', {
-      fontSize: '72px',
+      fontSize: '90px',
       fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
       color: '#e8d5a3',
       stroke: '#3a2010',
@@ -60,15 +66,15 @@ export class LoadingScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.text(cx, height * 0.38 + 58, '一 局 定 天 下', {
-      fontSize: '22px',
+      fontSize: '28px',
       fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
       color: '#b89050',
       stroke: '#1a0800',
       strokeThickness: 2,
     }).setOrigin(0.5);
 
-    const barW = 360;
-    const barH = 18;
+    const barW = 480;
+    const barH = 24;
     const barX = cx - barW / 2;
     const barY = height * 0.60;
 
@@ -81,7 +87,7 @@ export class LoadingScene extends Phaser.Scene {
     this.progressBar = this.add.graphics();
 
     this.loadingText = this.add.text(cx, barY + barH + 22, '加载中...', {
-      fontSize: '16px',
+      fontSize: '20px',
       fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
       color: '#8a7040',
     }).setOrigin(0.5);
