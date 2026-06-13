@@ -127,12 +127,6 @@ export function identifyHand(cards: Card[]): HandPattern | null {
         return { type: HandType.Straight, cards: sorted, mainValue: rankFromOrder(orderRanks[0]), length: n };
       }
     }
-    // Check A-2-3-4-5 (ranks would be 15,20,3,4,5 sorted as 3,4,5,15,20... no that's not consecutive)
-    // A-2-3-4-5: ranks are 3,4,5,15,20 sorted -> [3,4,5,15,20] - not consecutive by numeric value
-    // We need to treat A as 1 in this context
-    if (n === 5 && ranks.includes(3) && ranks.includes(4) && ranks.includes(5) && ranks.includes(15) && ranks.includes(20)) {
-      return { type: HandType.Straight, cards: sorted, mainValue: 15, length: n };
-    }
   }
 
   // ConsecutivePairs (≥3 pairs, consecutive ranks)
@@ -319,21 +313,6 @@ export function findAllPlays(hand: Card[]): HandPattern[] {
         });
       }
     }
-  }
-
-  // A-2-3-4-5 special straight
-  const hasA = grouped.get(14); // A = order 14
-  const has2 = grouped.get(15); // 2 = order 15
-  const has3 = grouped.get(3);
-  const has4 = grouped.get(4);
-  const has5 = grouped.get(5);
-  if (hasA && has2 && has3 && has4 && has5) {
-    results.push({
-      type: HandType.Straight,
-      cards: [hasA[0], has2[0], has3[0], has4[0], has5[0]],
-      mainValue: 15, // A as main value
-      length: 5,
-    });
   }
 
   // ConsecutivePairs
