@@ -39,6 +39,8 @@ export interface HandPattern {
 
 export interface PlayerState {
   hand: Card[];
+  deck: Card[];
+  discardPile: Card[];
   vitality: number;
   vitalityMax: number;
   name: string;

@@ -24,8 +24,8 @@ export function createDeck(): Card[] {
     }
   }
 
-  deck.push({ suit: null, rank: 25, rankLabel: '小王' });
-  deck.push({ suit: null, rank: 30, rankLabel: '大王' });
+  deck.push({ suit: null, rank: 25, rankLabel: '虎' });
+  deck.push({ suit: null, rank: 30, rankLabel: '龍' });
 
   return deck;
 }

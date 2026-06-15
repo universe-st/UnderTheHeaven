@@ -359,7 +359,7 @@ export class MenuScene extends Phaser.Scene {
     container.add(closeBtn);
 
     const trackW = panelW - 150;
-    const sliderX = px + 55;
+    const sliderX = px + 75;
     this.createSlider(container, sliderX, py + 105, trackW, '背景音乐', this.bgmVolume, (v) => {
       this.bgmVolume = v;
       AudioManager.setBgmVolume(v);

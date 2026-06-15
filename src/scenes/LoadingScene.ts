@@ -15,12 +15,17 @@ export class LoadingScene extends Phaser.Scene {
     this.load.audio('bgm_battle_3', '普通战斗背景3_44100.mp3');
     this.load.audio('bgm_battle_4', '普通战斗背景4_44100.mp3');
     this.load.audio('victory_jingle', '旌旗归_44100.mp3');
+    this.load.audio('bgm_failure', 'bgm_failure_44100.mp3');
     this.load.audio('sfx_hurt', 'sfx_hurt.mp3');
     this.load.audio('sfx_play_card', 'sfx_play_card.mp3');
     this.load.audio('sfx_button', 'sfx_button.mp3');
     this.load.audio('sfx_gong', 'sfx_gong.mp3');
-    this.load.audio('sfx_battle_start', 'sfx_battle_start.mp3');
     this.load.audio('sfx_bomb', 'sfx_bomb.mp3');
+    this.load.audio('sfx_card_reveal', 'sfx_card_reveal.mp3');
+    this.load.image('battle_bg', 'battle_bg.png');
+    this.load.image('card_back', 'card_back.png');
+    this.load.image('card_pattern_dragon', 'card_pattern_dragon.png');
+    this.load.image('card_pattern_tiger', 'card_pattern_tiger.png');
   }
 
   async create(): Promise<void> {

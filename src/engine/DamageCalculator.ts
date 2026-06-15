@@ -25,3 +25,7 @@ export function calculateDamage(pattern: HandPattern): number {
 export function calculateDamageWithEmptyHand(pattern: HandPattern): number {
   return calculateDamage(pattern) * 5;
 }
+
+export function getCoefficient(handType: HandType, length: number): number {
+  return COEFFICIENT_MAP[handType](length);
+}
