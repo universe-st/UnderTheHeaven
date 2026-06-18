@@ -60,9 +60,7 @@ export class TestSelectScene extends Phaser.Scene {
   }
 
   private initDefaults(): void {
-    const playerIds: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao'];
-    const randomIdx = Math.floor(Math.random() * playerIds.length);
-    this.selectedPlayerIds.add(playerIds[randomIdx]);
+    // 己方角色栏允许空选
   }
 
   private drawBackground(w: number, h: number): void {
@@ -215,13 +213,13 @@ export class TestSelectScene extends Phaser.Scene {
     zone.on('pointerdown', () => {
       AudioManager.playSfx(this, 'sfx_button');
       if (this.selectedPlayerIds.has(id)) {
-        if (this.selectedPlayerIds.size > 1) {
-          this.selectedPlayerIds.delete(id);
-        }
+        this.selectedPlayerIds.delete(id);
       } else {
         this.selectedPlayerIds.add(id);
       }
-      this.refreshPlayerSection();
+      if (this.playerCardContainer) {
+        this.applyPlayerCardScroll(this.playerCardContainer);
+      }
     });
   }
 
