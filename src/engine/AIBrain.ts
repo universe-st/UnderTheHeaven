@@ -2,6 +2,7 @@ import { Card } from '../models/Card';
 import { BattleState, HandPattern, HandType } from '../models/BattleTypes';
 import { findAllPlays, findBeatingPlays } from './HandRecognizer';
 import { calculateDamage } from './DamageCalculator';
+import { EnemyCharacterId } from '../models/Character';
 
 // ========== AI 阈值常量 ==========
 
@@ -97,6 +98,7 @@ function scorePlay(
   hand: Card[],
   isFollow: boolean,
   lastPlay: HandPattern | null,
+  enemyCharacterId?: EnemyCharacterId,
 ): number {
   let score = 0;
 
@@ -130,6 +132,14 @@ function scorePlay(
     score += (11 - priority) * 4;
   }
 
+  // ⑥ 南蛮军藤甲：偏好打出黑桃牌（敌方黑色牌不计算伤害），避免打出红桃牌
+  if (enemyCharacterId === 'nanmanjun') {
+    for (const card of play.cards) {
+      if (card.suit === 'spade' || card.suit === 'club') score += 5;
+      if (card.suit === 'heart') score -= 10;
+    }
+  }
+
   return score;
 }
 
@@ -148,12 +158,13 @@ function selectPlay(
   hand: Card[],
   isFollow: boolean,
   lastPlay: HandPattern | null,
+  enemyCharacterId?: EnemyCharacterId,
 ): HandPattern {
   if (plays.length === 1) return plays[0];
 
   const scored = plays.map(p => ({
     play: p,
-    score: scorePlay(p, hand, isFollow, lastPlay),
+    score: scorePlay(p, hand, isFollow, lastPlay, enemyCharacterId),
   }));
   scored.sort((a, b) => b.score - a.score);
 
@@ -178,6 +189,7 @@ function selectPlay(
 
 export function decidePlay(battleState: BattleState): Card[] | null {
   const aiHand = battleState.enemy.hand;
+  const enemyCharId = battleState.enemyCharacterId;
 
   // ---- 主动出牌模式 ----
   if (battleState.phase === 'play') {
@@ -192,12 +204,12 @@ export function decidePlay(battleState: BattleState): Card[] | null {
     );
 
     if (normalPlays.length > 0) {
-      const selected = selectPlay(normalPlays, aiHand, false, null);
+      const selected = selectPlay(normalPlays, aiHand, false, null, enemyCharId);
       return selected.cards;
     }
 
     if (bombs.length > 0) {
-      const selected = selectPlay(bombs, aiHand, false, null);
+      const selected = selectPlay(bombs, aiHand, false, null, enemyCharId);
       return selected.cards;
     }
 
@@ -214,7 +226,7 @@ export function decidePlay(battleState: BattleState): Card[] | null {
       p => p.type === battleState.lastPlay!.type,
     );
     if (sameTypeBeating.length > 0) {
-      const selected = selectPlay(sameTypeBeating, aiHand, true, battleState.lastPlay);
+      const selected = selectPlay(sameTypeBeating, aiHand, true, battleState.lastPlay, enemyCharId);
       return selected.cards;
     }
 
@@ -223,7 +235,7 @@ export function decidePlay(battleState: BattleState): Card[] | null {
       p => p.type === HandType.Bomb || p.type === HandType.Rocket,
     );
     if (bombBeating.length > 0) {
-      const selected = selectPlay(bombBeating, aiHand, false, null);
+      const selected = selectPlay(bombBeating, aiHand, false, null, enemyCharId);
       return selected.cards;
     }
   }
@@ -240,7 +252,7 @@ export function decidePlay(battleState: BattleState): Card[] | null {
     const opponentHandSize = battleState.player.hand.length;
 
     if (bombPlays.length > 0 && shouldUseBomb(handSize, opponentHandSize)) {
-      const selected = selectPlay(bombPlays, aiHand, false, null);
+      const selected = selectPlay(bombPlays, aiHand, false, null, enemyCharId);
       return selected.cards;
     }
   }

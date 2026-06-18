@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { VoiceManager } from '../utils/VoiceManager';
 
 export class LoadingScene extends Phaser.Scene {
   private progressBar!: Phaser.GameObjects.Graphics;
@@ -10,22 +11,9 @@ export class LoadingScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.audio('bgm_battle_1', '普通战斗背景1_44100.mp3');
-    this.load.audio('bgm_battle_2', '普通战斗背景2_44100.mp3');
-    this.load.audio('bgm_battle_3', '普通战斗背景3_44100.mp3');
-    this.load.audio('bgm_battle_4', '普通战斗背景4_44100.mp3');
-    this.load.audio('victory_jingle', '旌旗归_44100.mp3');
-    this.load.audio('bgm_failure', 'bgm_failure_44100.mp3');
-    this.load.audio('sfx_hurt', 'sfx_hurt.mp3');
-    this.load.audio('sfx_play_card', 'sfx_play_card.mp3');
-    this.load.audio('sfx_button', 'sfx_button.mp3');
-    this.load.audio('sfx_gong', 'sfx_gong.mp3');
-    this.load.audio('sfx_bomb', 'sfx_bomb.mp3');
-    this.load.audio('sfx_card_reveal', 'sfx_card_reveal.mp3');
-    this.load.image('battle_bg', 'battle_bg.png');
-    this.load.image('card_back', 'card_back.png');
-    this.load.image('card_pattern_dragon', 'card_pattern_dragon.png');
-    this.load.image('card_pattern_tiger', 'card_pattern_tiger.png');
+    // All visual elements in this scene are built with Graphics — no external
+    // assets needed. Game assets are loaded manually in create() so the
+    // progress bar reflects real loading progress.
   }
 
   async create(): Promise<void> {
@@ -59,7 +47,48 @@ export class LoadingScene extends Phaser.Scene {
     centerLine.lineBetween(0, height * 0.5, width, height * 0.5);
     centerLine.lineBetween(width * 0.5, 0, width * 0.5, height);
 
-    // Wait for LXGWWenKai font to be fully loaded with retry
+    const barW = 480;
+    const barH = 24;
+    const barX = cx - barW / 2;
+    const barY = height * 0.60;
+
+    this.progressBox = this.add.graphics();
+    this.progressBox.fillStyle(0x2a1a0f, 0.8);
+    this.progressBox.fillRoundedRect(barX, barY, barW, barH, 5);
+    this.progressBox.lineStyle(1.5, 0xc8a050, 0.5);
+    this.progressBox.strokeRoundedRect(barX, barY, barW, barH, 5);
+
+    this.progressBar = this.add.graphics();
+
+    this.loadingText = this.add.text(cx, barY + barH + 22, '加载中... 0%', {
+      fontSize: '20px',
+      fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
+      color: '#8a7040',
+    }).setOrigin(0.5);
+
+    this.load.on('progress', (value: number) => {
+      this.progressBar.clear();
+      const fillW = (barW - 4) * value;
+      if (fillW > 0) {
+        this.progressBar.fillStyle(0xd4a843, 0.85);
+        this.progressBar.fillRoundedRect(barX + 2, barY + 2, fillW, barH - 4, 3);
+      }
+      this.loadingText.setText(`加载中... ${Math.floor(value * 100)}%`);
+    });
+
+    this.load.on('complete', () => {
+      this.loadingText.setText('加载完成');
+      this.time.delayedCall(400, () => {
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+          this.scene.start('MenuScene');
+        });
+      });
+    });
+
+    this.loadAssets();
+    this.load.start();
+
     const fontLoaded = await this.loadFontWithRetry('LXGWWenKai', 72, 3);
 
     this.add.text(cx, height * 0.38, '天 下 牌', {
@@ -77,62 +106,34 @@ export class LoadingScene extends Phaser.Scene {
       stroke: '#1a0800',
       strokeThickness: 2,
     }).setOrigin(0.5);
-
-    const barW = 480;
-    const barH = 24;
-    const barX = cx - barW / 2;
-    const barY = height * 0.60;
-
-    this.progressBox = this.add.graphics();
-    this.progressBox.fillStyle(0x2a1a0f, 0.8);
-    this.progressBox.fillRoundedRect(barX, barY, barW, barH, 5);
-    this.progressBox.lineStyle(1.5, 0xc8a050, 0.5);
-    this.progressBox.strokeRoundedRect(barX, barY, barW, barH, 5);
-
-    this.progressBar = this.add.graphics();
-
-    this.loadingText = this.add.text(cx, barY + barH + 22, '加载中...', {
-      fontSize: '20px',
-      fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
-      color: '#8a7040',
-    }).setOrigin(0.5);
-
-    const progress = { value: 0 };
-    this.tweens.add({
-      targets: progress,
-      value: 1,
-      duration: 2500,
-      ease: 'Sine.easeInOut',
-      onUpdate: () => {
-        this.progressBar.clear();
-        const fillW = (barW - 4) * progress.value;
-        if (fillW > 0) {
-          this.progressBar.fillStyle(0xd4a843, 0.85);
-          this.progressBar.fillRoundedRect(barX + 2, barY + 2, fillW, barH - 4, 3);
-        }
-      },
-      onComplete: () => {
-        this.loadingText.setText('加载完成');
-        this.time.delayedCall(400, () => {
-          this.cameras.main.fadeOut(400, 0, 0, 0);
-          this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-            this.scene.start('MenuScene');
-          });
-        });
-      },
-    });
   }
 
-  /**
-   * Load a font with retry logic. Tries multiple approaches:
-   * 1. document.fonts.load() API
-   * 2. FontFace API (more reliable on Android WebView)
-   * 3. Timeout-based wait
-   */
+  private loadAssets(): void {
+    this.load.audio('bgm_battle_1', '普通战斗背景1_44100.mp3');
+    this.load.audio('bgm_battle_2', '普通战斗背景2_44100.mp3');
+    this.load.audio('bgm_battle_3', '普通战斗背景3_44100.mp3');
+    this.load.audio('bgm_battle_4', '普通战斗背景4_44100.mp3');
+    this.load.audio('victory_jingle', '旌旗归_44100.mp3');
+    this.load.audio('bgm_failure', 'bgm_failure_44100.mp3');
+    this.load.audio('sfx_hurt', 'sfx_hurt.mp3');
+    this.load.audio('sfx_play_card', 'sfx_play_card.mp3');
+    this.load.audio('sfx_button', 'sfx_button.mp3');
+    this.load.audio('sfx_gong', 'sfx_gong.mp3');
+    this.load.audio('sfx_bomb', 'sfx_bomb.mp3');
+    this.load.audio('sfx_card_reveal', 'sfx_card_reveal.mp3');
+    this.load.image('battle_bg', 'battle_bg.png');
+    this.load.image('card_back', 'card_back.png');
+    this.load.image('card_pattern_dragon', 'card_pattern_dragon.png');
+    this.load.image('card_pattern_tiger', 'card_pattern_tiger.png');
+
+    for (const voiceKey of VoiceManager.voiceKeys) {
+      this.load.audio(voiceKey, `voice/${voiceKey}.mp3`);
+    }
+  }
+
   private async loadFontWithRetry(fontFamily: string, size: number, maxRetries: number): Promise<boolean> {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // Approach 1: Use document.fonts API
         await document.fonts.load(`${size}px "${fontFamily}"`);
         if (document.fonts.check(`${size}px "${fontFamily}"`)) {
           return true;
@@ -142,7 +143,6 @@ export class LoadingScene extends Phaser.Scene {
       }
 
       try {
-        // Approach 2: Wait a brief moment for CSS font to load
         await new Promise(resolve => setTimeout(resolve, 500 * attempt));
         if (document.fonts.check(`${size}px "${fontFamily}"`)) {
           return true;
@@ -151,7 +151,6 @@ export class LoadingScene extends Phaser.Scene {
         // continue
       }
     }
-    // Font may not be available, continue with system fallback
     return false;
   }
 }

@@ -186,6 +186,49 @@ LoadingScene -> MenuScene -> （后续: GameScene, DeckScene, ShopScene 等）
 
 ---
 
+## 加载进度规范
+
+为确保加载进度条（LoadingScene）能正确显示资源加载进度，所有新添加的游戏资源必须遵循以下规范：
+
+### 资源注册位置
+
+所有游戏资源（音频、图片、精灵图集等）在 `src/scenes/LoadingScene.ts` 的 `create()` 方法中注册加载，
+具体在 `loadAssets()` 方法（或对应的手动加载代码段）中。
+
+### 添加新资源的步骤
+
+1. 将资源文件放置于 `public/` 目录（或子目录，如 `public/voice/`）
+2. 在 LoadingScene 的 `loadAssets()` 方法中，使用以下 API 注册：
+
+```typescript
+// 音频
+this.load.audio('资源键名', '文件名.mp3');
+
+// 图片
+this.load.image('资源键名', '文件名.png');
+
+// 精灵图集（如需）
+this.load.atlas('图集键名', '图集文件.png', '图集数据文件.json');
+```
+
+3. 资源键名需唯一，不可与已有键名重复
+4. 如果新资源需要在场景中立即使用，在加载完成的回调中引用
+
+### 禁止的做法
+
+- ❌ 在场景的 `preload()` 方法中注册资源（这会绕过进度监听）
+- ❌ 使用 Phaser.Loader 的未受监听方式加载（如直接注入到缓存）
+- ❌ 在非 LoadingScene 的场景中注册新资源而不更新 LoadingScene
+
+### 验证加载进度
+
+添加新资源后，在开发模式下验证：
+1. `npm run dev` 启动开发服务器
+2. 观察加载界面，确认进度条从 0% 上升到 100%
+3. 在浏览器 DevTools Network 面板中确认所有资源被正确请求
+
+---
+
 ## AI 开发指引
 
 ### 开发前须知

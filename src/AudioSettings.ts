@@ -3,11 +3,13 @@ const STORAGE_KEY = 'uth_audio';
 export interface AudioSettingsData {
   bgmVolume: number;
   sfxVolume: number;
+  voiceVolume: number;
 }
 
 const DEFAULTS: AudioSettingsData = {
   bgmVolume: 0.3,
   sfxVolume: 0.5,
+  voiceVolume: 0.7,
 };
 
 function clamp(v: number, min: number, max: number): number {
@@ -21,7 +23,8 @@ export function loadAudioSettings(): AudioSettingsData {
       const parsed = JSON.parse(raw);
       const bgm = typeof parsed.bgmVolume === 'number' ? clamp(parsed.bgmVolume, 0, 1) : DEFAULTS.bgmVolume;
       const sfx = typeof parsed.sfxVolume === 'number' ? clamp(parsed.sfxVolume, 0, 1) : DEFAULTS.sfxVolume;
-      return { bgmVolume: bgm, sfxVolume: sfx };
+      const voice = typeof parsed.voiceVolume === 'number' ? clamp(parsed.voiceVolume, 0, 1) : DEFAULTS.voiceVolume;
+      return { bgmVolume: bgm, sfxVolume: sfx, voiceVolume: voice };
     }
   } catch {
     // corrupted data, fall through

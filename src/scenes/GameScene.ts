@@ -6,6 +6,9 @@ import { calculateDamage, calculateDamageWithEmptyHand, getCoefficient } from '.
 import { decidePlay } from '../engine/AIBrain';
 import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
 import { AudioManager } from '../utils/AudioManager';
+import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../utils/VoiceManager';
+import { PlayerCharacterId, EnemyCharacterId, PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST } from '../models/Character';
+import { countSuits, applyNanmanTengjia, canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
 
 const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
 const CARD_W = 180;
@@ -21,6 +24,13 @@ const DEPTH_CENTER_BASE = 100;
 const DEPTH_DAMAGE = 450;
 const DEPTH_OVERLAY = 900;
 const DEPTH_OVERLAY_TEXT = 1000;
+
+interface TestBattleConfig {
+  selectedPlayerCharacterIds?: PlayerCharacterId[];
+  enemyCharacterId?: EnemyCharacterId;
+  playerVitality?: number;
+  enemyVitality?: number;
+}
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
@@ -99,8 +109,25 @@ export class GameScene extends Phaser.Scene {
   private dragTouchedIndices: Set<number> = new Set();
   private dragSnapshot: Set<number> = new Set();
 
+  private respondChainDepth: number = 0;
+
+  private testConfig: TestBattleConfig | null = null;
+  private playerCharacterIds: PlayerCharacterId[] = [];
+
+  private characterSlotContainers: Phaser.GameObjects.Container[] = [];
+  private characterSlotTexts: Phaser.GameObjects.Text[] = [];
+  private characterTooltip: Phaser.GameObjects.Container | null = null;
+
   constructor() {
     super({ key: 'GameScene' });
+  }
+
+  init(data?: TestBattleConfig): void {
+    if (data) {
+      this.testConfig = data;
+    } else {
+      this.testConfig = null;
+    }
   }
 
   create(): void {
@@ -122,6 +149,11 @@ export class GameScene extends Phaser.Scene {
     this.createSettingsButton(width, height);
 
     this.battle = this.initBattle();
+
+    this.createCharacterSlots(width, height);
+
+    this.enemyNameText.setText(this.battle.enemy.name);
+    this.playerNameText.setText(this.battle.player.name);
 
     this.renderAllCards();
     this.setupHandInput();
@@ -149,28 +181,61 @@ export class GameScene extends Phaser.Scene {
     sortHand(playerHand);
     sortHand(enemyHand);
 
+    const playerCharId = this.selectPlayerCharacter();
+    const enemyCharId = this.selectEnemyCharacter();
+    const enemyName = getCharacterEnemyName(enemyCharId);
+    const playerChar = PLAYER_CHARACTERS[playerCharId];
+
+    const playerVit = this.testConfig?.playerVitality ?? 500;
+    const enemyVit = this.testConfig?.enemyVitality ?? 500;
+
     return {
       player: {
         hand: playerHand,
         deck: playerDeck,
         discardPile: [],
-        vitality: 500,
-        vitalityMax: 500,
-        name: '玩家',
+        vitality: playerVit,
+        vitalityMax: playerVit,
+        name: playerChar.name,
+        characterId: playerCharId,
       },
       enemy: {
         hand: enemyHand,
         deck: enemyDeck,
         discardPile: [],
-        vitality: 500,
-        vitalityMax: 500,
-        name: '山贼头目',
+        vitality: enemyVit,
+        vitalityMax: enemyVit,
+        name: enemyName,
       },
+      enemyCharacterId: enemyCharId,
       turnHolder: 'player',
       lastPlay: null,
       phase: 'play',
       turnCount: 1,
     };
+  }
+
+  private selectPlayerCharacter(): PlayerCharacterId {
+    if (this.testConfig?.selectedPlayerCharacterIds && this.testConfig.selectedPlayerCharacterIds.length > 0) {
+      this.playerCharacterIds = [...this.testConfig.selectedPlayerCharacterIds];
+      return this.playerCharacterIds[0];
+    }
+    const id = this.randomPlayerCharacter();
+    this.playerCharacterIds = [id];
+    return id;
+  }
+
+  private randomPlayerCharacter(): PlayerCharacterId {
+    const ids: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao'];
+    return ids[Math.floor(Math.random() * ids.length)];
+  }
+
+  private selectEnemyCharacter(): EnemyCharacterId {
+    if (this.testConfig?.enemyCharacterId) {
+      return this.testConfig.enemyCharacterId;
+    }
+    const enemies = ENEMY_CHARACTER_LIST;
+    return enemies[Math.floor(Math.random() * enemies.length)].id;
   }
 
   // ═══════════════════════════════════════════════
@@ -339,6 +404,222 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0, 0.5).setDepth(DEPTH_UI).setVisible(false);
   }
 
+  private createCharacterSlots(w: number, h: number): void {
+    const slotSize = 120;
+    const slotGap = 10;
+    const slotCount = 5;
+    const totalW = slotCount * slotSize + (slotCount - 1) * slotGap;
+    const slotY = h - 400;
+    const startX = w - 180 - totalW + slotSize / 2;
+
+    for (let i = 0; i < slotCount; i++) {
+      const sx = startX + i * (slotSize + slotGap);
+      const container = this.add.container(sx, slotY).setDepth(DEPTH_UI);
+      this.characterSlotContainers.push(container);
+
+      const gfx = this.add.graphics();
+      gfx.fillStyle(0x2a1a0f, 0.7);
+      gfx.fillRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+      gfx.lineStyle(2, 0xb89040, 0.6);
+      gfx.strokeRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+      gfx.lineStyle(1, 0x5a4030, 0.3);
+      gfx.strokeRoundedRect(-slotSize / 2 + 4, -slotSize / 2 + 4, slotSize - 8, slotSize - 8, 6);
+      container.add(gfx);
+
+      const charId = this.playerCharacterIds[i] ?? null;
+      const char = charId ? PLAYER_CHARACTERS[charId] : null;
+
+      const slotText = this.add.text(0, 0, char ? char.name : '?', {
+        fontSize: char ? '22px' : '42px',
+        fontFamily: FONT_FAMILY,
+        color: char ? '#c8a050' : '#5a4030',
+      }).setOrigin(0.5);
+      container.add(slotText);
+      this.characterSlotTexts.push(slotText);
+
+      const zone = this.add.zone(sx, slotY, slotSize + 8, slotSize + 8).setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_UI + 1);
+      const zoneIndex = i;
+      zone.on('pointerover', () => {
+        gfx.clear();
+        gfx.fillStyle(0x3a2510, 0.8);
+        gfx.fillRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+        gfx.lineStyle(2, 0xe8d5a3, 0.8);
+        gfx.strokeRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+        gfx.lineStyle(1, 0x5a4030, 0.3);
+        gfx.strokeRoundedRect(-slotSize / 2 + 4, -slotSize / 2 + 4, slotSize - 8, slotSize - 8, 6);
+      });
+      zone.on('pointerout', () => {
+        gfx.clear();
+        gfx.fillStyle(0x2a1a0f, 0.7);
+        gfx.fillRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+        gfx.lineStyle(2, 0xb89040, 0.6);
+        gfx.strokeRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+        gfx.lineStyle(1, 0x5a4030, 0.3);
+        gfx.strokeRoundedRect(-slotSize / 2 + 4, -slotSize / 2 + 4, slotSize - 8, slotSize - 8, 6);
+      });
+      zone.on('pointerdown', () => {
+        AudioManager.playSfx(this, 'sfx_button');
+        this.showCharacterTooltip(zoneIndex, slotY, startX);
+      });
+
+      const cornerGfx = this.add.graphics();
+      const cornerLen = 12;
+      const cornerGap = 6;
+      cornerGfx.lineStyle(1.5, 0xb89040, 0.4);
+      cornerGfx.lineBetween(-slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap + cornerLen);
+      cornerGfx.lineBetween(-slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap + cornerLen, -slotSize / 2 + cornerGap);
+      cornerGfx.lineBetween(slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap, slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap + cornerLen);
+      cornerGfx.lineBetween(slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap, slotSize / 2 - cornerGap - cornerLen, -slotSize / 2 + cornerGap);
+      cornerGfx.lineBetween(-slotSize / 2 + cornerGap, slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap, slotSize / 2 - cornerGap - cornerLen);
+      cornerGfx.lineBetween(-slotSize / 2 + cornerGap, slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap + cornerLen, slotSize / 2 - cornerGap);
+      cornerGfx.lineBetween(slotSize / 2 - cornerGap, slotSize / 2 - cornerGap, slotSize / 2 - cornerGap, slotSize / 2 - cornerGap - cornerLen);
+      cornerGfx.lineBetween(slotSize / 2 - cornerGap, slotSize / 2 - cornerGap, slotSize / 2 - cornerGap - cornerLen, slotSize / 2 - cornerGap);
+      container.add(cornerGfx);
+    }
+  }
+
+  private showCharacterTooltip(index: number, slotY: number, slotStartX: number): void {
+    this.closeCharacterTooltip();
+
+    const charId = this.playerCharacterIds[index];
+    if (!charId) return;
+
+    const char = PLAYER_CHARACTERS[charId];
+    const slotSize = 120;
+    const slotGap = 10;
+    const sx = slotStartX + index * (slotSize + slotGap);
+
+    const tooltipW = 320;
+    const tooltipRadius = 8;
+    const { width: sw, height: sh } = this.scale;
+
+    const descLinesList: string[][] = [];
+    let tooltipH = 50;
+    for (const ability of char.abilities) {
+      tooltipH += 28;
+      const lines = this.wrapText(ability.description, tooltipW - 48, '18px');
+      descLinesList.push(lines);
+      tooltipH += lines.length * 24;
+      tooltipH += 32;
+    }
+    tooltipH += 12;
+
+    let tooltipX = sx;
+    let tooltipY = slotY - slotSize / 2 - tooltipH - 12;
+    if (tooltipY < 20) tooltipY = slotY + slotSize / 2 + 12;
+    if (tooltipX - tooltipW / 2 < 10) tooltipX = tooltipW / 2 + 10;
+    if (tooltipX + tooltipW / 2 > sw - 10) tooltipX = sw - tooltipW / 2 - 10;
+
+    const container = this.add.container(0, 0).setDepth(DEPTH_OVERLAY);
+    this.characterTooltip = container;
+
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.3);
+    overlay.fillRect(0, 0, sw, sh);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, sw, sh), Phaser.Geom.Rectangle.Contains);
+    overlay.on('pointerdown', () => this.closeCharacterTooltip());
+    container.add(overlay);
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0xf5f0e5, 0.97);
+    panel.fillRoundedRect(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH, tooltipRadius);
+    panel.lineStyle(2, 0x8a6830, 0.8);
+    panel.strokeRoundedRect(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH, tooltipRadius);
+    panel.setInteractive(new Phaser.Geom.Rectangle(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH), Phaser.Geom.Rectangle.Contains);
+    container.add(panel);
+
+    const nameText = this.add.text(tooltipX, tooltipY + 28, char.name, {
+      fontSize: '30px',
+      fontFamily: FONT_FAMILY,
+      color: '#2a1008',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+    container.add(nameText);
+
+    const divider = this.add.graphics();
+    divider.lineStyle(1, 0xd0c4a8, 0.5);
+    divider.lineBetween(tooltipX - tooltipW / 2 + 20, tooltipY + 50, tooltipX + tooltipW / 2 - 20, tooltipY + 50);
+    container.add(divider);
+
+    let abilityY = tooltipY + 72;
+    let lineIdx = 0;
+    for (const ability of char.abilities) {
+      const skillName = this.add.text(tooltipX - tooltipW / 2 + 22, abilityY, `【${ability.name}】`, {
+        fontSize: '20px',
+        fontFamily: FONT_FAMILY,
+        color: '#8a6030',
+      }).setDepth(DEPTH_OVERLAY_TEXT);
+      container.add(skillName);
+
+      const descLines = descLinesList[lineIdx];
+      for (const line of descLines) {
+        abilityY += 24;
+        const descText = this.add.text(tooltipX - tooltipW / 2 + 28, abilityY, line, {
+          fontSize: '18px',
+          fontFamily: FONT_FAMILY,
+          color: '#5a4a30',
+        }).setDepth(DEPTH_OVERLAY_TEXT);
+        container.add(descText);
+      }
+      abilityY += 32;
+      lineIdx++;
+    }
+
+    const closeText = this.add.text(tooltipX + tooltipW / 2 - 28, tooltipY + 14, '✕', {
+      fontSize: '22px',
+      fontFamily: FONT_FAMILY,
+      color: '#7a5a3a',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+    const closeZone = this.add.zone(tooltipX + tooltipW / 2 - 28, tooltipY + 14, 36, 36)
+      .setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
+    closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
+    closeZone.on('pointerout', () => closeText.setColor('#7a5a3a'));
+    closeZone.on('pointerdown', () => {
+      AudioManager.playSfx(this, 'sfx_button');
+      this.closeCharacterTooltip();
+    });
+    container.add([closeText, closeZone]);
+
+    container.setAlpha(0);
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      duration: 150,
+      ease: 'Sine.easeOut',
+    });
+  }
+
+  private wrapText(text: string, maxWidth: number, fontSize: string): string[] {
+    const lines: string[] = [];
+    let currentLine = '';
+    for (const char of text) {
+      const testLine = currentLine + char;
+      const testText = this.add.text(0, 0, testLine, { fontSize, fontFamily: FONT_FAMILY });
+      if (testText.width > maxWidth && currentLine.length > 0) {
+        lines.push(currentLine);
+        currentLine = char;
+      } else {
+        currentLine = testLine;
+      }
+      testText.destroy();
+    }
+    if (currentLine.length > 0) lines.push(currentLine);
+    return lines;
+  }
+
+  private closeCharacterTooltip(): void {
+    if (!this.characterTooltip) return;
+    this.tweens.add({
+      targets: this.characterTooltip,
+      alpha: 0,
+      duration: 100,
+      ease: 'Sine.easeIn',
+      onComplete: () => {
+        this.characterTooltip?.destroy();
+        this.characterTooltip = null;
+      },
+    });
+  }
+
   // ═══════════════════════════════════════════════
   //  Card Rendering
   // ═══════════════════════════════════════════════
@@ -351,18 +632,19 @@ export class GameScene extends Phaser.Scene {
     const shadowG = this.add.graphics();
     container.add(shadowG);
     container.setData('_shadowG', shadowG);
+    shadowG.fillStyle(0x1a0a04, 0.25);
+    shadowG.fillRoundedRect(-halfW + 5, -halfH + 6, CARD_W, CARD_H, 8);
 
-    if (isSelected) {
-      shadowG.fillStyle(0xffd700, 0.30);
-      shadowG.fillRoundedRect(-halfW - 4, -halfH - 4, CARD_W + 8, CARD_H + 8, 10);
-      shadowG.fillStyle(0xffd700, 0.18);
-      shadowG.fillRoundedRect(-halfW - 9, -halfH - 9, CARD_W + 18, CARD_H + 18, 12);
-      shadowG.fillStyle(0xffd700, 0.09);
-      shadowG.fillRoundedRect(-halfW - 15, -halfH - 15, CARD_W + 30, CARD_H + 30, 14);
-    } else {
-      shadowG.fillStyle(0x1a0a04, 0.25);
-      shadowG.fillRoundedRect(-halfW + 5, -halfH + 6, CARD_W, CARD_H, 8);
-    }
+    const glowG = this.add.graphics();
+    container.add(glowG);
+    container.setData('_glowG', glowG);
+    glowG.fillStyle(0xffd700, 0.30);
+    glowG.fillRoundedRect(-halfW - 4, -halfH - 4, CARD_W + 8, CARD_H + 8, 10);
+    glowG.fillStyle(0xffd700, 0.18);
+    glowG.fillRoundedRect(-halfW - 9, -halfH - 9, CARD_W + 18, CARD_H + 18, 12);
+    glowG.fillStyle(0xffd700, 0.09);
+    glowG.fillRoundedRect(-halfW - 15, -halfH - 15, CARD_W + 30, CARD_H + 30, 14);
+    glowG.setAlpha(isSelected ? 1 : 0);
 
     const isRed = card.suit === 'heart' || card.suit === 'diamond';
     const textColor = isRed ? '#b02828' : '#1a0a04';
@@ -496,22 +778,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateCardShadowGlow(container: Phaser.GameObjects.Container, isGlow: boolean): void {
-    const shadowG = container.getData('_shadowG') as Phaser.GameObjects.Graphics | undefined;
-    if (!shadowG) return;
-    shadowG.clear();
-    const halfW = CARD_W / 2;
-    const halfH = CARD_H / 2;
-    if (isGlow) {
-      shadowG.fillStyle(0xffd700, 0.30);
-      shadowG.fillRoundedRect(-halfW - 4, -halfH - 4, CARD_W + 8, CARD_H + 8, 10);
-      shadowG.fillStyle(0xffd700, 0.18);
-      shadowG.fillRoundedRect(-halfW - 9, -halfH - 9, CARD_W + 18, CARD_H + 18, 12);
-      shadowG.fillStyle(0xffd700, 0.09);
-      shadowG.fillRoundedRect(-halfW - 15, -halfH - 15, CARD_W + 30, CARD_H + 30, 14);
-    } else {
-      shadowG.fillStyle(0x1a0a04, 0.25);
-      shadowG.fillRoundedRect(-halfW + 5, -halfH + 6, CARD_W, CARD_H, 8);
-    }
+    const glowG = container.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
+    if (!glowG) return;
+    glowG.setAlpha(isGlow ? 1 : 0);
   }
 
   private createCardInteractive(card: Card, x: number, y: number, index: number, isSelected: boolean = false): Phaser.GameObjects.Container {
@@ -523,11 +792,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private renderAllCards(): void {
-    this.renderPlayerHand();
-    this.renderEnemyHand();
+    this.renderPlayerHand(true);
+    this.renderEnemyHand(true);
   }
 
-  private renderPlayerHand(): void {
+  private renderPlayerHand(animateEntry: boolean = false): void {
     this.cardObjects.forEach(c => c.destroy());
     this.cardObjects = [];
 
@@ -537,18 +806,30 @@ export class GameScene extends Phaser.Scene {
     const overlapOffset = CARD_W * 0.75;
     const totalW = CARD_W + (hand.length - 1) * overlapOffset;
     const startX = (width - totalW) / 2 + CARD_W / 2;
+    const offscreenX = width + CARD_W;
 
     for (let i = 0; i < hand.length; i++) {
-      const x = startX + i * overlapOffset;
+      const targetX = startX + i * overlapOffset;
       const isSelected = this.selectedIndices.has(i);
       const y = baseY + (isSelected ? SELECTED_OFFSET : 0);
-      const obj = this.createCardInteractive(hand[i], x, y, i, isSelected);
+      const initX = animateEntry ? offscreenX : targetX;
+      const obj = this.createCardInteractive(hand[i], initX, y, i, isSelected);
       obj.setDepth(DEPTH_PLAYER_HAND + i);
       this.cardObjects.push(obj);
+
+      if (animateEntry) {
+        this.tweens.add({
+          targets: obj,
+          x: targetX,
+          duration: 200,
+          delay: i * 50,
+          ease: 'Cubic.easeOut',
+        });
+      }
     }
   }
 
-  private renderEnemyHand(): void {
+  private renderEnemyHand(animateEntry: boolean = false): void {
     this.enemyCardObjects.forEach(c => c.destroy());
     this.enemyCardObjects = [];
 
@@ -559,23 +840,57 @@ export class GameScene extends Phaser.Scene {
     const totalW = CARD_W + (hand.length - 1) * overlapOffset;
     const startX = (width - totalW) / 2 + CARD_W / 2;
 
+    const revealedIndices = this.getRevealedEnemyCardIndices();
+
     for (let i = 0; i < hand.length; i++) {
-      const x = startX + i * overlapOffset;
-      const container = this.add.container(x, baseY);
+      const targetX = startX + i * overlapOffset;
+      const initY = animateEntry ? -CARD_H : baseY;
+      const container = this.add.container(targetX, initY);
       container.setDepth(DEPTH_ENEMY_HAND + i);
       container.setData('cardIndex', i);
+      if (animateEntry) {
+        container.setAlpha(0);
+      }
 
       const enemyShadowG = this.add.graphics();
       enemyShadowG.fillStyle(0x1a0a04, 0.25);
       enemyShadowG.fillRoundedRect(-CARD_W / 2 + 5, -CARD_H / 2 + 6, CARD_W, CARD_H, 8);
       container.add(enemyShadowG);
 
-      const cardBack = this.add.image(0, 0, 'card_back');
-      cardBack.setDisplaySize(CARD_W, CARD_H);
-      container.add(cardBack);
+      if (revealedIndices.has(i)) {
+        const revealedDisplay = this.createCardDisplay(hand[i], 0, 0, false);
+        revealedDisplay.setAlpha(0.6);
+        revealedDisplay.setScale(0.75);
+        container.add(revealedDisplay);
+      } else {
+        const cardBack = this.add.image(0, 0, 'card_back');
+        cardBack.setDisplaySize(CARD_W, CARD_H);
+        container.add(cardBack);
+      }
 
       this.enemyCardObjects.push(container);
+
+      if (animateEntry) {
+        this.tweens.add({
+          targets: container,
+          y: baseY,
+          alpha: 1,
+          duration: 300,
+          delay: 700 + i * 60,
+          ease: 'Cubic.easeOut',
+        });
+      }
     }
+  }
+
+  private getRevealedEnemyCardIndices(): Set<number> {
+    if (this.battle.player.characterId !== 'zhugeliang') return new Set();
+    if (this.battle.enemy.hand.length === 0) return new Set();
+
+    const count = Math.min(6, this.battle.enemy.hand.length);
+    const allIndices = Array.from({ length: this.battle.enemy.hand.length }, (_, i) => i);
+    const shuffled = [...allIndices].sort(() => Math.random() - 0.5);
+    return new Set(shuffled.slice(0, count));
   }
 
   private getCardFanPositions(count: number, centerX: number, centerY: number): Array<{ x: number; y: number }> {
@@ -770,7 +1085,40 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.selectedIndices.add(index);
     }
-    this.renderPlayerHand();
+
+    const { height } = this.scale;
+    const baseY = height - 90;
+
+    for (let i = 0; i < this.cardObjects.length; i++) {
+      const obj = this.cardObjects[i];
+      const isSelected = this.selectedIndices.has(i);
+      const targetY = baseY + (isSelected ? SELECTED_OFFSET : 0);
+      const glowG = obj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
+
+      if (obj.y !== targetY) {
+        this.tweens.add({
+          targets: obj,
+          y: targetY,
+          duration: 300,
+          ease: 'Sine.easeOut',
+        });
+      }
+
+      if (glowG) {
+        const targetAlpha = isSelected ? 1 : 0;
+        if (glowG.alpha !== targetAlpha) {
+          this.tweens.add({
+            targets: glowG,
+            alpha: targetAlpha,
+            duration: 300,
+            ease: 'Sine.easeOut',
+          });
+        }
+      }
+
+
+    }
+
     this.updatePatternHint();
   }
 
@@ -796,7 +1144,11 @@ export class GameScene extends Phaser.Scene {
     const cardsStr = selected.map(c => cardDisplayName(c)).join('');
 
     if (this.battle.lastPlay && this.phase === 'player_respond') {
-      if (!canBeat(pattern, this.battle.lastPlay)) {
+      const playerChar = this.battle.player.characterId;
+      const canBeatPlay = playerChar === 'zhugeliang'
+        ? canBeatOrEqual(pattern, this.battle.lastPlay)
+        : canBeat(pattern, this.battle.lastPlay);
+      if (!canBeatPlay) {
         this.patternHintText.setText(`${label} ${cardsStr}（打不过上家）`);
         this.patternHintText.setColor('#a08040');
         return;
@@ -817,7 +1169,12 @@ export class GameScene extends Phaser.Scene {
     if (!pattern) return;
 
     if (this.phase === 'player_respond') {
-      if (!this.battle.lastPlay || !canBeat(pattern, this.battle.lastPlay)) return;
+      if (!this.battle.lastPlay) return;
+      const playerChar = this.battle.player.characterId;
+      const canBeatPlay = playerChar === 'zhugeliang'
+        ? canBeatOrEqual(pattern, this.battle.lastPlay)
+        : canBeat(pattern, this.battle.lastPlay);
+      if (!canBeatPlay) return;
     }
 
     AudioManager.playSfx(this, 'sfx_play_card');
@@ -831,6 +1188,8 @@ export class GameScene extends Phaser.Scene {
   private onPassClick(): void {
     if (this.phase !== 'player_respond') return;
 
+    VoiceManager.play(this, getRandomPassVoice());
+
     // Player gives up - take damage from enemy's last play
     this.executePass('player');
   }
@@ -840,7 +1199,28 @@ export class GameScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════
 
   private executePlay(cards: Card[], pattern: HandPattern): void {
+    const prevPhase = this.phase;
     this.phase = 'animating';
+
+    for (const idx of this.selectedIndices) {
+      const cardObj = this.cardObjects.find(c => c.getData('cardIndex') === idx);
+      if (cardObj) {
+        this.tweens.killTweensOf(cardObj);
+        const glowG = cardObj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
+        if (glowG) {
+          this.tweens.killTweensOf(glowG);
+        }
+      }
+    }
+
+    const isInit = prevPhase === 'player_init';
+    const isBombOnNonBomb = !isInit &&
+      (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) &&
+      this.battle.lastPlay !== null &&
+      this.battle.lastPlay.type !== HandType.Bomb &&
+      this.battle.lastPlay.type !== HandType.Rocket;
+    const voiceKey = getVoiceKeyForPlay(pattern, isInit, isBombOnNonBomb);
+    VoiceManager.play(this, voiceKey);
 
     const playerHand = this.battle.player.hand;
     const indicesToRemove = this.findCardIndices(playerHand, cards);
@@ -912,10 +1292,11 @@ export class GameScene extends Phaser.Scene {
           }
           this.battle.lastPlay = null;
           this.refillPlayerHand();
-          this.renderPlayerHand();
+          this.renderPlayerHand(true);
           this.fadeOutCenterCards(() => {
             this.phase = 'player_init';
             this.updateUIForPhase();
+            this.respondChainDepth = 0;
           });
         });
         return;
@@ -924,6 +1305,7 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(300, () => {
         this.phase = 'ai_respond';
         this.updateUIForPhase();
+        this.respondChainDepth = this.respondChainDepth + 1;
         this.aiRespond();
       });
     });
@@ -938,10 +1320,11 @@ export class GameScene extends Phaser.Scene {
         }
         this.battle.lastPlay = null;
         this.refillPlayerHand();
-        this.renderPlayerHand();
+        this.renderPlayerHand(true);
         this.fadeOutCenterCards(() => {
           this.phase = 'player_init';
           this.updateUIForPhase();
+          this.respondChainDepth = 0;
         });
       });
       return;
@@ -950,6 +1333,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(300, () => {
       this.phase = 'ai_respond';
       this.updateUIForPhase();
+      this.respondChainDepth = this.respondChainDepth + 1;
       this.aiRespond();
     });
   }
@@ -957,54 +1341,97 @@ export class GameScene extends Phaser.Scene {
   private executePass(who: 'player' | 'enemy'): void {
     this.phase = 'animating';
 
-    if (!this.battle.lastPlay) {
-      if (who === 'player') {
-        this.battle.turnHolder = 'enemy';
-        this.phase = 'ai_init';
-        this.updateUIForPhase();
-        this.aiInitiatePlay();
-      } else {
-        this.battle.turnHolder = 'player';
-        this.phase = 'player_init';
-        this.updateUIForPhase();
-      }
-      return;
-    }
+    this.showPassAnimation(who, () => {
+      VoiceManager.play(this, getRandomPassVoice());
 
-    const lastPlay = this.battle.lastPlay;
-
-    if (who === 'player') {
-      this.battle.turnHolder = 'enemy';
-      this.renderPlayerHand();
-      this.updatePatternHint();
-
-      this.playDamageSettlement(lastPlay, 'player', false, () => {
-        if (this.battle.player.vitality <= 0) {
-          this.showGameOver(false);
-          return;
-        }
-        this.battle.lastPlay = null;
-        this.fadeOutCenterCards(() => {
+      if (!this.battle.lastPlay) {
+        if (who === 'player') {
+          this.battle.turnHolder = 'enemy';
           this.phase = 'ai_init';
           this.updateUIForPhase();
+          this.respondChainDepth = 0;
           this.aiInitiatePlay();
-        });
-      });
-    } else {
-      this.battle.turnHolder = 'player';
-
-      this.playDamageSettlement(lastPlay, 'enemy', false, () => {
-        if (this.battle.enemy.vitality <= 0) {
-          this.showGameOver(true);
-          return;
-        }
-        this.battle.lastPlay = null;
-        this.fadeOutCenterCards(() => {
+        } else {
+          this.battle.turnHolder = 'player';
           this.phase = 'player_init';
           this.updateUIForPhase();
+          this.respondChainDepth = 0;
+        }
+        return;
+      }
+
+      const lastPlay = this.battle.lastPlay;
+
+      if (who === 'player') {
+        this.battle.turnHolder = 'enemy';
+        this.renderPlayerHand();
+        this.updatePatternHint();
+
+        this.playDamageSettlement(lastPlay, 'player', false, () => {
+          if (this.battle.player.vitality <= 0) {
+            this.showGameOver(false);
+            return;
+          }
+          this.battle.lastPlay = null;
+          this.fadeOutCenterCards(() => {
+            this.phase = 'ai_init';
+            this.updateUIForPhase();
+            this.respondChainDepth = 0;
+            this.aiInitiatePlay();
+          });
         });
-      });
-    }
+      } else {
+        this.battle.turnHolder = 'player';
+
+        this.playDamageSettlement(lastPlay, 'enemy', false, () => {
+          if (this.battle.enemy.vitality <= 0) {
+            this.showGameOver(true);
+            return;
+          }
+          this.battle.lastPlay = null;
+          this.fadeOutCenterCards(() => {
+            this.phase = 'player_init';
+            this.updateUIForPhase();
+            this.respondChainDepth = 0;
+          });
+        });
+      }
+    });
+  }
+
+  private showPassAnimation(who: 'player' | 'enemy', onComplete?: () => void): void {
+    const { width, height } = this.scale;
+    const posY = who === 'player' ? height - 90 : 220;
+
+    const passText = this.add.text(width / 2, posY, '过', {
+      fontSize: '108px',
+      fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
+      color: '#ffd700',
+      stroke: '#5a3000',
+      strokeThickness: 6,
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT).setAlpha(0);
+
+    passText.setShadow(0, 0, '#ff8800', 18, true, true);
+
+    this.tweens.add({
+      targets: passText,
+      alpha: 1,
+      duration: 80,
+      ease: 'Sine.easeOut',
+    });
+
+    this.tweens.add({
+      targets: passText,
+      scaleX: { from: 0, to: 1 },
+      duration: 400,
+      yoyo: true,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        onComplete?.();
+        passText.destroy();
+      },
+    });
   }
 
   private refillPlayerHand(): void {
@@ -1057,6 +1484,15 @@ export class GameScene extends Phaser.Scene {
       if (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) {
         AudioManager.playSfx(this, 'sfx_bomb');
       }
+
+      const isBombOnNonBomb = this.respondChainDepth > 0 &&
+        (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) &&
+        this.battle.lastPlay !== null &&
+        this.battle.lastPlay.type !== HandType.Bomb &&
+        this.battle.lastPlay.type !== HandType.Rocket;
+      const voiceKey = getVoiceKeyForPlay(pattern, false, isBombOnNonBomb);
+      VoiceManager.play(this, voiceKey);
+
       const enemyHand = this.battle.enemy.hand;
       const indicesToRemove = this.findCardIndices(enemyHand, cards);
 
@@ -1093,13 +1529,14 @@ export class GameScene extends Phaser.Scene {
             }
             this.battle.lastPlay = null;
             this.refillEnemyHand();
-            this.renderEnemyHand();
+            this.renderEnemyHand(true);
             this.animateShiftAndReplace(playerCenterCards, displayCards, 150, () => {
               this.centerCards = displayCards;
               this.centerCardsOwner = 'enemy';
               this.time.delayedCall(100, () => {
                 this.phase = 'ai_init';
                 this.updateUIForPhase();
+                this.respondChainDepth = 0;
                 this.aiInitiatePlay();
               });
             });
@@ -1113,6 +1550,7 @@ export class GameScene extends Phaser.Scene {
             this.centerCardsOwner = 'enemy';
             this.phase = 'player_respond';
             this.updateUIForPhase();
+            this.respondChainDepth = this.respondChainDepth + 1;
           });
         });
       });
@@ -1120,6 +1558,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private aiInitiatePlay(): void {
+    this.respondChainDepth = 0;
+    this.applyEnemyGainTurnEffects();
     this.time.delayedCall(400, () => {
       this.battle.phase = 'play';
       const cards = decidePlay(this.battle);
@@ -1136,6 +1576,10 @@ export class GameScene extends Phaser.Scene {
       if (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) {
         AudioManager.playSfx(this, 'sfx_bomb');
       }
+
+      const voiceKey = getVoiceKeyForPlay(pattern, true, false);
+      VoiceManager.play(this, voiceKey);
+
       const enemyHand = this.battle.enemy.hand;
       const indicesToRemove = this.findCardIndices(enemyHand, cards);
 
@@ -1171,7 +1615,7 @@ export class GameScene extends Phaser.Scene {
             }
             this.battle.lastPlay = null;
             this.refillEnemyHand();
-            this.renderEnemyHand();
+            this.renderEnemyHand(true);
             this.fadeOutCenterCards(() => {
               this.phase = 'ai_init';
               this.updateUIForPhase();
@@ -1214,10 +1658,10 @@ export class GameScene extends Phaser.Scene {
     switch (this.phase) {
       case 'player_init':
         if (this.playerHasPlayablePattern()) {
-          this.turnIndicatorText.setText('你的回合：请出牌');
+          this.turnIndicatorText.setText('');
           this.turnIndicatorText.setPosition(width / 2, 100);
         } else {
-          this.turnIndicatorText.setText('无牌可出，请选择不出');
+          this.turnIndicatorText.setText('');
           this.turnIndicatorText.setPosition(width / 2, height - 370);
         }
         this.thinkingText.setVisible(false);
@@ -1227,7 +1671,7 @@ export class GameScene extends Phaser.Scene {
         this.btnPass.setVisible(false);
         break;
       case 'player_respond':
-        this.turnIndicatorText.setText('对方出牌，请接牌或放弃');
+        this.turnIndicatorText.setText('');
         this.turnIndicatorText.setPosition(width / 2, 100);
         this.thinkingText.setVisible(false);
         this.turnIndicatorText.setVisible(true);
@@ -1235,12 +1679,12 @@ export class GameScene extends Phaser.Scene {
         this.btnPass.setVisible(true);
         this.btnPassText.setColor('#1a0804');
         if (!this.playerHasPlayablePattern()) {
-          this.turnIndicatorText.setText('无牌可接，请选择不出');
+          this.turnIndicatorText.setText('');
           this.turnIndicatorText.setPosition(width / 2, height - 370);
         }
         break;
       case 'ai_init':
-        this.thinkingText.setText('对方正在思考...');
+        this.thinkingText.setText('');
         this.thinkingText.setVisible(true);
         this.turnIndicatorText.setVisible(false);
         this.btnPlay.setVisible(false);
@@ -1248,7 +1692,7 @@ export class GameScene extends Phaser.Scene {
         this.btnPassText.setColor('#8a7a5a');
         break;
       case 'ai_respond':
-        this.thinkingText.setText('对方正在接牌...');
+        this.thinkingText.setText('');
         this.thinkingText.setVisible(true);
         this.turnIndicatorText.setVisible(false);
         this.btnPlay.setVisible(false);
@@ -1264,7 +1708,19 @@ export class GameScene extends Phaser.Scene {
       default:
         break;
     }
-    this.renderEnemyHand();
+
+    if (this.btnPass.visible) {
+      const passTargetX = this.btnPlay.visible ? width / 2 + 160 : width / 2;
+      if (this.btnPass.x !== passTargetX) {
+        this.tweens.add({
+          targets: this.btnPass,
+          x: passTargetX,
+          duration: 200,
+          ease: 'Sine.easeOut',
+        });
+      }
+    }
+
     this.updateVitalityBars();
   }
 
@@ -1273,11 +1729,11 @@ export class GameScene extends Phaser.Scene {
     if (who === 'player') {
       this.thinkingText.setVisible(false);
       this.turnIndicatorText.setVisible(true);
-      this.turnIndicatorText.setText('你的回合：请出牌');
+      this.turnIndicatorText.setText('');
       this.turnIndicatorText.setPosition(width / 2, 100);
     } else {
       this.turnIndicatorText.setVisible(false);
-      this.thinkingText.setText('对方正在思考...');
+      this.thinkingText.setText('');
       this.thinkingText.setVisible(true);
     }
   }
@@ -1377,11 +1833,27 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'animating';
 
     const cards = [...this.centerCards];
-    const sumRanks = pattern.cards.reduce((sum, c) => sum + c.rank, 0);
-    const coefficient = getCoefficient(pattern.type, pattern.length);
-    const finalDamage = isEmptyHand
-      ? calculateDamageWithEmptyHand(pattern)
-      : calculateDamage(pattern);
+    const playerCharId = this.battle.player.characterId;
+    const enemyCharId = this.battle.enemyCharacterId;
+
+    let sumRanks = pattern.cards.reduce((sum, c) => sum + c.rank, 0);
+    let coefficient = getCoefficient(pattern.type, pattern.length);
+
+    if (target === 'enemy' && enemyCharId === 'nanmanjun') {
+      const { effectiveSumRanks } = applyNanmanTengjia(pattern.cards);
+      sumRanks = effectiveSumRanks;
+    }
+
+    if (target === 'enemy' && playerCharId === 'hanxin') {
+      coefficient *= countSuits(pattern.cards);
+    }
+
+    let finalDamage = Math.round(sumRanks * coefficient);
+    if (isEmptyHand) finalDamage *= 5;
+
+    if (target === 'enemy' && playerCharId === 'wentianxiang') {
+      finalDamage += pattern.cards.filter(c => c.suit === 'heart').length * 10;
+    }
 
     const { width, height } = this.scale;
     const centerX = width / 2;
@@ -1570,14 +2042,76 @@ export class GameScene extends Phaser.Scene {
                 counterText.destroy();
                 const battleObj = target === 'enemy' ? this.battle.enemy : this.battle.player;
                 const newVitality = Math.max(0, battleObj.vitality - finalDamage);
-                // 血条扣减：血量平滑过渡
-                this.animateHealthBarDepletion(target, newVitality, 300, onComplete);
+                this.animateHealthBarDepletion(target, newVitality, 300, () => {
+                  this.applyPostDamageEffects(pattern, target, finalDamage);
+                  onComplete();
+                });
               },
             });
           },
         });
       });
     });
+  }
+
+  private applyPostDamageEffects(pattern: HandPattern, target: 'enemy' | 'player', _finalDamage: number): void {
+    const playerCharId = this.battle.player.characterId;
+    const enemyCharId = this.battle.enemyCharacterId;
+
+    if (target === 'enemy' && playerCharId === 'lishizhen') {
+      const clubRankSum = pattern.cards
+        .filter(c => c.suit === 'club')
+        .reduce((s, c) => s + c.rank, 0);
+      if (clubRankSum > 0) {
+        this.battle.player.vitality = Math.min(
+          this.battle.player.vitalityMax,
+          this.battle.player.vitality + clubRankSum
+        );
+      }
+    }
+
+    if (target === 'enemy' && playerCharId === 'niugao') {
+      if (this.battle.enemy.hand.length >= 10) {
+        const idx = Math.floor(Math.random() * this.battle.enemy.hand.length);
+        this.battle.enemy.hand.splice(idx, 1);
+      }
+    }
+
+    if (target === 'player' && enemyCharId === 'qiangdao') {
+      if (this.battle.player.hand.length > 0) {
+        const idx = Math.floor(Math.random() * this.battle.player.hand.length);
+        const stolen = this.battle.player.hand.splice(idx, 1)[0];
+        this.battle.enemy.hand.push(stolen);
+        sortHand(this.battle.enemy.hand);
+      }
+    }
+  }
+
+  private applyEnemyGainTurnEffects(): void {
+    if (this.battle.enemyCharacterId === 'huangjinjun' && this.battle.enemy.hand.length > 0) {
+      let minRank = Infinity;
+      const minIndices: number[] = [];
+      for (let i = 0; i < this.battle.enemy.hand.length; i++) {
+        if (this.battle.enemy.hand[i].rank < minRank) {
+          minRank = this.battle.enemy.hand[i].rank;
+          minIndices.length = 0;
+          minIndices.push(i);
+        } else if (this.battle.enemy.hand[i].rank === minRank) {
+          minIndices.push(i);
+        }
+      }
+      const idx = minIndices[Math.floor(Math.random() * minIndices.length)];
+      this.battle.enemy.hand.splice(idx, 1);
+
+      if (this.battle.enemy.deck.length === 0) {
+        this.battle.enemy.deck = shuffleDeck(this.battle.enemy.discardPile);
+        this.battle.enemy.discardPile = [];
+      }
+      if (this.battle.enemy.deck.length > 0) {
+        this.battle.enemy.hand.push(this.battle.enemy.deck.pop()!);
+        sortHand(this.battle.enemy.hand);
+      }
+    }
   }
 
   private showFloatingText(value: number, x: number, y: number, color: string): void {
@@ -1660,6 +2194,10 @@ export class GameScene extends Phaser.Scene {
       return allPlays.length > 0;
     }
     if (this.phase === 'player_respond' && this.battle.lastPlay) {
+      const playerChar = this.battle.player.characterId;
+      if (playerChar === 'zhugeliang') {
+        return findAllPlays(hand).filter(p => canBeatOrEqual(p, this.battle.lastPlay!)).length > 0;
+      }
       return findBeatingPlays(hand, this.battle.lastPlay).length > 0;
     }
     return false;
@@ -2113,7 +2651,7 @@ export class GameScene extends Phaser.Scene {
 
     const { width: sw, height: sh } = this.scale;
     const modalW = 520;
-    const modalH = 300;
+    const modalH = 360;
     const modalX = (sw - modalW) / 2;
     const modalY = (sh - modalH) / 2;
     const radius = 12;
@@ -2203,6 +2741,7 @@ export class GameScene extends Phaser.Scene {
     const labelX = sliderX;
     const bgmSliderY = titleY + 60;
     const sfxSliderY = bgmSliderY + 64;
+    const voiceSliderY = sfxSliderY + 64;
 
     this.createVolumeSlider(
       container, labelX, bgmSliderY, sliderX, trackW,
@@ -2222,6 +2761,18 @@ export class GameScene extends Phaser.Scene {
         const newSettings = loadAudioSettings();
         newSettings.sfxVolume = value;
         saveAudioSettings(newSettings);
+        AudioManager.setSfxVolume(value);
+      }
+    );
+
+    this.createVolumeSlider(
+      container, labelX, voiceSliderY, sliderX, trackW,
+      '配音音量', settings.voiceVolume,
+      (value) => {
+        const newSettings = loadAudioSettings();
+        newSettings.voiceVolume = value;
+        saveAudioSettings(newSettings);
+        AudioManager.setVoiceVolume(value);
       }
     );
 
@@ -2257,7 +2808,6 @@ export class GameScene extends Phaser.Scene {
 
     const trackY = y + 18;
     const trackRectX = trackX;
-    const trackFillEndX = trackX + trackW;
 
     const trackGfx = this.add.graphics();
     trackGfx.setDepth(DEPTH_OVERLAY_TEXT);
@@ -2282,10 +2832,9 @@ export class GameScene extends Phaser.Scene {
     handleGfx.setDepth(DEPTH_OVERLAY_TEXT);
     parent.add(handleGfx);
 
-    const handleZone = this.add.zone(0, 0, handleR * 6, handleR * 6)
-      .setInteractive({ cursor: 'pointer', draggable: true })
+    const handleZone = this.add.zone(trackRectX + trackW / 2, trackY, trackW + handleR * 4, handleR * 6)
+      .setInteractive({ cursor: 'pointer' })
       .setDepth(DEPTH_OVERLAY_TEXT);
-    this.input.setDraggable(handleZone);
     parent.add(handleZone);
 
     let currentValue = initialValue;
@@ -2312,7 +2861,6 @@ export class GameScene extends Phaser.Scene {
       handleGfx.lineStyle(2, fillColor2, 0.9);
       handleGfx.strokeCircle(handleX, trackY, handleR);
 
-      handleZone.setPosition(handleX, trackY);
       valueText.setText(`${Math.round(currentValue * 100)}%`);
 
       onChange(currentValue);
@@ -2320,18 +2868,27 @@ export class GameScene extends Phaser.Scene {
 
     updateUI(initialValue);
 
-    handleZone.on('drag', (_pointer: Phaser.Input.Pointer, dragX: number) => {
-      const ratio = (dragX - trackRectX) / trackW;
-      updateUI(ratio);
-    });
+    let dragging = false;
 
-    const trackZone = this.add.zone(trackRectX + trackW / 2, trackY, trackW, trackH * 6)
-      .setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
-    trackZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    handleZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      dragging = true;
       const ratio = (pointer.x - trackRectX) / trackW;
       updateUI(ratio);
     });
-    parent.add(trackZone);
+
+    handleZone.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!dragging) return;
+      const ratio = (pointer.x - trackRectX) / trackW;
+      updateUI(ratio);
+    });
+
+    handleZone.on('pointerup', () => {
+      dragging = false;
+    });
+
+    this.input.on('pointerup', () => {
+      dragging = false;
+    });
   }
 
   private closeVolumeSettings(): void {
@@ -2543,7 +3100,33 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    this.renderPlayerHand();
+    const { height } = this.scale;
+    const baseY = height - 90;
+
+    for (let i = 0; i < this.cardObjects.length; i++) {
+      const obj = this.cardObjects[i];
+      const isSelected = this.selectedIndices.has(i);
+      const targetY = baseY + (isSelected ? SELECTED_OFFSET : 0);
+      const glowG = obj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
+
+      // 上移+发光动画（与 onCardClick 点按一致）
+      this.tweens.add({
+        targets: obj,
+        y: targetY,
+        duration: 300,
+        ease: 'Sine.easeOut',
+      });
+      if (glowG) {
+        const targetAlpha = isSelected ? 1 : 0;
+        this.tweens.add({
+          targets: glowG,
+          alpha: targetAlpha,
+          duration: 300,
+          ease: 'Sine.easeOut',
+        });
+      }
+    }
+
     this.updatePatternHint();
   }
 

@@ -1,4 +1,5 @@
 import { Card } from './Card';
+import { PlayerCharacterId, EnemyCharacterId } from './Character';
 
 export enum HandType {
   Single,
@@ -44,11 +45,13 @@ export interface PlayerState {
   vitality: number;
   vitalityMax: number;
   name: string;
+  characterId?: PlayerCharacterId;
 }
 
 export interface BattleState {
   player: PlayerState;
   enemy: PlayerState;
+  enemyCharacterId?: EnemyCharacterId;
   turnHolder: 'player' | 'enemy';
   lastPlay: HandPattern | null;
   phase: 'play' | 'respond';

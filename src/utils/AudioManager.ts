@@ -4,6 +4,8 @@ import { loadAudioSettings } from '../AudioSettings';
 export class AudioManager {
   private static sceneSounds = new Map<string, Set<Phaser.Sound.BaseSound>>();
   private static bgmSounds = new Map<string, Phaser.Sound.BaseSound>();
+  private static sfxSounds = new Map<string, Set<Phaser.Sound.BaseSound>>();
+  private static voiceSounds = new Map<string, Set<Phaser.Sound.BaseSound>>();
 
   static init(scene: Phaser.Scene): void {
     const key = scene.scene.key;
@@ -62,12 +64,49 @@ export class AudioManager {
     const sound = scene.sound.add(key, { ...config, volume: settings.sfxVolume });
     sound.play();
     AudioManager.track(scene, sound);
+
+    const sceneKey = scene.scene.key;
+    let sfxSet = AudioManager.sfxSounds.get(sceneKey);
+    if (!sfxSet) {
+      sfxSet = new Set();
+      AudioManager.sfxSounds.set(sceneKey, sfxSet);
+    }
+    sfxSet.add(sound);
+    sound.once('destroy', () => sfxSet?.delete(sound));
+
     return sound;
   }
 
   static setBgmVolume(volume: number): void {
     for (const bgm of AudioManager.bgmSounds.values()) {
       (bgm as any).volume = volume;
+    }
+  }
+
+  static setSfxVolume(volume: number): void {
+    for (const sounds of AudioManager.sfxSounds.values()) {
+      for (const sound of sounds) {
+        (sound as any).volume = volume;
+      }
+    }
+  }
+
+  static trackVoice(scene: Phaser.Scene, sound: Phaser.Sound.BaseSound): void {
+    const sceneKey = scene.scene.key;
+    let vSet = AudioManager.voiceSounds.get(sceneKey);
+    if (!vSet) {
+      vSet = new Set();
+      AudioManager.voiceSounds.set(sceneKey, vSet);
+    }
+    vSet.add(sound);
+    sound.once('destroy', () => vSet?.delete(sound));
+  }
+
+  static setVoiceVolume(volume: number): void {
+    for (const sounds of AudioManager.voiceSounds.values()) {
+      for (const sound of sounds) {
+        (sound as any).volume = volume;
+      }
     }
   }
 

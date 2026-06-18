@@ -4,6 +4,8 @@ import { AudioManager } from '../utils/AudioManager';
 
 const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
 
+const SHOW_TEST_BUTTON = true;
+
 export class MenuScene extends Phaser.Scene {
   private particles: Phaser.GameObjects.Graphics[] = [];
   private bgImage!: Phaser.GameObjects.Image;
@@ -13,6 +15,7 @@ export class MenuScene extends Phaser.Scene {
   private settingsContainer: Phaser.GameObjects.Container | null = null;
   private bgmVolume = 0.3;
   private sfxVolume = 0.5;
+  private voiceVolume = 0.7;
 
   constructor() {
     super({ key: 'MenuScene' });
@@ -63,6 +66,16 @@ export class MenuScene extends Phaser.Scene {
     }, '▸', '开始游戏');
     this.createButton(cx, height * 0.66, true, () => console.log('continue'), '✦', '继续游戏');
     this.createButton(cx, height * 0.75, false, () => this.showSettings(), '⚙', '设  置');
+    if (SHOW_TEST_BUTTON) {
+      this.createButton(cx, height * 0.84, false, () => {
+        AudioManager.playSfx(this, 'sfx_button');
+        AudioManager.stopBgm(this);
+        this.cameras.main.fadeOut(400, 0, 0, 0);
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+          this.scene.start('TestSelectScene');
+        });
+      }, '▶', '测试游戏');
+    }
 
     this.add.text(cx, height - 22, 'v0.1.0  ·  天下牌 Under The Heaven', {
       fontSize: '16px',
@@ -269,6 +282,7 @@ export class MenuScene extends Phaser.Scene {
     const settings = loadAudioSettings();
     this.bgmVolume = settings.bgmVolume;
     this.sfxVolume = settings.sfxVolume;
+    this.voiceVolume = settings.voiceVolume;
     AudioManager.playBgm(this, 'bgm_menu', { loop: true });
   }
 
@@ -367,6 +381,7 @@ export class MenuScene extends Phaser.Scene {
 
     this.createSlider(container, sliderX, py + 190, trackW, '游戏音效', this.sfxVolume, (v) => {
       this.sfxVolume = v;
+      AudioManager.setSfxVolume(v);
     });
 
     const dividerB = this.add.graphics();
@@ -393,7 +408,7 @@ export class MenuScene extends Phaser.Scene {
   private hideSettings(): void {
     if (!this.settingsOpen || !this.settingsContainer) return;
 
-    saveAudioSettings({ bgmVolume: this.bgmVolume, sfxVolume: this.sfxVolume });
+    saveAudioSettings({ bgmVolume: this.bgmVolume, sfxVolume: this.sfxVolume, voiceVolume: this.voiceVolume });
 
     const container = this.settingsContainer;
     this.tweens.add({
