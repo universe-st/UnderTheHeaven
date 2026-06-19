@@ -875,7 +875,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private renderEnemyHand(animateEntry: boolean = false): void {
+  private renderEnemyHand(animateEntry: boolean = false, baseDelay: number = 700, onComplete?: () => void): void {
     this.enemyCardObjects.forEach(c => c.destroy());
     this.enemyCardObjects = [];
 
@@ -921,11 +921,24 @@ export class GameScene extends Phaser.Scene {
           targets: container,
           y: baseY,
           alpha: 1,
-          duration: 300,
-          delay: 700 + i * 60,
+          duration: 120,
+          delay: baseDelay + i * 100,
           ease: 'Cubic.easeOut',
         });
       }
+    }
+
+    if (animateEntry) {
+      if (hand.length === 0 && onComplete) {
+        onComplete();
+      } else if (hand.length > 0) {
+        const lastCardAnimEnd = baseDelay + (hand.length - 1) * 100 + 120;
+        this.time.delayedCall(lastCardAnimEnd, () => {
+          onComplete?.();
+        });
+      }
+    } else if (onComplete) {
+      onComplete();
     }
   }
 
@@ -1576,15 +1589,16 @@ export class GameScene extends Phaser.Scene {
             }
             this.battle.lastPlay = null;
             this.refillEnemyHand();
-            this.renderEnemyHand(true);
-            this.animateShiftAndReplace(playerCenterCards, displayCards, 150, () => {
-              this.centerCards = displayCards;
-              this.centerCardsOwner = 'enemy';
-              this.time.delayedCall(100, () => {
-                this.phase = 'ai_init';
-                this.updateUIForPhase();
-                this.respondChainDepth = 0;
-                this.aiInitiatePlay();
+            this.renderEnemyHand(true, 300, () => {
+              this.animateShiftAndReplace(playerCenterCards, displayCards, 150, () => {
+                this.centerCards = displayCards;
+                this.centerCardsOwner = 'enemy';
+                this.time.delayedCall(100, () => {
+                  this.phase = 'ai_init';
+                  this.updateUIForPhase();
+                  this.respondChainDepth = 0;
+                  this.aiInitiatePlay();
+                });
               });
             });
           });
@@ -1662,11 +1676,12 @@ export class GameScene extends Phaser.Scene {
             }
             this.battle.lastPlay = null;
             this.refillEnemyHand();
-            this.renderEnemyHand(true);
-            this.fadeOutCenterCards(() => {
-              this.phase = 'ai_init';
-              this.updateUIForPhase();
-              this.aiInitiatePlay();
+            this.renderEnemyHand(true, 300, () => {
+              this.fadeOutCenterCards(() => {
+                this.phase = 'ai_init';
+                this.updateUIForPhase();
+                this.aiInitiatePlay();
+              });
             });
           });
           return;
