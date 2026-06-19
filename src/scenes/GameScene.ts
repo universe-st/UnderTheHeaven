@@ -78,7 +78,10 @@ export class GameScene extends Phaser.Scene {
   private btnPassText!: Phaser.GameObjects.Text;
 
   private enemyNameText!: Phaser.GameObjects.Text;
+  private enemyNameFrame!: Phaser.GameObjects.Graphics;
   private playerNameText!: Phaser.GameObjects.Text;
+  private enemyAvatarImage!: Phaser.GameObjects.Image;
+  private enemyAvatarBorder!: Phaser.GameObjects.Graphics;
 
   private cardHandGroup!: Phaser.GameObjects.Container;
   private aiHandGroup!: Phaser.GameObjects.Container;
@@ -154,6 +157,12 @@ export class GameScene extends Phaser.Scene {
 
     this.enemyNameText.setText(this.battle.enemy.name);
     this.playerNameText.setText(this.battle.player.name);
+    const enemyCharId = this.battle.enemyCharacterId;
+    if (enemyCharId) {
+      this.enemyAvatarImage.setTexture(`char_${enemyCharId}`);
+      this.enemyAvatarImage.setVisible(true);
+      this.enemyAvatarBorder.setVisible(true);
+    }
 
     this.renderAllCards();
     this.setupHandInput();
@@ -262,11 +271,40 @@ export class GameScene extends Phaser.Scene {
     const barW = 420;
     const barH = 34;
 
-    this.enemyNameText = this.add.text(enemyBarX, enemyBarY - 16, '山贼头目', {
-      fontSize: '24px',
+    this.enemyNameText = this.add.text(enemyBarX, enemyBarY - 22, '山贼头目', {
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
-      color: '#4a2a10',
-    }).setDepth(DEPTH_UI);
+      color: '#c8a050',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0, 0.5).setShadow(0, 2, '#1a0800', 4, true, true).setDepth(DEPTH_UI);
+
+    // 敌方名字线框（金色边框背景）
+    this.enemyNameFrame = this.add.graphics();
+    this.enemyNameFrame.setDepth(DEPTH_UI - 1);
+    const namePad = 8;
+    const nameH = 32;
+    this.enemyNameFrame.fillStyle(0x2a1a0f, 0.6);
+    this.enemyNameFrame.fillRoundedRect(enemyBarX - namePad, enemyBarY - 22 - nameH / 2 - namePad, barW + namePad * 2 - 8, nameH + namePad * 2, 4);
+    this.enemyNameFrame.lineStyle(1.5, 0xb89040, 0.5);
+    this.enemyNameFrame.strokeRoundedRect(enemyBarX - namePad, enemyBarY - 22 - nameH / 2 - namePad, barW + namePad * 2 - 8, nameH + namePad * 2, 4);
+
+    // 敌人头像（敌人名字左侧，战斗开始后根据 enemyCharacterId 设置纹理）
+    const avatarSize = 80;
+    const avatarX = enemyBarX - 66;
+    const avatarY = enemyBarY - 2;
+    this.enemyAvatarBorder = this.add.graphics();
+    this.enemyAvatarBorder.setDepth(DEPTH_UI);
+    this.enemyAvatarBorder.fillStyle(0x2a1a0f, 0.85);
+    this.enemyAvatarBorder.fillRoundedRect(avatarX - avatarSize / 2, avatarY - avatarSize / 2, avatarSize, avatarSize, 6);
+    this.enemyAvatarBorder.lineStyle(2, 0xb89040, 0.7);
+    this.enemyAvatarBorder.strokeRoundedRect(avatarX - avatarSize / 2, avatarY - avatarSize / 2, avatarSize, avatarSize, 6);
+    this.enemyAvatarBorder.setVisible(false);
+
+    this.enemyAvatarImage = this.add.image(avatarX, avatarY, 'char_huangjinjun')
+      .setDisplaySize(68, 68)
+      .setDepth(DEPTH_UI)
+      .setVisible(false);
 
     const enemyBg = this.add.graphics();
     enemyBg.setDepth(DEPTH_UI);
@@ -290,7 +328,7 @@ export class GameScene extends Phaser.Scene {
       fontSize: '24px',
       fontFamily: FONT_FAMILY,
       color: '#4a2a10',
-    }).setDepth(DEPTH_UI);
+    }).setDepth(DEPTH_UI).setVisible(false);
 
     const playerBg = this.add.graphics();
     playerBg.setDepth(DEPTH_UI);
@@ -409,7 +447,7 @@ export class GameScene extends Phaser.Scene {
     const slotGap = 10;
     const slotCount = 5;
     const totalW = slotCount * slotSize + (slotCount - 1) * slotGap;
-    const slotY = h - 400;
+    const slotY = h - 420;
     const startX = w - 180 - totalW + slotSize / 2;
 
     for (let i = 0; i < slotCount; i++) {
@@ -429,11 +467,19 @@ export class GameScene extends Phaser.Scene {
       const charId = this.playerCharacterIds[i] ?? null;
       const char = charId ? PLAYER_CHARACTERS[charId] : null;
 
-      const slotText = this.add.text(0, 0, char ? char.name : '?', {
-        fontSize: char ? '22px' : '42px',
+      if (charId) {
+        const avatar = this.add.image(0, 0, `char_${charId}`);
+        avatar.setDisplaySize(112, 112);
+        container.add(avatar);
+      }
+
+      const slotText = this.add.text(0, slotSize / 2 + 18, char ? char.name : '?', {
+        fontSize: char ? '28px' : '42px',
         fontFamily: FONT_FAMILY,
         color: char ? '#c8a050' : '#5a4030',
-      }).setOrigin(0.5);
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0.5).setShadow(0, 2, '#1a0800', 4, true, true);
       container.add(slotText);
       this.characterSlotTexts.push(slotText);
 
@@ -941,6 +987,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.centerCards = [];
     this.centerCardsOwner = null;
+    this.centerDepthCounter = DEPTH_CENTER_BASE;
   }
 
   private fadeOutCenterCards(onComplete: () => void): void {
@@ -951,6 +998,7 @@ export class GameScene extends Phaser.Scene {
       onComplete();
       return;
     }
+    this.centerDepthCounter = DEPTH_CENTER_BASE;
     let done = 0;
     for (const c of cards) {
       this.tweens.add({
@@ -1188,9 +1236,8 @@ export class GameScene extends Phaser.Scene {
   private onPassClick(): void {
     if (this.phase !== 'player_respond') return;
 
-    VoiceManager.play(this, getRandomPassVoice());
-
     // Player gives up - take damage from enemy's last play
+    // (pass voice is played inside executePass after the animation, not here)
     this.executePass('player');
   }
 
