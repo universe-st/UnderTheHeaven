@@ -12,11 +12,11 @@ export class SkillEventBus {
     this.listeners.get(timing)!.push(handler);
   }
 
-  emit(timing: SkillTiming, context: SkillContext): void {
+  async emit(timing: SkillTiming, context: SkillContext): Promise<void> {
     const handlers = this.listeners.get(timing);
-    if (!handlers) return;
+    if (!handlers || handlers.length === 0) return;
     for (const handler of handlers) {
-      handler(context);
+      await handler(context);
     }
   }
 

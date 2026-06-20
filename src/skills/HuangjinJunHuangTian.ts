@@ -1,5 +1,5 @@
 import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
-import { sortHand } from '../models/Card';
+import { discardCardsFromHand, drawCardsToHand } from '../utils/CardActions';
 
 export const HuangjinJunHuangTian: SkillDefinition = {
   id: 'huangjinjun_huangtian',
@@ -28,17 +28,9 @@ export const HuangjinJunHuangTian: SkillDefinition = {
       }
     }
     const idx = minIndices[Math.floor(Math.random() * minIndices.length)];
-    hand.splice(idx, 1);
-
-    const deck = ctx.battle.enemy.deck;
-    if (deck.length === 0) {
-      deck.push(...ctx.battle.enemy.discardPile.splice(0));
-    }
-    if (deck.length > 0) {
-      hand.push(deck.pop()!);
-      sortHand(hand);
-    }
 
     visuals.playSkillTriggerSound();
+    await discardCardsFromHand(ctx.gameScene, 'enemy', [idx]);
+    await drawCardsToHand(ctx.gameScene, 'enemy', 1);
   },
 };

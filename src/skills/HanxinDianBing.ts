@@ -1,6 +1,7 @@
 import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
 import { countSuits } from '../engine/CharacterAbilities';
-import { waitForDelay } from '../utils/AnimationUtils';
+import { HAND_TYPE_LABELS } from '../models/BattleTypes';
+import { waitForDelay, animateCoefficientUpdate } from '../utils/AnimationUtils';
 
 export const HanxinDianBing: SkillDefinition = {
   id: 'hanxin_dianbing',
@@ -8,6 +9,7 @@ export const HanxinDianBing: SkillDefinition = {
   description: '伤害结算时，系数乘以打出牌的花色数（至少为一）',
   timing: SkillTiming.ON_COEFFICIENT_REVEALED,
   priority: 10,
+  dialogLines: ['多多益善！', '战无不胜，攻无不克！'],
 
   filter: (ctx: SkillContext): boolean => {
     return ctx.target === 'enemy'
@@ -18,7 +20,7 @@ export const HanxinDianBing: SkillDefinition = {
 
   execute: async (ctx: SkillContext, visuals: SkillVisualManager): Promise<void> => {
     const scene = visuals.getScene();
-    const { damageInfo, centerCardContainers } = ctx;
+    const { damageInfo, centerCardContainers, coefficientLabel } = ctx;
     if (!damageInfo || !centerCardContainers) return;
 
     const suitCount = countSuits(ctx.pattern!.cards);
@@ -27,12 +29,7 @@ export const HanxinDianBing: SkillDefinition = {
     const baseCoefficient = damageInfo.baseCoefficient;
     const newCoefficient = baseCoefficient * suitCount;
 
-    damageInfo.coefficient = newCoefficient;
-    damageInfo.finalDamage = Math.round(damageInfo.sumRanks * newCoefficient);
-
     visuals.playSkillTriggerSound();
-
-    await waitForDelay(scene, 100);
 
     const seenSuits = new Set<string>();
     const cardsToAnimate: Phaser.GameObjects.Container[] = [];
@@ -45,6 +42,21 @@ export const HanxinDianBing: SkillDefinition = {
     }
     if (cardsToAnimate.length > 0) {
       visuals.animateCardScale(cardsToAnimate, 1.35, 200);
+    }
+
+    damageInfo.coefficient = newCoefficient;
+    damageInfo.finalDamage = Math.round(damageInfo.sumRanks * newCoefficient);
+
+    if (coefficientLabel && ctx.pattern) {
+      const typeLabel = HAND_TYPE_LABELS[ctx.pattern.type];
+      await animateCoefficientUpdate(
+        scene,
+        coefficientLabel,
+        typeLabel,
+        baseCoefficient,
+        newCoefficient,
+        800,
+      );
     }
   },
 };

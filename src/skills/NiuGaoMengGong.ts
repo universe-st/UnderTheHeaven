@@ -1,4 +1,5 @@
 import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
+import { discardCardsFromHand } from '../utils/CardActions';
 
 export const NiuGaoMengGong: SkillDefinition = {
   id: 'niugao_menggong',
@@ -17,8 +18,8 @@ export const NiuGaoMengGong: SkillDefinition = {
     if (hand.length < 10) return;
 
     const idx = Math.floor(Math.random() * hand.length);
-    hand.splice(idx, 1);
 
     visuals.playSkillTriggerSound();
+    await discardCardsFromHand(ctx.gameScene, 'enemy', [idx]);
   },
 };

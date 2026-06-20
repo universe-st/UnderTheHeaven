@@ -1,37 +1,46 @@
-import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
-import { waitForDelay } from '../utils/AnimationUtils';
+import {
+  SkillTiming,
+  type SkillDefinition,
+  type SkillContext,
+  type SkillVisualManager,
+} from './SkillTypes';
+import { waitForCounterTween } from '../utils/AnimationUtils';
+
+const DANXIN_BONUS = 10;
 
 export const WenTianxiangDanXin: SkillDefinition = {
   id: 'wentianxiang_danxin',
   name: '丹心',
-  description: '你的红桃牌结算伤害+10',
-  timing: SkillTiming.ON_DAMAGE_CALCULATED,
+  description: '单牌伤害结算时，你的红桃牌计分+10',
+  timing: SkillTiming.ON_SINGLE_CARD_SETTLEMENT,
   priority: 20,
+  dialogLines: ['人生自古谁无死，留取丹心照汗青！'],
 
   filter: (ctx: SkillContext): boolean => {
-    if (!ctx.pattern || !ctx.damageInfo) return false;
     if (ctx.target !== 'enemy') return false;
-    const heartCount = ctx.pattern.cards.filter(c => c.suit === 'heart').length;
-    return heartCount > 0;
+    if (!ctx.singleCard) return false;
+    return (ctx.singleCard.card.getData('suit') as string) === 'heart';
   },
 
   execute: async (ctx: SkillContext, visuals: SkillVisualManager): Promise<void> => {
-    if (!ctx.pattern || !ctx.damageInfo) return;
+    const sc = ctx.singleCard;
+    if (!sc) return;
 
-    const heartCount = ctx.pattern.cards.filter(c => c.suit === 'heart').length;
-    const bonus = heartCount * 10;
-
-    ctx.damageInfo.finalDamage += bonus;
+    sc.scoreBonus = DANXIN_BONUS;
 
     visuals.playSkillTriggerSound();
 
     const scene = visuals.getScene();
-    await waitForDelay(scene, 100);
+    const targetScore = sc.baseScore + DANXIN_BONUS;
 
-    const heartContainers = (ctx.centerCardContainers || [])
-      .filter(c => (c.getData('suit') as string) === 'heart');
-    if (heartContainers.length > 0) {
-      visuals.animateCardScale(heartContainers, 1.35, 200);
-    }
+    await waitForCounterTween(scene, {
+      from: sc.baseScore,
+      to: targetScore,
+      duration: 400,
+      ease: 'Cubic.easeOut',
+      onUpdate: (val) => {
+        sc.scoreText.setText(`+${Math.round(val)}`);
+      },
+    });
   },
 };

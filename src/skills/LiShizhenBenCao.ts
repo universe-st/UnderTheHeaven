@@ -7,9 +7,11 @@ export const LiShizhenBenCao: SkillDefinition = {
   description: '打出牌时，回复等同于本次打出的所有梅花牌分数之和的气数',
   timing: SkillTiming.ON_PLAY,
   priority: 10,
+  dialogLines: ['血不可不养，卫不可不温。', '人身不过表里，气血不过虚实。'],
 
   filter: (ctx: SkillContext): boolean => {
     if (!ctx.playedCards) return false;
+    if (ctx.battle.player.vitality >= ctx.battle.player.vitalityMax) return false;
     const clubCards = ctx.playedCards.filter(c => c.suit === 'club');
     return clubCards.length > 0;
   },
@@ -29,7 +31,5 @@ export const LiShizhenBenCao: SkillDefinition = {
       visuals.animateCardScale(clubContainers);
     }
     visuals.showHeal('player', clubRankSum);
-    const player = ctx.battle.player;
-    player.vitality = Math.min(player.vitalityMax, player.vitality + clubRankSum);
   },
 };

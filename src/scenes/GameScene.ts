@@ -651,6 +651,111 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     return this.playerCharacterIds.includes(characterId as PlayerCharacterId);
   }
 
+  getCharacterOrder(characterId: string): number {
+    const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
+    if (idx >= 0) return idx;
+    if (characterId === this.battle?.enemyCharacterId) return 999;
+    return 999;
+  }
+
+  showDialog(characterId: string, text: string): void {
+    if (!text) return;
+
+    const lines = this.wrapDialogText(text, 15);
+    const fontSize = 22;
+    const padX = 16;
+    const padY = 12;
+
+    let anchorX: number;
+    let anchorY: number;
+    const tailDir: 'up' | 'down' = this.playerCharacterIds.includes(characterId as PlayerCharacterId) ? 'down' : 'up';
+
+    if (tailDir === 'down') {
+      const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
+      if (idx < 0 || idx >= this.characterSlotContainers.length) return;
+      const slot = this.characterSlotContainers[idx];
+      anchorX = slot.x;
+      anchorY = slot.y - 140;
+    } else {
+      anchorX = 54;
+      anchorY = 160;
+    }
+
+    const container = this.add.container(anchorX, anchorY).setDepth(DEPTH_DAMAGE + 5).setAlpha(0);
+
+    const textObj = this.add.text(0, 0, lines.join('\n'), {
+      fontSize: `${fontSize}px`,
+      fontFamily: FONT_FAMILY,
+      color: '#2a1008',
+      align: 'center',
+      lineSpacing: 6,
+    }).setOrigin(0.5, 0);
+
+    const textW = textObj.width;
+    const textH = textObj.height;
+    const boxW = Math.max(textW + padX * 2, 80);
+    const boxH = Math.max(textH + padY * 2, 40);
+    const totalH = boxH + 10;
+
+    const tailSize = 8;
+    const graphicsTop = tailDir === 'down' ? 0 : tailSize;
+    const textY = tailDir === 'down' ? padY + 5 : padY + tailSize + 5;
+
+    const gfx = this.add.graphics();
+    gfx.fillStyle(0xfffdf5, 0.95);
+    gfx.fillRoundedRect(-boxW / 2, graphicsTop, boxW, boxH, 10);
+    if (tailDir === 'down') {
+      gfx.fillTriangle(-tailSize, boxH, tailSize, boxH, 0, totalH);
+    } else {
+      gfx.fillTriangle(-tailSize, tailSize, tailSize, tailSize, 0, 0);
+    }
+    gfx.lineStyle(2, 0x6a4a2a, 0.7);
+    gfx.strokeRoundedRect(-boxW / 2, graphicsTop, boxW, boxH, 10);
+    if (tailDir === 'down') {
+      gfx.lineBetween(-tailSize, boxH, 0, totalH);
+      gfx.lineBetween(tailSize, boxH, 0, totalH);
+    } else {
+      gfx.lineBetween(-tailSize, tailSize, 0, 0);
+      gfx.lineBetween(tailSize, tailSize, 0, 0);
+    }
+    container.add(gfx);
+
+    textObj.setY(textY);
+    container.add(textObj);
+
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      duration: 200,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        this.time.delayedCall(2200, () => {
+          this.tweens.add({
+            targets: container,
+            alpha: 0,
+            duration: 400,
+            ease: 'Sine.easeIn',
+            onComplete: () => container.destroy(),
+          });
+        });
+      },
+    });
+  }
+
+  private wrapDialogText(text: string, maxPerLine: number): string[] {
+    const lines: string[] = [];
+    let current = '';
+    for (const ch of text) {
+      current += ch;
+      if (current.length >= maxPerLine) {
+        lines.push(current);
+        current = '';
+      }
+    }
+    if (current) lines.push(current);
+    return lines.length > 0 ? lines : [text];
+  }
+
   async glowOn(characterId: string): Promise<void> {
     const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
     if (idx === -1) return;
@@ -708,30 +813,49 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       }));
     }
     this.characterSlotGlowTweens.set(idx, tweens);
+  }
+
+  /**
+   * 技能触发强调动效：左右晃动（加速）的同时放大，晃动结束后缩小回原尺寸。
+   * 在 moveToFront 之后调用。晃动与放大并行以缩短总时长。
+   */
+  async shakeAndPulse(characterId: string): Promise<void> {
+    const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
+    if (idx === -1) return;
+    const container = this.characterSlotContainers[idx];
+    if (!container) return;
 
     const origX = container.x;
-    await waitForTween(this, {
+    const shakeOffsets = [-8, 8, -8, 8, 0];
+    const stepMs = 30;
+    const scaleTo = 1.15;
+
+    const shakePromise = (async () => {
+      for (const offset of shakeOffsets) {
+        await waitForTween(this, {
+          targets: container,
+          x: origX + offset,
+          duration: stepMs,
+          ease: 'Linear',
+        });
+      }
+    })();
+
+    const scaleUpPromise = waitForTween(this, {
       targets: container,
-      scaleX: 1.12,
-      scaleY: 1.12,
-      duration: 150,
+      scaleX: scaleTo,
+      scaleY: scaleTo,
+      duration: shakeOffsets.length * stepMs,
       ease: 'Sine.easeOut',
     });
 
-    const shakeOffsets = [-8, 8, -8, 8, 0];
-    for (const offset of shakeOffsets) {
-      await waitForTween(this, {
-        targets: container,
-        x: origX + offset,
-        duration: 40,
-        ease: 'Linear',
-      });
-    }
+    await Promise.all([shakePromise, scaleUpPromise]);
 
     await waitForTween(this, {
       targets: container,
       scaleX: 1.0,
       scaleY: 1.0,
+      x: origX,
       duration: 150,
       ease: 'Sine.easeIn',
     });
@@ -1633,11 +1757,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       centerCardContainers: this.centerCards,
       playedCards,
     };
-    this.skillEventBus.emit(SkillTiming.ON_PLAY, onPlayCtx);
-
-    await waitForDelay(this, 50);
 
     if (animatedCards.length === 0) {
+      await this.skillEventBus.emit(SkillTiming.ON_PLAY, onPlayCtx);
       await this.handlePostPlayEmptyHandCheck(playerHand, pattern);
       return;
     }
@@ -1646,6 +1768,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     await this.animateCardsToPositionsAsync(animatedCards, positions, 120);
     this.centerCards = animatedCards;
     this.centerCardsOwner = 'player';
+
+    onPlayCtx.centerCardContainers = this.centerCards;
+    await this.skillEventBus.emit(SkillTiming.ON_PLAY, onPlayCtx);
 
     if (playerHand.length === 0) {
       await this.playDamageSettlement(pattern, 'enemy', true);
@@ -1657,9 +1782,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.refillPlayerHand();
       this.renderPlayerHand(true);
       await this.fadeOutCenterCardsAsync();
-      this.phase = 'player_init';
+      this.battle.turnHolder = 'enemy';
+      this.phase = 'ai_init';
       this.updateUIForPhase();
       this.respondChainDepth = 0;
+      await this.aiInitiatePlay();
       return;
     }
 
@@ -1681,9 +1808,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.refillPlayerHand();
       this.renderPlayerHand(true);
       await this.fadeOutCenterCardsAsync();
-      this.phase = 'player_init';
+      this.battle.turnHolder = 'enemy';
+      this.phase = 'ai_init';
       this.updateUIForPhase();
       this.respondChainDepth = 0;
+      await this.aiInitiatePlay();
       return;
     }
 
@@ -1710,6 +1839,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       } else {
         this.battle.turnHolder = 'player';
         this.phase = 'player_init';
+        await this.refillIfEmpty('player');
         this.updateUIForPhase();
         this.respondChainDepth = 0;
       }
@@ -1745,6 +1875,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.battle.lastPlay = null;
       await this.fadeOutCenterCardsAsync();
       this.phase = 'player_init';
+      await this.refillIfEmpty('player');
       this.updateUIForPhase();
       this.respondChainDepth = 0;
     }
@@ -1817,6 +1948,24 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     sortHand(enemy.hand);
   }
 
+  /**
+   * 获得牌权时的安全网：若该方手牌为空（例如被弃置技能清空），
+   * 立即摸满 17 张并刷新显示。手牌非空时为无操作。
+   */
+  private async refillIfEmpty(who: 'player' | 'enemy'): Promise<void> {
+    if (who === 'player') {
+      if (this.battle.player.hand.length === 0) {
+        this.refillPlayerHand();
+        this.renderPlayerHand(true);
+      }
+      return;
+    }
+    if (this.battle.enemy.hand.length === 0) {
+      this.refillEnemyHand();
+      await this.renderEnemyHandAsync(300);
+    }
+  }
+
   private async aiRespond(): Promise<void> {
     await waitForDelay(this, 400);
     this.battle.phase = 'respond';
@@ -1882,10 +2031,12 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.centerCards = displayCards;
       this.centerCardsOwner = 'enemy';
       await waitForDelay(this, 100);
-      this.phase = 'ai_init';
+      await this.fadeOutCenterCardsAsync();
+      this.battle.turnHolder = 'player';
+      this.phase = 'player_init';
+      await this.refillIfEmpty('player');
       this.updateUIForPhase();
       this.respondChainDepth = 0;
-      await this.aiInitiatePlay();
       return;
     }
 
@@ -1899,6 +2050,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   private async aiInitiatePlay(): Promise<void> {
+    await this.refillIfEmpty('enemy');
     this.respondChainDepth = 0;
     const turnStartCtx: SkillContext = {
       gameScene: this,
@@ -1907,7 +2059,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       playerCharacterIds: this.playerCharacterIds,
       enemyCharacterId: this.battle.enemyCharacterId,
     };
-    this.skillEventBus.emit(SkillTiming.ON_TURN_START, turnStartCtx);
+    await this.skillEventBus.emit(SkillTiming.ON_TURN_START, turnStartCtx);
 
     await waitForDelay(this, 400);
     this.battle.phase = 'play';
@@ -1916,6 +2068,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.battle.lastPlay = null;
       this.battle.turnHolder = 'player';
       this.phase = 'player_init';
+      await this.refillIfEmpty('player');
       this.updateUIForPhase();
       return;
     }
@@ -1966,9 +2119,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.refillEnemyHand();
       await this.renderEnemyHandAsync(300);
       await this.fadeOutCenterCardsAsync();
-      this.phase = 'ai_init';
+      this.battle.turnHolder = 'player';
+      this.phase = 'player_init';
+      await this.refillIfEmpty('player');
       this.updateUIForPhase();
-      await this.aiInitiatePlay();
+      this.respondChainDepth = 0;
       return;
     }
 
@@ -2187,19 +2342,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       ? (this.battle.player.characterId ?? this.playerCharacterIds[0])
       : (this.battle.enemyCharacterId ?? 'unknown');
 
-    const onDmgCalcCtx: SkillContext = {
-      gameScene: this,
-      battle: this.battle,
-      sourceCharacterId: sourceCharId,
-      pattern,
-      target,
-      damageInfo,
-      playerCharacterIds: this.playerCharacterIds,
-      enemyCharacterId: this.battle.enemyCharacterId,
-      centerCardContainers: this.centerCards,
-    };
-    this.skillEventBus.emit(SkillTiming.ON_DAMAGE_CALCULATED, onDmgCalcCtx);
-
     const { width, height } = this.scale;
     const centerX = width / 2;
     const centerY = height / 2;
@@ -2213,9 +2355,15 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const cardPhaseMs = cards.length > 0 ? cards.length * 360 + 180 : 0;
 
-    const revealPromise = this.stage1RevealCards(cards, counterText);
-    await revealPromise;
+    await this.stage1RevealCards(
+      cards, counterText, damageInfo, pattern, target, sourceCharId,
+    );
     await waitForDelay(this, 180);
+
+    // stage1 中单牌技能（如文天祥丹心）可能将加成累加进 sumRanks，重算 finalDamage
+    // 以便后续系数技能（如韩信点兵）与最终结算使用更新后的计分。
+    damageInfo.finalDamage = Math.round(damageInfo.sumRanks * damageInfo.coefficient);
+    if (isEmptyHand) damageInfo.finalDamage *= 5;
 
     await this.stage2ShowCoefficient(
       counterText, pattern, damageInfo, baseCoefficient, isEmptyHand, target, sourceCharId,
@@ -2225,6 +2373,10 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private async stage1RevealCards(
     cards: Phaser.GameObjects.Container[],
     counterText: Phaser.GameObjects.Text,
+    damageInfo: NonNullable<SkillContext['damageInfo']>,
+    pattern: HandPattern,
+    target: 'enemy' | 'player',
+    sourceCharId: string,
   ): Promise<void> {
     let currentSum = 0;
     for (let i = 0; i < cards.length; i++) {
@@ -2241,36 +2393,61 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         strokeThickness: 3,
       }).setOrigin(0.5).setDepth(DEPTH_DAMAGE + 1).setAlpha(0).setScale(0.5);
 
+      // 弹出文字出现 + 卡牌放大 并行
+      await Promise.all([
+        waitForTween(this, {
+          targets: floatText,
+          alpha: 1,
+          scaleX: 1.15,
+          scaleY: 1.15,
+          y: floatText.y - 40,
+          duration: 180,
+          ease: 'Back.easeOut',
+        }),
+        waitForTween(this, {
+          targets: card,
+          scaleX: 1.25,
+          scaleY: 1.25,
+          duration: 180,
+          ease: 'Sine.easeIn',
+        }),
+      ]);
+
+      // 单牌伤害结算时：分数出现后、消失前。技能可修改弹出分数并将加成写入 scoreBonus。
+      const singleCard = {
+        card,
+        scoreText: floatText,
+        baseScore: rank,
+        scoreBonus: 0,
+      };
+      const singleCardCtx: SkillContext = {
+        gameScene: this,
+        battle: this.battle,
+        sourceCharacterId: sourceCharId,
+        pattern,
+        target,
+        damageInfo,
+        playerCharacterIds: this.playerCharacterIds,
+        enemyCharacterId: this.battle.enemyCharacterId,
+        centerCardContainers: this.centerCards,
+        singleCard,
+      };
+      await this.skillEventBus.emit(SkillTiming.ON_SINGLE_CARD_SETTLEMENT, singleCardCtx);
+
+      const cardScore = rank + singleCard.scoreBonus;
+      currentSum += cardScore;
+      counterText.setText(`${currentSum}`);
+      damageInfo.sumRanks += singleCard.scoreBonus;
+
+      // 弹出文字消失（fire-and-forget，保持与下一张牌并行的原节奏）+ 卡牌缩小
       this.tweens.add({
         targets: floatText,
-        alpha: 1,
-        scaleX: 1.15,
-        scaleY: 1.15,
-        y: floatText.y - 40,
-        duration: 180,
-        ease: 'Back.easeOut',
-        onComplete: () => {
-          this.tweens.add({
-            targets: floatText,
-            alpha: 0,
-            y: floatText.y - 100,
-            duration: 400,
-            ease: 'Sine.easeIn',
-            onComplete: () => floatText.destroy(),
-          });
-        },
-      });
-
-      await waitForTween(this, {
-        targets: card,
-        scaleX: 1.25,
-        scaleY: 1.25,
-        duration: 180,
+        alpha: 0,
+        y: floatText.y - 100,
+        duration: 400,
         ease: 'Sine.easeIn',
+        onComplete: () => floatText.destroy(),
       });
-
-      currentSum += rank;
-      counterText.setText(`${currentSum}`);
 
       await waitForTween(this, {
         targets: card,
@@ -2294,7 +2471,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const { width, height } = this.scale;
     const centerX = width / 2;
     const centerY = height / 2;
-    const baseCoeffDamage = Math.round(damageInfo.sumRanks * damageInfo.baseCoefficient);
     const typeLabel = HAND_TYPE_LABELS[pattern.type];
 
     await waitForTween(this, {
@@ -2345,14 +2521,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       });
     }
 
-    await waitForCounterTween(this, {
-      from: damageInfo.sumRanks,
-      to: baseCoeffDamage,
-      duration: 500,
-      ease: 'Cubic.easeOut',
-      onUpdate: (val) => counterText.setText(`${Math.round(val)}`),
-    });
-
     const onCoeffCtx: SkillContext = {
       gameScene: this,
       battle: this.battle,
@@ -2363,10 +2531,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       playerCharacterIds: this.playerCharacterIds,
       enemyCharacterId: this.battle.enemyCharacterId,
       centerCardContainers: this.centerCards,
+      coefficientLabel: coeffText,
     };
-    this.skillEventBus.emit(SkillTiming.ON_COEFFICIENT_REVEALED, onCoeffCtx);
-
-    await waitForDelay(this, 1200);
+    await this.skillEventBus.emit(SkillTiming.ON_COEFFICIENT_REVEALED, onCoeffCtx);
 
     await this.stage3ApplyDamage(counterText, coeffText, emptyHandText, damageInfo, target, pattern, sourceCharId);
   }
@@ -2380,42 +2547,30 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     pattern: HandPattern,
     sourceCharId: string,
   ): Promise<void> {
-    const { width, height } = this.scale;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const baseCoeffDamage = Math.round(damageInfo.sumRanks * damageInfo.baseCoefficient);
-    const typeLabel = HAND_TYPE_LABELS[pattern.type];
-
-    if (damageInfo.coefficient !== damageInfo.baseCoefficient) {
-      coeffText.setText(`✖️ ${damageInfo.coefficient}（${typeLabel}）`);
-    }
+    const { height } = this.scale;
 
     const labelsToFade: Phaser.GameObjects.Text[] = [coeffText];
     if (emptyHandText) labelsToFade.push(emptyHandText);
 
-    await Promise.all(labelsToFade.map(t =>
-      waitForTween(this, {
-        targets: t,
-        alpha: 0,
-        duration: 450,
-      }).then(() => t.destroy()),
-    ));
+    const currentDisplay = parseInt(counterText.text, 10) || damageInfo.sumRanks;
 
-    await waitForTween(this, {
-      targets: counterText,
-      x: centerX,
-      y: centerY,
-      duration: 600,
-      ease: 'Sine.easeOut',
-    });
-
-    await waitForCounterTween(this, {
-      from: baseCoeffDamage,
-      to: damageInfo.finalDamage,
-      duration: 600,
-      ease: 'Cubic.easeOut',
-      onUpdate: (val) => counterText.setText(`${Math.round(val)}`),
-    });
+    await Promise.all([
+      Promise.all(labelsToFade.map(t =>
+        waitForTween(this, {
+          targets: t,
+          alpha: 0,
+          duration: 600,
+          ease: 'Sine.easeOut',
+        }).then(() => t.destroy()),
+      )),
+      waitForCounterTween(this, {
+        from: currentDisplay,
+        to: damageInfo.finalDamage,
+        duration: 600,
+        ease: 'Cubic.easeOut',
+        onUpdate: (val) => counterText.setText(`${Math.round(val)}`),
+      }),
+    ]);
 
     AudioManager.playSfx(this, 'sfx_hurt');
 
@@ -2451,7 +2606,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       playerCharacterIds: this.playerCharacterIds,
       enemyCharacterId: this.battle.enemyCharacterId,
     };
-    this.skillEventBus.emit(SkillTiming.AFTER_DAMAGE, afterDmgCtx);
+    await this.skillEventBus.emit(SkillTiming.AFTER_DAMAGE, afterDmgCtx);
     this.applyPostDamageEffects(pattern, target, damageInfo.finalDamage);
   }
 

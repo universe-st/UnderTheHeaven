@@ -26,21 +26,34 @@ export class SkillRunner {
   private bindAllSkills(): void {
     for (const timing of Object.values(SkillTiming)) {
       if (timing === SkillTiming.PASSIVE_MODIFIER) continue;
-      const skills = this.registry.getSkillsByTiming(timing);
-      if (skills.length > 0) {
-        this.eventBus.on(timing, (context) => {
-          this.executeTiming(timing, context);
-        });
-      }
+      this.eventBus.on(timing, async (context) => {
+        await this.executeTiming(timing, context);
+      });
     }
   }
 
   private async executeTiming(timing: SkillTiming, context: SkillContext): Promise<void> {
     const skills = this.registry.getSkillsByTiming(timing);
-    for (const skill of skills) {
+    if (skills.length === 0) return;
+
+    const ordered = this.sortByCharacterOrder(skills);
+
+    for (const skill of ordered) {
       if (!skill.filter(context)) continue;
       await this.executeWithAnimation(skill, context);
     }
+  }
+
+  private sortByCharacterOrder(skills: SkillDefinition[]): SkillDefinition[] {
+    return [...skills].sort((a, b) => {
+      const orderA = this.slotManager.getCharacterOrder(
+        this.registry.getSkillOwner(a.id) ?? '',
+      );
+      const orderB = this.slotManager.getCharacterOrder(
+        this.registry.getSkillOwner(b.id) ?? '',
+      );
+      return orderA - orderB;
+    });
   }
 
   private async executeWithAnimation(skill: SkillDefinition, ctx: SkillContext): Promise<void> {
@@ -52,7 +65,14 @@ export class SkillRunner {
       if (isPlayer) {
         await this.slotManager.glowOn(ownerId);
         await this.slotManager.moveToFront(ownerId);
+        await this.slotManager.shakeAndPulse(ownerId);
       }
+
+      if (skill.dialogLines && skill.dialogLines.length > 0) {
+        const line = skill.dialogLines[Math.floor(Math.random() * skill.dialogLines.length)];
+        this.slotManager.showDialog(ownerId, line);
+      }
+
       await skill.execute(ctx, this.visuals);
     } catch (err) {
       console.warn(`[SkillRunner] skill ${skill.id} error:`, err);

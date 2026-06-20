@@ -535,17 +535,51 @@ export class TestSelectScene extends Phaser.Scene {
     if (label === '己方血量') this.playerVitText = valueText;
     else this.enemyVitText = valueText;
 
-    minus.zone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
-      const newVal = Math.max(100, (label === '己方血量' ? this.playerVitality : this.enemyVitality) - 50);
-      onChange(newVal);
-    });
+    const MAX_HP = 100000;
+    const MIN_HP = 100;
+    const STEP = 50;
+    const INITIAL_DELAY = 400;
+    const REPEAT_INTERVAL = 60;
 
-    plus.zone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
-      const newVal = Math.min(2000, (label === '己方血量' ? this.playerVitality : this.enemyVitality) + 50);
-      onChange(newVal);
-    });
+    let holdTimer: Phaser.Time.TimerEvent | null = null;
+
+    const stopHold = () => {
+      if (holdTimer) { holdTimer.destroy(); holdTimer = null; }
+    };
+
+    this.input.on('pointerup', stopHold);
+
+    const getCurrentValue = (): number =>
+      label === '己方血量' ? this.playerVitality : this.enemyVitality;
+
+    const configHoldButton = (zone: Phaser.GameObjects.Zone, delta: number) => {
+      zone.on('pointerdown', () => {
+        AudioManager.playSfx(this, 'sfx_button');
+        const newVal = Phaser.Math.Clamp(getCurrentValue() + delta, MIN_HP, MAX_HP);
+        onChange(newVal);
+
+        stopHold();
+        holdTimer = this.time.addEvent({
+          delay: INITIAL_DELAY,
+          loop: false,
+          callback: () => {
+            holdTimer = this.time.addEvent({
+              delay: REPEAT_INTERVAL,
+              loop: true,
+              callback: () => {
+                const cur = getCurrentValue();
+                onChange(Phaser.Math.Clamp(cur + delta, MIN_HP, MAX_HP));
+              }
+            });
+          }
+        });
+      });
+      zone.on('pointerup', stopHold);
+      zone.on('pointerout', stopHold);
+    };
+
+    configHoldButton(minus.zone, -STEP);
+    configHoldButton(plus.zone, STEP);
   }
 
   private createStartButton(w: number, h: number): void {

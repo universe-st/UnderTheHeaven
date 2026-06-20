@@ -100,3 +100,30 @@ export function waitForCounterTween(
     });
   });
 }
+
+/**
+ * 系数增长动画：将系数标签文本从当前系数渐增到目标系数。
+ * 技能（如韩信点兵）调用此函数来展示系数翻倍的可视化效果。
+ */
+export async function animateCoefficientUpdate(
+  scene: Phaser.Scene,
+  labelText: Phaser.GameObjects.Text,
+  typeLabel: string,
+  fromCoeff: number,
+  toCoeff: number,
+  duration: number = 800,
+): Promise<void> {
+  const formatCoeff = (v: number) => {
+    if (Number.isInteger(v)) return `${v}`;
+    return v.toFixed(1);
+  };
+  await waitForCounterTween(scene, {
+    from: fromCoeff,
+    to: toCoeff,
+    duration,
+    ease: 'Cubic.easeOut',
+    onUpdate: (val) => {
+      labelText.setText(`✖️ ${formatCoeff(val)}（${typeLabel}）`);
+    },
+  });
+}

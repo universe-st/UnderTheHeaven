@@ -1,5 +1,5 @@
 import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
-import { sortHand } from '../models/Card';
+import { discardCardsFromHand, addCardsToHand } from '../utils/CardActions';
 
 export const QiangdaoJianJing: SkillDefinition = {
   id: 'qiangdao_jianjing',
@@ -18,10 +18,13 @@ export const QiangdaoJianJing: SkillDefinition = {
     if (playerHand.length === 0) return;
 
     const idx = Math.floor(Math.random() * playerHand.length);
-    const stolen = playerHand.splice(idx, 1)[0];
-    ctx.battle.enemy.hand.push(stolen);
-    sortHand(ctx.battle.enemy.hand);
 
     visuals.playSkillTriggerSound();
+    const [stolen] = await discardCardsFromHand(ctx.gameScene, 'player', [idx], {
+      skipDiscardPile: true,
+    });
+    if (stolen) {
+      await addCardsToHand(ctx.gameScene, 'enemy', [stolen]);
+    }
   },
 };
