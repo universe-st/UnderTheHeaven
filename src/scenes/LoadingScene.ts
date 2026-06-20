@@ -121,10 +121,25 @@ export class LoadingScene extends Phaser.Scene {
     this.load.audio('sfx_gong', 'sfx_gong.mp3');
     this.load.audio('sfx_bomb', 'sfx_bomb.mp3');
     this.load.audio('sfx_card_reveal', 'sfx_card_reveal.mp3');
+    this.load.audio('sfx_skill_trigger', 'sfx_skill_trigger.mp3');
+    this.load.audio('sfx_heal', 'sfx_heal.mp3');
     this.load.image('battle_bg', 'battle_bg.png');
     this.load.image('card_back', 'card_back.png');
     this.load.image('card_pattern_dragon', 'card_pattern_dragon.png');
     this.load.image('card_pattern_tiger', 'card_pattern_tiger.png');
+
+    // 角色头像图片
+    this.load.image('char_zhugeliang', 'char_zhugeliang.png');
+    this.load.image('char_hanxin', 'char_hanxin.png');
+    this.load.image('char_liubowen', 'char_liubowen.png');
+    this.load.image('char_lishizhen', 'char_lishizhen.png');
+    this.load.image('char_wentianxiang', 'char_wentianxiang.png');
+    this.load.image('char_niugao', 'char_niugao.png');
+
+    // 敌人头像图片
+    this.load.image('char_huangjinjun', 'char_huangjinjun.png');
+    this.load.image('char_nanmanjun', 'char_nanmanjun.png');
+    this.load.image('char_qiangdao', 'char_qiangdao.png');
 
     for (const voiceKey of VoiceManager.voiceKeys) {
       this.load.audio(voiceKey, `voice/${voiceKey}.mp3`);

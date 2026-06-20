@@ -29,7 +29,27 @@ export class TestSelectScene extends Phaser.Scene {
     super({ key: 'TestSelectScene' });
   }
 
+  private resetSceneState(): void {
+    this.selectedPlayerIds = new Set();
+    this.selectedEnemyId = ENEMY_CHARACTER_LIST[0].id;
+    this.playerVitality = 500;
+    this.enemyVitality = 500;
+    this.playerCardScrollOffset = 0;
+    this.playerCardContainer?.destroy();
+    this.playerCardContainer = null;
+    this.playerCardMaskShape?.destroy();
+    this.playerCardMaskShape = null;
+    this.playerCardMaskFilter = null;
+    this.playerScrollUpBtn?.destroy();
+    this.playerScrollUpBtn = null;
+    this.playerScrollDownBtn?.destroy();
+    this.playerScrollDownBtn = null;
+    this.tweens.killAll();
+  }
+
   create(): void {
+    this.resetSceneState();
+
     const { width, height } = this.scale;
     const cx = width / 2;
 
@@ -47,8 +67,6 @@ export class TestSelectScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.drawDivider(cx, titleY + 40);
-
-    this.initDefaults();
 
     this.createPlayerSection(width, height);
     this.createEnemySection(width, height);
@@ -183,20 +201,33 @@ export class TestSelectScene extends Phaser.Scene {
     };
     draw(isSelected, false);
 
-    const nameTxt = this.add.text(cx, cy - 18, char.name, {
+    // 角色头像（左侧）
+    const portraitSize = 80;
+    const portraitX = cx - cardW / 2 + 55;
+    const portraitY = cy;
+    const portraitGfx = this.add.graphics();
+    portraitGfx.fillStyle(0x2a1508, 1);
+    portraitGfx.fillRoundedRect(portraitX - portraitSize / 2, portraitY - portraitSize / 2, portraitSize, portraitSize, 6);
+
+    const charImg = this.add.image(portraitX, portraitY, `char_${id}`);
+    const imgScale = Math.min(portraitSize / 512, 0.15);
+    charImg.setScale(imgScale);
+
+    const textOffsetX = 55;
+    const nameTxt = this.add.text(cx + textOffsetX - 10, cy - 18, char.name, {
       fontSize: '28px',
       fontFamily: FONT_FAMILY,
       color: isSelected ? '#e8d5a3' : '#c8a050',
     }).setOrigin(0.5).setData('_nameText', true);
 
-    const costTxt = this.add.text(cx, cy + 14, `费用 ${char.cost}`, {
+    const costTxt = this.add.text(cx + textOffsetX - 10, cy + 14, `费用 ${char.cost}`, {
       fontSize: '18px',
       fontFamily: FONT_FAMILY,
       color: '#8a7040',
     }).setOrigin(0.5);
 
     const abilitiesStr = char.abilities.map(a => a.name).join(' · ');
-    const abiTxt = this.add.text(cx, cy + 38, abilitiesStr, {
+    const abiTxt = this.add.text(cx + textOffsetX - 10, cy + 38, abilitiesStr, {
       fontSize: '16px',
       fontFamily: FONT_FAMILY,
       color: '#6a5030',
@@ -205,7 +236,7 @@ export class TestSelectScene extends Phaser.Scene {
     const zone = this.add.zone(cx, cy, cardW, cardH).setInteractive({ cursor: 'pointer' });
 
     if (parent) {
-      parent.add([gfx, nameTxt, costTxt, abiTxt, zone]);
+      parent.add([gfx, portraitGfx, charImg, nameTxt, costTxt, abiTxt, zone]);
     }
 
     zone.on('pointerover', () => draw(isSelected, true));
@@ -391,13 +422,13 @@ export class TestSelectScene extends Phaser.Scene {
       color: isSelected ? '#e8d5a3' : '#c8a050',
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 8, char.ability.name, {
+    this.add.text(cx, cy + 8, char.abilities[0].name, {
       fontSize: '20px',
       fontFamily: FONT_FAMILY,
       color: '#8a7040',
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 34, char.ability.description, {
+    this.add.text(cx, cy + 34, char.abilities[0].description, {
       fontSize: '16px',
       fontFamily: FONT_FAMILY,
       color: '#6a5030',

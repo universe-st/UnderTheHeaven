@@ -35,6 +35,7 @@ UnderTheHeaven/
 ├── AGENTS.md                    # 本文件 — 项目总览及 AI 开发指引
 ├── docs/                        # 文档根目录
 │   ├── design/                  # 设计文档
+│   │   ├── 角色技能实现方案.md    # 角色技能触发系统和韩信技能动画实现（2025-06-19）
 │   │   └── game/                # 游戏策划文档（模块化拆分，主策划案为索引）
 │   │       ├── README.md        # 游戏设计文档索引
 │   │       ├── 主策划案.md       # 策划案总索引，链接各子模块
@@ -120,6 +121,56 @@ LoadingScene -> MenuScene -> （后续: GameScene, DeckScene, ShopScene 等）
 - 使用 Phaser 4 API（从 `phaser` 包导入）
 - 避免 Phaser 3 已废弃的模式（pipelines、FX masks 等）
 - 游戏对象通过场景工厂方法创建（`this.add.*`、`this.load.*`）
+
+### 状态与场景分离规范（State Reset Pattern）
+
+所有 Phaser Scene 类必须遵循以下规范，确保场景重启时状态完全重建：
+
+1. **每个 Scene 必须实现 `resetSceneState()` 私有方法**，集中重置所有可变状态字段到初始值：
+   - 基础游戏数据（phase、battle、counters）
+   - UI 引用（modal、panel、tooltip 等容器置 null 前先 `destroy()`）
+   - 输入状态（drag、selected 等）
+   - 字符/技能状态（slot 数组、glow tweens、skill event bus/registry）
+   - 调用 `this.tweens.killAll()` 停止所有动画
+
+2. **`create()` 第一行必须调用 `this.resetSceneState()`**，在任何 UI 创建之前
+
+3. **禁止在 `create()` 中分散写 `this.xxx = initialValue`**——所有重置逻辑收敛到 `resetSceneState()`
+
+4. **Phaser GameObjects（`!` 断言字段）由 Phaser 的 shutdown 自动销毁**，不需要在 reset 中手动处理；但持有这些引用的数组/容器必须清空
+
+```typescript
+// 反例：状态重置散落在 create() 各处
+create(): void {
+  this.phase = 'player_init'; // ❌ 应放在 resetSceneState
+  // ... 100 lines ...
+  this.selectedIndices = new Set(); // ❌ 分散
+}
+
+// 正例：收敛到单一方法
+private resetSceneState(): void {
+  this.phase = 'player_init';
+  this.selectedIndices = new Set();
+  this.cardObjects = [];
+  this.centerCards = [];
+  this.centerCardsOwner = null;
+  this.centerDepthCounter = DEPTH_CENTER_BASE;
+  this.modalPanel?.destroy();
+  this.modalPanel = null;
+  for (const [, tweens] of this.glowTweens) {
+    for (const t of tweens) t.stop();
+  }
+  this.glowTweens = new Map();
+  this.skillEventBus?.clear();
+  this.skillRegistry?.clear();
+  this.tweens.killAll();
+}
+
+create(): void {
+  this.resetSceneState(); // ✅ 第一行，无条件调用
+  // ... 创建 UI、初始化系统
+}
+```
 
 ---
 

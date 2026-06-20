@@ -4,7 +4,7 @@ import { PlayerCharacterId, EnemyCharacterId } from '../models/Character';
 
 export function countSuits(cards: Card[]): number {
   const suits = new Set(cards.map(c => c.suit).filter(Boolean));
-  return suits.size;
+  return Math.max(1, suits.size);
 }
 
 export function countHearts(cards: Card[]): number {

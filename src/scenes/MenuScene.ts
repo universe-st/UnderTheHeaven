@@ -21,12 +21,28 @@ export class MenuScene extends Phaser.Scene {
     super({ key: 'MenuScene' });
   }
 
+  private resetSceneState(): void {
+    this.particles = [];
+    this.muteIndicator?.destroy();
+    this.muteIndicator = null;
+    this.settingsOpen = false;
+    this.settingsContainer?.destroy();
+    this.settingsContainer = null;
+    const settings = loadAudioSettings();
+    this.bgmVolume = settings.bgmVolume;
+    this.sfxVolume = settings.sfxVolume;
+    this.voiceVolume = settings.voiceVolume;
+    this.tweens.killAll();
+  }
+
   preload(): void {
     this.load.image('game_background', 'background_under_the_heaven.jpg');
     this.load.audio('bgm_menu', 'bgm_menu_44100.mp3');
   }
 
   create(): void {
+    this.resetSceneState();
+
     const { width, height } = this.scale;
     const cx = width / 2;
 
