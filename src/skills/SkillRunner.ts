@@ -1,4 +1,5 @@
 import { SkillTiming, type SkillContext, type SkillDefinition, type CharacterSlotManager } from './SkillTypes';
+import type { HandPattern } from '../models/BattleTypes';
 import { SkillRegistry } from './SkillRegistry';
 import { SkillEventBus } from './SkillEventBus';
 import type { SkillVisualManager } from './SkillTypes';
@@ -26,6 +27,7 @@ export class SkillRunner {
   private bindAllSkills(): void {
     for (const timing of Object.values(SkillTiming)) {
       if (timing === SkillTiming.PASSIVE_MODIFIER) continue;
+      if (timing === SkillTiming.HAND_VALIDATION) continue;
       this.eventBus.on(timing, async (context) => {
         await this.executeTiming(timing, context);
       });
@@ -36,7 +38,7 @@ export class SkillRunner {
     const skills = this.registry.getSkillsByTiming(timing);
     if (skills.length === 0) return;
 
-    const ordered = this.sortByCharacterOrder(skills);
+    const ordered = this.sortByPriorityThenCharacterOrder(skills);
 
     for (const skill of ordered) {
       if (!skill.filter(context)) continue;
@@ -44,8 +46,12 @@ export class SkillRunner {
     }
   }
 
-  private sortByCharacterOrder(skills: SkillDefinition[]): SkillDefinition[] {
+  private sortByPriorityThenCharacterOrder(skills: SkillDefinition[]): SkillDefinition[] {
     return [...skills].sort((a, b) => {
+      const priorityA = a.priority ?? 100;
+      const priorityB = b.priority ?? 100;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+
       const orderA = this.slotManager.getCharacterOrder(
         this.registry.getSkillOwner(a.id) ?? '',
       );
@@ -82,5 +88,32 @@ export class SkillRunner {
         await this.slotManager.restoreSlot(ownerId);
       }
     }
+  }
+
+  async modifyHandValidation(contextBase: SkillContext): Promise<HandPattern[]> {
+    const skills = this.registry.getSkillsByTiming(SkillTiming.HAND_VALIDATION);
+    if (skills.length === 0) return [];
+
+    const additionalPatterns: HandPattern[] = [];
+    const ctx: SkillContext = {
+      ...contextBase,
+      handValidation: {
+        hand: contextBase.handValidation?.hand ?? [],
+        candidateCards: contextBase.handValidation?.candidateCards ?? [],
+        basePattern: contextBase.handValidation?.basePattern ?? null,
+        additionalPatterns,
+      },
+    };
+
+    for (const skill of skills) {
+      if (!skill.filter(ctx)) continue;
+      try {
+        await skill.execute(ctx, this.visuals);
+      } catch (err) {
+        console.warn(`[SkillRunner] modifyHandValidation ${skill.id} error:`, err);
+      }
+    }
+
+    return additionalPatterns;
   }
 }

@@ -215,20 +215,18 @@ async function insertCardsWithAnimation(
   const startX = (width - totalW) / 2 + CARD_W / 2;
 
   // 构建旧容器查找表：card identity → container
-  const identityMap = new Map<string, Phaser.GameObjects.Container[]>();
-  for (const c of containers) {
-    const rank = c.getData('rank') as number;
-    const suit = c.getData('suit') as string;
-    const key = `${suit}|${rank}`;
-    if (!identityMap.has(key)) identityMap.set(key, []);
-    identityMap.get(key)!.push(c);
-  }
+    const identityMap = new Map<string, Phaser.GameObjects.Container[]>();
+    for (const c of containers) {
+      const uid = c.getData('uid') as string | undefined;
+      if (!uid) continue;
+      if (!identityMap.has(uid)) identityMap.set(uid, []);
+      identityMap.get(uid)!.push(c);
+    }
 
-  // 构建 newCards identity 集合
-  const newIdentitySet = new Set<string>();
-  for (const card of newCards) {
-    newIdentitySet.add(`${card.suit ?? ''}|${card.rank}`);
-  }
+    const newIdentitySet = new Set<string>();
+    for (const card of newCards) {
+      newIdentitySet.add(card.uid);
+    }
 
   const usedContainers = new Set<Phaser.GameObjects.Container>();
   const layout: Array<{
@@ -242,7 +240,7 @@ async function insertCardsWithAnimation(
 
   for (let i = 0; i < hand.length; i++) {
     const card = hand[i];
-    const key = `${card.suit ?? ''}|${card.rank}`;
+    const key = card.uid;
     const targetX = startX + i * OVERLAP_OFFSET;
     const isNew = newIdentitySet.has(key);
 
@@ -345,6 +343,7 @@ function createEnemyCardBackContainer(
   cardBack.setDisplaySize(CARD_W, CARD_H);
   container.add(cardBack);
 
+    container.setData('uid', _card.uid);
     container.setData('rank', _card.rank);
     container.setData('suit', _card.suit ?? '');
 
@@ -364,7 +363,8 @@ function createEnemyCardBackContainer(
     for (let i = 0; i < maxLen; i++) {
       const card = hand[i];
       const c = containers[i];
-      if (card && c && c.getData('rank') === undefined) {
+      if (card && c && c.getData('uid') === undefined) {
+        c.setData('uid', card.uid);
         c.setData('rank', card.rank);
         c.setData('suit', card.suit ?? '');
       }
@@ -398,6 +398,7 @@ function layoutExistingHand(
     const card = hand[i];
 
     if (card) {
+      container.setData('uid', card.uid);
       container.setData('rank', card.rank);
       container.setData('suit', card.suit ?? '');
     }

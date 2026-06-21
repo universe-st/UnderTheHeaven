@@ -7,6 +7,7 @@ export const NiuGaoMengGong: SkillDefinition = {
   description: '你造成伤害后，若对方手牌数不小于10，随机弃置其一张牌',
   timing: SkillTiming.AFTER_DAMAGE,
   priority: 100,
+  dialogLines: ['吃我一斧！', '猛将在此，谁敢来战！'],
 
   filter: (ctx: SkillContext): boolean => {
     if (ctx.target !== 'enemy') return false;

@@ -32,7 +32,10 @@ export function isSamePattern(a: HandPattern, b: HandPattern): boolean {
 }
 
 export function canBeatOrEqual(newPlay: HandPattern, lastPlay: HandPattern): boolean {
-  if (newPlay.type === HandType.Rocket) return true;
+  if (newPlay.type === HandType.Rocket) {
+    if (lastPlay.type === HandType.Rocket) return false;
+    return true;
+  }
 
   if (newPlay.type === HandType.Bomb) {
     if (lastPlay.type === HandType.Rocket) return false;
@@ -69,6 +72,9 @@ export function getCharacterPlayerName(playerId: PlayerCharacterId): string {
     case 'zhugeliang': return '诸葛亮';
     case 'wentianxiang': return '文天祥';
     case 'niugao': return '牛皋';
+    case 'luocheng': return '罗成';
+    case 'xuewanche': return '薛万彻';
+    case 'gaoshun': return '高顺';
     default: return '未知';
   }
 }

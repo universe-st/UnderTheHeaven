@@ -18,6 +18,9 @@ export class TestSelectScene extends Phaser.Scene {
   private enemyVitality: number = 500;
   private playerVitText!: Phaser.GameObjects.Text;
   private enemyVitText!: Phaser.GameObjects.Text;
+  private maxPlayerCharacterCount: number = 5;
+  private maxCountValueText!: Phaser.GameObjects.Text;
+  private playerCountText!: Phaser.GameObjects.Text;
   private playerCardScrollOffset: number = 0;
   private playerCardContainer: Phaser.GameObjects.Container | null = null;
   private playerCardMaskShape: Phaser.GameObjects.Graphics | null = null;
@@ -34,6 +37,7 @@ export class TestSelectScene extends Phaser.Scene {
     this.selectedEnemyId = ENEMY_CHARACTER_LIST[0].id;
     this.playerVitality = 500;
     this.enemyVitality = 500;
+    this.maxPlayerCharacterCount = 5;
     this.playerCardScrollOffset = 0;
     this.playerCardContainer?.destroy();
     this.playerCardContainer = null;
@@ -133,7 +137,16 @@ export class TestSelectScene extends Phaser.Scene {
 
     this.drawPanelBg(px, py, pw, ph, '己方角色');
 
-    const playerIds: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao'];
+    this.createMaxCharacterCountControl(px, py, pw);
+
+    this.playerCountText = this.add.text(w / 2, py + 24, '', {
+      fontSize: '20px',
+      fontFamily: FONT_FAMILY,
+      color: '#c8a050',
+    }).setOrigin(0.5);
+    this.updatePlayerCountText();
+
+    const playerIds: PlayerCharacterId[] = PLAYER_CHARACTER_LIST.map(c => c.id);
     const cardW = 280;
     const cardH = 110;
     const gapX = 30;
@@ -177,6 +190,88 @@ export class TestSelectScene extends Phaser.Scene {
     if (canScroll) {
       this.createPlayerScrollButtons(px + pw + 6, py + ph / 2, totalRows, visibleRows, rowHeight, container);
     }
+  }
+
+  private createMaxCharacterCountControl(px: number, py: number, pw: number): void {
+    const lineY = py - 10;
+    const btnSize = 32;
+    const gap = 12;
+    const rightEdge = px + pw - 16;
+
+    const plusX = rightEdge - btnSize / 2;
+    const valueX = plusX - btnSize / 2 - gap - 16;
+    const minusX = valueX - 16 - gap - btnSize / 2;
+    const labelRightX = minusX - btnSize / 2 - gap;
+
+    this.add.text(labelRightX, lineY + 4, '最大角色数', {
+      fontSize: '20px',
+      fontFamily: FONT_FAMILY,
+      color: '#c8a050',
+    }).setOrigin(1, 0.5);
+
+    const createStepBtn = (x: number, label: string, delta: number): void => {
+      const gfx = this.add.graphics();
+      const draw = (hover: boolean) => {
+        gfx.clear();
+        gfx.fillStyle(hover ? 0x6b3820 : 0x5a3018, 1);
+        gfx.fillRoundedRect(x - btnSize / 2, lineY - btnSize / 2, btnSize, btnSize, 6);
+        gfx.lineStyle(1.5, hover ? 0xe8d5a3 : 0xc8a050, 0.85);
+        gfx.strokeRoundedRect(x - btnSize / 2, lineY - btnSize / 2, btnSize, btnSize, 6);
+      };
+      draw(false);
+      this.add.text(x, lineY, label, {
+        fontSize: '24px',
+        fontFamily: FONT_FAMILY,
+        color: '#e8d5a3',
+      }).setOrigin(0.5);
+      const zone = this.add.zone(x, lineY, btnSize + 8, btnSize + 8).setInteractive({ cursor: 'pointer' });
+      zone.on('pointerover', () => draw(true));
+      zone.on('pointerout', () => draw(false));
+      zone.on('pointerdown', () => {
+        AudioManager.playSfx(this, 'sfx_button');
+        this.maxPlayerCharacterCount = Phaser.Math.Clamp(this.maxPlayerCharacterCount + delta, 1, 10);
+        while (this.selectedPlayerIds.size > this.maxPlayerCharacterCount) {
+          const arr = [...this.selectedPlayerIds];
+          this.selectedPlayerIds.delete(arr[arr.length - 1]);
+        }
+        this.maxCountValueText.setText(`${this.maxPlayerCharacterCount}`);
+        this.updatePlayerCountText();
+        if (this.playerCardContainer) this.applyPlayerCardScroll(this.playerCardContainer);
+      });
+    };
+
+    createStepBtn(minusX, '−', -1);
+    createStepBtn(plusX, '+', 1);
+
+    this.maxCountValueText = this.add.text(valueX, lineY, `${this.maxPlayerCharacterCount}`, {
+      fontSize: '24px',
+      fontFamily: FONT_FAMILY,
+      color: '#e8d5a3',
+      stroke: '#2a1008',
+      strokeThickness: 2,
+    }).setOrigin(0.5);
+  }
+
+  private updatePlayerCountText(): void {
+    const count = this.selectedPlayerIds.size;
+    const max = this.maxPlayerCharacterCount;
+    const reached = count >= max;
+    this.playerCountText.setText(`已选 ${count} / 最大 ${max}`);
+    this.playerCountText.setColor(reached ? '#c84030' : '#c8a050');
+  }
+
+  private flashMaxCountReached(): void {
+    const origX = this.playerCountText.x;
+    this.tweens.killTweensOf(this.playerCountText);
+    this.playerCountText.setX(origX);
+    this.tweens.add({
+      targets: this.playerCountText,
+      x: origX + 6,
+      duration: 45,
+      yoyo: true,
+      repeat: 3,
+      onComplete: () => this.playerCountText.setX(origX),
+    });
   }
 
   private createPlayerCard(cx: number, cy: number, cardW: number, cardH: number, id: PlayerCharacterId, parent?: Phaser.GameObjects.Container): void {
@@ -242,12 +337,18 @@ export class TestSelectScene extends Phaser.Scene {
     zone.on('pointerover', () => draw(isSelected, true));
     zone.on('pointerout', () => draw(isSelected, false));
     zone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
       if (this.selectedPlayerIds.has(id)) {
+        AudioManager.playSfx(this, 'sfx_button');
         this.selectedPlayerIds.delete(id);
       } else {
+        if (this.selectedPlayerIds.size >= this.maxPlayerCharacterCount) {
+          this.flashMaxCountReached();
+          return;
+        }
+        AudioManager.playSfx(this, 'sfx_button');
         this.selectedPlayerIds.add(id);
       }
+      this.updatePlayerCountText();
       if (this.playerCardContainer) {
         this.applyPlayerCardScroll(this.playerCardContainer);
       }
@@ -318,7 +419,7 @@ export class TestSelectScene extends Phaser.Scene {
     const rowHeight = cardH + rowGap;
     const startX = px + (pw - cols * cardW - (cols - 1) * gapX) / 2 + cardW / 2;
     const clipY = py + 42;
-    const playerIds: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao'];
+    const playerIds: PlayerCharacterId[] = PLAYER_CHARACTER_LIST.map(c => c.id);
 
     const children = cardContainer.list;
     for (let i = children.length - 1; i >= 0; i--) {

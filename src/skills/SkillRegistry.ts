@@ -40,9 +40,7 @@ export class SkillRegistry {
   }
 
   getSkillsByTiming(timing: SkillTiming): SkillDefinition[] {
-    return this.skills
-      .filter(s => s.timing === timing)
-      .sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100));
+    return this.skills.filter(s => s.timing === timing);
   }
 
   clear(): void {

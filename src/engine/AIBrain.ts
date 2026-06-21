@@ -1,6 +1,6 @@
 import { Card } from '../models/Card';
 import { BattleState, HandPattern, HandType } from '../models/BattleTypes';
-import { findAllPlays, findBeatingPlays } from './HandRecognizer';
+import { findAllPlays, findBeatingPlays, canBeat } from './HandRecognizer';
 import { calculateDamage } from './DamageCalculator';
 import { EnemyCharacterId } from '../models/Character';
 
@@ -191,9 +191,17 @@ export function decidePlay(battleState: BattleState): Card[] | null {
   const aiHand = battleState.enemy.hand;
   const enemyCharId = battleState.enemyCharacterId;
 
+  const generateAllPlays = (hand: Card[]): HandPattern[] => {
+    return findAllPlays(hand);
+  };
+
+  const generateBeatingPlays = (hand: Card[], lastPlay: HandPattern): HandPattern[] => {
+    return findBeatingPlays(hand, lastPlay);
+  };
+
   // ---- 主动出牌模式 ----
   if (battleState.phase === 'play') {
-    const allPlays = findAllPlays(aiHand);
+    const allPlays = generateAllPlays(aiHand);
     if (allPlays.length === 0) return null;
 
     const bombs = allPlays.filter(
@@ -219,7 +227,7 @@ export function decidePlay(battleState: BattleState): Card[] | null {
   // ---- 接牌模式 ----
   if (!battleState.lastPlay) return null;
 
-  const beating = findBeatingPlays(aiHand, battleState.lastPlay);
+  const beating = generateBeatingPlays(aiHand, battleState.lastPlay);
   if (beating.length > 0) {
     // 优先使用同牌型的合法出牌（带节省性评分）
     const sameTypeBeating = beating.filter(
@@ -243,7 +251,7 @@ export function decidePlay(battleState: BattleState): Card[] | null {
   // ---- 无合法接牌，考虑用炸弹强行接管 ----
   const lastType = battleState.lastPlay.type;
   if (lastType !== HandType.Bomb && lastType !== HandType.Rocket) {
-    const allPlays = findAllPlays(aiHand);
+    const allPlays = generateAllPlays(aiHand);
     const bombPlays = allPlays.filter(
       p => p.type === HandType.Bomb || p.type === HandType.Rocket,
     );

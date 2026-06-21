@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { Card, createDeck, shuffleDeck, cardDisplayName, sortHand } from '../models/Card';
+import { Card, createDeck, shuffleDeck, cardDisplayName, sortHand, resetCardIdCounter } from '../models/Card';
 import { BattleState, HandPattern, HandType, HAND_TYPE_LABELS } from '../models/BattleTypes';
 import { identifyHand, canBeat, findAllPlays, findBeatingPlays } from '../engine/HandRecognizer';
 import { calculateDamage, calculateDamageWithEmptyHand, getCoefficient } from '../engine/DamageCalculator';
@@ -9,13 +9,19 @@ import { AudioManager } from '../utils/AudioManager';
 import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../utils/VoiceManager';
 import { PlayerCharacterId, EnemyCharacterId, PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST } from '../models/Character';
 import { canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
-import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, type SkillContext, type CharacterSlotManager } from '../skills';
+import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, LiuBoWenChouCe, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
 import { waitForDelay, waitForTween, waitForCounterTween, fadeOutAndDestroy } from '../utils/AnimationUtils';
 
 const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
 const CARD_W = 180;
 const CARD_H = 252;
 const SELECTED_OFFSET = -40;
+
+const SLOT_SIZE = 120;
+const SLOT_GAP = 10;
+const SLOT_STRIDE = SLOT_SIZE + SLOT_GAP;
+const VISIBLE_BAR_WIDTH = 5 * SLOT_STRIDE + SLOT_SIZE / 2;
+const FADE_WIDTH = SLOT_SIZE / 2 + 20;
 
 const DEPTH_BG = -10;
 const DEPTH_BG_BORDER = -5;
@@ -39,17 +45,23 @@ type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | '
 function sortPlayedCards(cards: Card[]): Card[] {
   const rankCounts = new Map<number, number>();
   for (const c of cards) {
-    rankCounts.set(c.rank, (rankCounts.get(c.rank) || 0) + 1);
+    const effectiveRank = c.consideredAs?.rank ?? c.rank;
+    rankCounts.set(effectiveRank, (rankCounts.get(effectiveRank) || 0) + 1);
   }
 
   const suitOrder: Record<string, number> = { spade: 0, club: 1, heart: 2, diamond: 3 };
 
   return [...cards].sort((a, b) => {
-    const countA = rankCounts.get(a.rank)!;
-    const countB = rankCounts.get(b.rank)!;
+    const rankA = a.consideredAs?.rank ?? a.rank;
+    const rankB = b.consideredAs?.rank ?? b.rank;
+    const countA = rankCounts.get(rankA)!;
+    const countB = rankCounts.get(rankB)!;
 
     if (countA !== countB) return countB - countA;
-    if (a.rank !== b.rank) return a.rank - b.rank;
+    if (rankA !== rankB) return rankA - rankB;
+
+    if (a.consideredAs && !b.consideredAs) return 1;
+    if (!a.consideredAs && b.consideredAs) return -1;
 
     const suitA = a.suit ? (suitOrder[a.suit] ?? 4) : 4;
     const suitB = b.suit ? (suitOrder[b.suit] ?? 4) : 4;
@@ -79,6 +91,14 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private btnPlayText!: Phaser.GameObjects.Text;
   private btnPassText!: Phaser.GameObjects.Text;
 
+  private btnSkill: Phaser.GameObjects.Container | null = null;
+  private btnSkillText: Phaser.GameObjects.Text | null = null;
+  private skillDropdown: Phaser.GameObjects.Container | null = null;
+  private activeSkills: ActiveSkillDefinition[] = [];
+  private activeSkillUseCounts: Map<string, number> = new Map();
+  private activeSkillEligibleIds: string[] = [];
+  private currentActiveSkillId: string | null = null;
+
   private enemyNameText!: Phaser.GameObjects.Text;
   private enemyNameFrame!: Phaser.GameObjects.Graphics;
   private playerNameText!: Phaser.GameObjects.Text;
@@ -92,7 +112,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private centerCardsOwner: 'player' | 'enemy' | null = null;
   private centerDepthCounter = DEPTH_CENTER_BASE;
 
-
+  private revealedEnemyCards: Set<Card> = new Set();
 
   private battleBgm: Phaser.Sound.BaseSound | null = null;
   private battleBgmKeys = ['bgm_battle_1', 'bgm_battle_2', 'bgm_battle_3', 'bgm_battle_4'];
@@ -122,6 +142,17 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private characterSlotContainers: Phaser.GameObjects.Container[] = [];
   private characterSlotTexts: Phaser.GameObjects.Text[] = [];
   private characterTooltip: Phaser.GameObjects.Container | null = null;
+  private enemyInfoWindow: Phaser.GameObjects.Container | null = null;
+
+  private characterBarContainer: Phaser.GameObjects.Container | null = null;
+  private characterBarMaskShape: Phaser.GameObjects.Graphics | null = null;
+  private characterBarScrollX: number = 0;
+  private characterBarMaxScroll: number = 0;
+  private characterBarDragging: boolean = false;
+  private barDragStartPointerX: number = 0;
+  private barDragStartScrollX: number = 0;
+  private barDragPending: boolean = false;
+  private barDragMoved: boolean = false;
 
   private skillTriggeredCharacters: Set<PlayerCharacterId> = new Set();
   private characterSlotGlows: { innerGlow: Phaser.GameObjects.Graphics; midGlow: Phaser.GameObjects.Graphics; outerGlow: Phaser.GameObjects.Graphics; sweepGfx: Phaser.GameObjects.Graphics }[] = [];
@@ -135,13 +166,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private cachedHeight = 1080;
 
   private getSlotPosition(index: number): { x: number; y: number } {
-    const slotSize = 120;
-    const slotGap = 10;
-    const slotCount = 5;
-    const totalW = slotCount * slotSize + (slotCount - 1) * slotGap;
-    const startX = this.cachedWidth - 180 - totalW + slotSize / 2;
-    const slotY = this.cachedHeight - 420;
-    return { x: startX + index * (slotSize + slotGap), y: slotY };
+    return { x: SLOT_SIZE / 2 + FADE_WIDTH + index * SLOT_STRIDE, y: 0 };
+  }
+
+  private getCharacterBarOrigin(): { x: number; y: number } {
+    return { x: this.cachedWidth - 180 - VISIBLE_BAR_WIDTH, y: this.cachedHeight - 420 };
   }
 
   constructor() {
@@ -162,6 +191,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
    * 确保每次进入场景时状态完全重建，消除场景重启时的残留状态。
    */
   private resetSceneState(): void {
+    resetCardIdCounter();
+
     this.phase = 'player_init';
     this.selectedIndices = new Set();
     this.cardObjects = [];
@@ -198,6 +229,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.characterSlotTexts = [];
     this.characterTooltip?.destroy();
     this.characterTooltip = null;
+    this.enemyInfoWindow?.destroy();
+    this.enemyInfoWindow = null;
     this.skillTriggeredCharacters = new Set();
     this.characterSlotGlows = [];
     for (const [, tweens] of this.characterSlotGlowTweens) {
@@ -205,8 +238,30 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     }
     this.characterSlotGlowTweens = new Map();
 
+    this.characterBarContainer = null;
+    this.characterBarMaskShape = null;
+    this.characterBarScrollX = 0;
+    this.characterBarMaxScroll = 0;
+    this.characterBarDragging = false;
+    this.barDragStartPointerX = 0;
+    this.barDragStartScrollX = 0;
+    this.barDragPending = false;
+    this.barDragMoved = false;
+
     this.skillEventBus?.clear();
     this.skillRegistry?.clear();
+
+    this.revealedEnemyCards = new Set();
+
+    this.btnSkill?.destroy();
+    this.btnSkill = null;
+    this.btnSkillText = null;
+    this.skillDropdown?.destroy();
+    this.skillDropdown = null;
+    this.activeSkills = [];
+    this.activeSkillUseCounts = new Map();
+    this.activeSkillEligibleIds = [];
+    this.currentActiveSkillId = null;
 
     this.tweens.killAll();
   }
@@ -270,6 +325,21 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const visualManager = new SkillVisualManagerImpl(this);
 
     this.skillRunner = new SkillRunner(this.skillRegistry, this.skillEventBus, visualManager, this);
+
+    this.initActiveSkills();
+
+    if (this.playerCharacterIds.includes('zhugeliang')) {
+      const initCtx: SkillContext = {
+        gameScene: this,
+        battle: this.battle,
+        sourceCharacterId: 'zhugeliang',
+        playerCharacterIds: this.playerCharacterIds,
+        enemyCharacterId: this.battle.enemyCharacterId,
+      };
+      this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, initCtx).then(() => {
+        this.renderEnemyHand();
+      });
+    }
   }
 
   private initBattle(): BattleState {
@@ -397,6 +467,12 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       .setDisplaySize(68, 68)
       .setDepth(DEPTH_UI)
       .setVisible(false);
+
+    this.enemyAvatarImage.setInteractive({ cursor: 'pointer' });
+    this.enemyAvatarImage.on('pointerdown', () => {
+      AudioManager.playSfx(this, 'sfx_button');
+      this.showEnemyInfoWindow();
+    });
 
     const enemyBg = this.add.graphics();
     enemyBg.setDepth(DEPTH_UI);
@@ -535,13 +611,31 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   private createCharacterSlots(w: number, h: number): void {
-    const slotSize = 120;
-    const slotGap = 10;
-    const slotCount = 5;
+    const slotCount = Math.max(1, this.playerCharacterIds.length);
+    const origin = this.getCharacterBarOrigin();
+
+    const maskShape = this.add.graphics();
+    // 左侧渐隐带：alpha 0 → 1
+    maskShape.fillGradientStyle(0xffffff, 0xffffff, 0xffffff, 0xffffff, 0, 1, 0, 1);
+    maskShape.fillRect(origin.x, origin.y - SLOT_SIZE, FADE_WIDTH, SLOT_SIZE * 3);
+    // 中间实体遮罩：alpha 1
+    maskShape.fillStyle(0xffffff, 1);
+    maskShape.fillRect(origin.x + FADE_WIDTH, origin.y - SLOT_SIZE, VISIBLE_BAR_WIDTH - 2 * FADE_WIDTH, SLOT_SIZE * 3);
+    // 右侧渐隐带：alpha 1 → 0
+    maskShape.fillGradientStyle(0xffffff, 0xffffff, 0xffffff, 0xffffff, 1, 0, 1, 0);
+    maskShape.fillRect(origin.x + VISIBLE_BAR_WIDTH - FADE_WIDTH, origin.y - SLOT_SIZE, FADE_WIDTH, SLOT_SIZE * 3);
+    maskShape.setDepth(-10000);
+    this.characterBarMaskShape = maskShape;
+
+    const barContainer = this.add.container(origin.x, origin.y).setDepth(DEPTH_UI);
+    barContainer.enableFilters();
+    const maskFilter = barContainer.filters!.internal.addMask(maskShape);
+    maskFilter.autoUpdate = false;
+    this.characterBarContainer = barContainer;
 
     for (let i = 0; i < slotCount; i++) {
       const pos = this.getSlotPosition(i);
-      const container = this.add.container(pos.x, pos.y).setDepth(DEPTH_UI);
+      const container = this.add.container(pos.x, pos.y);
       this.characterSlotContainers.push(container);
 
       const glowContainer = this.add.container(0, 0).setAlpha(0);
@@ -549,33 +643,33 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
       const innerGlow = this.add.graphics();
       innerGlow.fillStyle(0xffd700, 0.5);
-      innerGlow.fillRoundedRect(-slotSize / 2 + 2, -slotSize / 2 + 2, slotSize - 4, slotSize - 4, 7);
+      innerGlow.fillRoundedRect(-SLOT_SIZE / 2 + 2, -SLOT_SIZE / 2 + 2, SLOT_SIZE - 4, SLOT_SIZE - 4, 7);
       glowContainer.add(innerGlow);
 
       const midGlow = this.add.graphics();
       midGlow.fillStyle(0xffaa00, 0.3);
-      midGlow.fillRoundedRect(-slotSize / 2 - 4, -slotSize / 2 - 4, slotSize + 8, slotSize + 8, 9);
+      midGlow.fillRoundedRect(-SLOT_SIZE / 2 - 4, -SLOT_SIZE / 2 - 4, SLOT_SIZE + 8, SLOT_SIZE + 8, 9);
       glowContainer.add(midGlow);
 
       const outerGlow = this.add.graphics();
       outerGlow.fillStyle(0xffd700, 0.12);
-      outerGlow.fillRoundedRect(-slotSize / 2 - 10, -slotSize / 2 - 10, slotSize + 20, slotSize + 20, 11);
+      outerGlow.fillRoundedRect(-SLOT_SIZE / 2 - 10, -SLOT_SIZE / 2 - 10, SLOT_SIZE + 20, SLOT_SIZE + 20, 11);
       glowContainer.add(outerGlow);
 
       const sweepGfx = this.add.graphics();
       sweepGfx.fillGradientStyle(0xffd700, 0xffd700, 0xffd700, 0xffd700, 0.35, 0.35, 0, 0);
-      sweepGfx.fillRoundedRect(-slotSize / 2 - 6, -slotSize / 2 - 6, slotSize + 12, 8, 4);
+      sweepGfx.fillRoundedRect(-SLOT_SIZE / 2 - 6, -SLOT_SIZE / 2 - 6, SLOT_SIZE + 12, 8, 4);
       glowContainer.add(sweepGfx);
 
       this.characterSlotGlows.push({ innerGlow, midGlow, outerGlow, sweepGfx });
 
       const gfx = this.add.graphics();
       gfx.fillStyle(0x2a1a0f, 0.7);
-      gfx.fillRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+      gfx.fillRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
       gfx.lineStyle(2, 0xb89040, 0.6);
-      gfx.strokeRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+      gfx.strokeRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
       gfx.lineStyle(1, 0x5a4030, 0.3);
-      gfx.strokeRoundedRect(-slotSize / 2 + 4, -slotSize / 2 + 4, slotSize - 8, slotSize - 8, 6);
+      gfx.strokeRoundedRect(-SLOT_SIZE / 2 + 4, -SLOT_SIZE / 2 + 4, SLOT_SIZE - 8, SLOT_SIZE - 8, 6);
       container.add(gfx);
 
       const charId = this.playerCharacterIds[i] ?? null;
@@ -587,7 +681,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         container.add(avatar);
       }
 
-      const slotText = this.add.text(0, slotSize / 2 + 18, char ? char.name : '?', {
+      const slotText = this.add.text(0, SLOT_SIZE / 2 + 18, char ? char.name : '?', {
         fontSize: char ? '28px' : '42px',
         fontFamily: FONT_FAMILY,
         color: char ? '#c8a050' : '#5a4030',
@@ -597,50 +691,117 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       container.add(slotText);
       this.characterSlotTexts.push(slotText);
 
-      const zoneCharId = charId;
-      const zone = this.add.zone(0, 0, slotSize + 8, slotSize + 8)
-        .setInteractive({ cursor: 'pointer' }).setDepth(1);
+      const zone = this.add.zone(0, 0, SLOT_SIZE + 8, SLOT_SIZE + 8)
+        .setInteractive({ cursor: 'pointer' });
       zone.on('pointerover', () => {
         gfx.clear();
         gfx.fillStyle(0x3a2510, 0.8);
-        gfx.fillRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+        gfx.fillRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
         gfx.lineStyle(2, 0xe8d5a3, 0.8);
-        gfx.strokeRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+        gfx.strokeRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
         gfx.lineStyle(1, 0x5a4030, 0.3);
-        gfx.strokeRoundedRect(-slotSize / 2 + 4, -slotSize / 2 + 4, slotSize - 8, slotSize - 8, 6);
+        gfx.strokeRoundedRect(-SLOT_SIZE / 2 + 4, -SLOT_SIZE / 2 + 4, SLOT_SIZE - 8, SLOT_SIZE - 8, 6);
       });
       zone.on('pointerout', () => {
         gfx.clear();
         gfx.fillStyle(0x2a1a0f, 0.7);
-        gfx.fillRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+        gfx.fillRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
         gfx.lineStyle(2, 0xb89040, 0.6);
-        gfx.strokeRoundedRect(-slotSize / 2, -slotSize / 2, slotSize, slotSize, 8);
+        gfx.strokeRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
         gfx.lineStyle(1, 0x5a4030, 0.3);
-        gfx.strokeRoundedRect(-slotSize / 2 + 4, -slotSize / 2 + 4, slotSize - 8, slotSize - 8, 6);
+        gfx.strokeRoundedRect(-SLOT_SIZE / 2 + 4, -SLOT_SIZE / 2 + 4, SLOT_SIZE - 8, SLOT_SIZE - 8, 6);
       });
-      zone.on('pointerdown', () => {
-        AudioManager.playSfx(this, 'sfx_button');
-        if (zoneCharId) {
-          const idx = this.playerCharacterIds.indexOf(zoneCharId);
-          if (idx >= 0) this.showCharacterTooltip(idx);
-        }
-      });
+      this.attachSlotDragAndClick(zone, charId as PlayerCharacterId | null);
       container.add(zone);
 
       const cornerGfx = this.add.graphics();
       const cornerLen = 12;
       const cornerGap = 6;
       cornerGfx.lineStyle(1.5, 0xb89040, 0.4);
-      cornerGfx.lineBetween(-slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap + cornerLen);
-      cornerGfx.lineBetween(-slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap, -slotSize / 2 + cornerGap + cornerLen, -slotSize / 2 + cornerGap);
-      cornerGfx.lineBetween(slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap, slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap + cornerLen);
-      cornerGfx.lineBetween(slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap, slotSize / 2 - cornerGap - cornerLen, -slotSize / 2 + cornerGap);
-      cornerGfx.lineBetween(-slotSize / 2 + cornerGap, slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap, slotSize / 2 - cornerGap - cornerLen);
-      cornerGfx.lineBetween(-slotSize / 2 + cornerGap, slotSize / 2 - cornerGap, -slotSize / 2 + cornerGap + cornerLen, slotSize / 2 - cornerGap);
-      cornerGfx.lineBetween(slotSize / 2 - cornerGap, slotSize / 2 - cornerGap, slotSize / 2 - cornerGap, slotSize / 2 - cornerGap - cornerLen);
-      cornerGfx.lineBetween(slotSize / 2 - cornerGap, slotSize / 2 - cornerGap, slotSize / 2 - cornerGap - cornerLen, slotSize / 2 - cornerGap);
+      cornerGfx.lineBetween(-SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap + cornerLen);
+      cornerGfx.lineBetween(-SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap + cornerLen, -SLOT_SIZE / 2 + cornerGap);
+      cornerGfx.lineBetween(SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap + cornerLen);
+      cornerGfx.lineBetween(SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap - cornerLen, -SLOT_SIZE / 2 + cornerGap);
+      cornerGfx.lineBetween(-SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap - cornerLen);
+      cornerGfx.lineBetween(-SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap + cornerLen, SLOT_SIZE / 2 - cornerGap);
+      cornerGfx.lineBetween(SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap - cornerLen);
+      cornerGfx.lineBetween(SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap - cornerLen, SLOT_SIZE / 2 - cornerGap);
       container.add(cornerGfx);
+
+      barContainer.add(container);
     }
+
+    const totalSlotsWidth = slotCount * SLOT_STRIDE - SLOT_GAP;
+    this.characterBarMaxScroll = Math.min(0, VISIBLE_BAR_WIDTH - 2 * FADE_WIDTH - totalSlotsWidth);
+
+    this.setCharacterBarScroll(0);
+  }
+
+  private attachSlotDragAndClick(zone: Phaser.GameObjects.Zone, zoneCharId: PlayerCharacterId | null): void {
+    this.input.setDraggable(zone);
+    zone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.characterBarDragging) return;
+      this.barDragPending = true;
+      this.barDragMoved = false;
+      this.barDragStartPointerX = pointer.x;
+      this.barDragStartScrollX = this.characterBarScrollX;
+    });
+    zone.on('drag', (pointer: Phaser.Input.Pointer) => {
+      if (!this.barDragPending || this.characterBarDragging) return;
+      const dx = pointer.x - this.barDragStartPointerX;
+      if (!this.barDragMoved && Math.abs(dx) > 5) this.barDragMoved = true;
+      if (this.barDragMoved) {
+        this.setCharacterBarScroll(this.barDragStartScrollX + dx);
+      }
+    });
+    zone.on('pointerup', () => {
+      const wasMoved = this.barDragMoved;
+      this.barDragPending = false;
+      this.barDragMoved = false;
+      if (wasMoved) return;
+      if (!zoneCharId) return;
+      const idx = this.playerCharacterIds.indexOf(zoneCharId);
+      if (idx < 0 || !this.isSlotVisible(idx)) return;
+      AudioManager.playSfx(this, 'sfx_button');
+      this.showCharacterTooltip(idx);
+    });
+  }
+
+  private setCharacterBarScroll(x: number): void {
+    if (!this.characterBarContainer) return;
+    if (this.characterBarMaxScroll >= 0) {
+      this.characterBarScrollX = 0;
+    } else {
+      this.characterBarScrollX = Phaser.Math.Clamp(x, this.characterBarMaxScroll, 0);
+    }
+    const origin = this.getCharacterBarOrigin();
+    this.characterBarContainer.x = origin.x + this.characterBarScrollX;
+  }
+
+  private isSlotVisible(slotIndex: number): boolean {
+    if (!this.characterBarContainer) return false;
+    const origin = this.getCharacterBarOrigin();
+    const container = this.characterSlotContainers[slotIndex];
+    if (!container) return false;
+    const worldCenterX = this.characterBarContainer.x + container.x;
+    const slotHalf = SLOT_SIZE / 2;
+    return worldCenterX + slotHalf > origin.x && worldCenterX - slotHalf < origin.x + VISIBLE_BAR_WIDTH;
+  }
+
+  private async resetCharacterBarScroll(): Promise<void> {
+    if (this.characterBarScrollX === 0 || !this.characterBarContainer) {
+      this.setCharacterBarScroll(0);
+      return;
+    }
+    this.characterBarDragging = true;
+    await waitForTween(this, {
+      targets: this,
+      characterBarScrollX: 0,
+      duration: 200,
+      ease: 'Sine.easeOut',
+      onUpdate: () => this.setCharacterBarScroll(this.characterBarScrollX),
+    });
+    this.characterBarDragging = false;
   }
 
   // ═══════════════════════════════════════════════
@@ -674,8 +835,10 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
       if (idx < 0 || idx >= this.characterSlotContainers.length) return;
       const slot = this.characterSlotContainers[idx];
-      anchorX = slot.x;
-      anchorY = slot.y - 140;
+      const barX = this.characterBarContainer ? this.characterBarContainer.x : 0;
+      const barY = this.characterBarContainer ? this.characterBarContainer.y : 0;
+      anchorX = slot.x + barX;
+      anchorY = slot.y + barY - 140;
     } else {
       anchorX = 54;
       anchorY = 160;
@@ -759,6 +922,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   async glowOn(characterId: string): Promise<void> {
     const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
     if (idx === -1) return;
+    await this.resetCharacterBarScroll();
     this.skillTriggeredCharacters.add(characterId as PlayerCharacterId);
 
     const container = this.characterSlotContainers[idx];
@@ -945,8 +1109,10 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const char = PLAYER_CHARACTERS[charId];
     const slotContainer = this.characterSlotContainers[index];
-    const sx = slotContainer.x;
-    const slotY = slotContainer.y;
+    const barX = this.characterBarContainer ? this.characterBarContainer.x : 0;
+    const barY = this.characterBarContainer ? this.characterBarContainer.y : 0;
+    const sx = slotContainer.x + barX;
+    const slotY = slotContainer.y + barY;
     const slotSize = 120;
 
     const tooltipW = 320;
@@ -1076,6 +1242,132 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       onComplete: () => {
         this.characterTooltip?.destroy();
         this.characterTooltip = null;
+      },
+    });
+  }
+
+  private showEnemyInfoWindow(): void {
+    this.closeEnemyInfoWindow();
+
+    const enemyCharId = this.battle.enemyCharacterId;
+    if (!enemyCharId) return;
+
+    const enemy = ENEMY_CHARACTERS[enemyCharId];
+    if (!enemy) return;
+
+    const tooltipW = 320;
+    const tooltipRadius = 8;
+    const { width: sw, height: sh } = this.scale;
+
+    const descLinesList: string[][] = [];
+    let tooltipH = 50;
+    for (const ability of enemy.abilities) {
+      tooltipH += 28;
+      const lines = this.wrapText(ability.description, tooltipW - 48, '18px');
+      descLinesList.push(lines);
+      tooltipH += lines.length * 24;
+      tooltipH += 32;
+    }
+    tooltipH += 12;
+
+    const avatarY = this.enemyAvatarImage.y;
+    const avatarX = this.enemyAvatarImage.x;
+    const avatarSize = 80;
+    let tooltipX = avatarX;
+    let tooltipY = avatarY + avatarSize / 2 + 12;
+
+    if (tooltipY + tooltipH > sh - 20) tooltipY = avatarY - avatarSize / 2 - tooltipH - 12;
+    if (tooltipX - tooltipW / 2 < 10) tooltipX = tooltipW / 2 + 10;
+    if (tooltipX + tooltipW / 2 > sw - 10) tooltipX = sw - tooltipW / 2 - 10;
+
+    const container = this.add.container(0, 0).setDepth(DEPTH_OVERLAY);
+    this.enemyInfoWindow = container;
+
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.3);
+    overlay.fillRect(0, 0, sw, sh);
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, sw, sh), Phaser.Geom.Rectangle.Contains);
+    overlay.on('pointerdown', () => this.closeEnemyInfoWindow());
+    container.add(overlay);
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0xf5f0e5, 0.97);
+    panel.fillRoundedRect(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH, tooltipRadius);
+    panel.lineStyle(2, 0x8a6830, 0.8);
+    panel.strokeRoundedRect(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH, tooltipRadius);
+    panel.setInteractive(new Phaser.Geom.Rectangle(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH), Phaser.Geom.Rectangle.Contains);
+    container.add(panel);
+
+    const nameText = this.add.text(tooltipX, tooltipY + 28, enemy.name, {
+      fontSize: '30px',
+      fontFamily: FONT_FAMILY,
+      color: '#2a1008',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+    container.add(nameText);
+
+    const divider = this.add.graphics();
+    divider.lineStyle(1, 0xd0c4a8, 0.5);
+    divider.lineBetween(tooltipX - tooltipW / 2 + 20, tooltipY + 50, tooltipX + tooltipW / 2 - 20, tooltipY + 50);
+    container.add(divider);
+
+    let abilityY = tooltipY + 72;
+    let lineIdx = 0;
+    for (const ability of enemy.abilities) {
+      const skillName = this.add.text(tooltipX - tooltipW / 2 + 22, abilityY, `【${ability.name}】`, {
+        fontSize: '20px',
+        fontFamily: FONT_FAMILY,
+        color: '#8a6030',
+      }).setDepth(DEPTH_OVERLAY_TEXT);
+      container.add(skillName);
+
+      const descLines = descLinesList[lineIdx];
+      for (const line of descLines) {
+        abilityY += 24;
+        const descText = this.add.text(tooltipX - tooltipW / 2 + 28, abilityY, line, {
+          fontSize: '18px',
+          fontFamily: FONT_FAMILY,
+          color: '#5a4a30',
+        }).setDepth(DEPTH_OVERLAY_TEXT);
+        container.add(descText);
+      }
+      abilityY += 32;
+      lineIdx++;
+    }
+
+    const closeText = this.add.text(tooltipX + tooltipW / 2 - 28, tooltipY + 14, '✕', {
+      fontSize: '22px',
+      fontFamily: FONT_FAMILY,
+      color: '#7a5a3a',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+    const closeZone = this.add.zone(tooltipX + tooltipW / 2 - 28, tooltipY + 14, 36, 36)
+      .setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
+    closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
+    closeZone.on('pointerout', () => closeText.setColor('#7a5a3a'));
+    closeZone.on('pointerdown', () => {
+      AudioManager.playSfx(this, 'sfx_button');
+      this.closeEnemyInfoWindow();
+    });
+    container.add([closeText, closeZone]);
+
+    container.setAlpha(0);
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      duration: 150,
+      ease: 'Sine.easeOut',
+    });
+  }
+
+  private closeEnemyInfoWindow(): void {
+    if (!this.enemyInfoWindow) return;
+    this.tweens.add({
+      targets: this.enemyInfoWindow,
+      alpha: 0,
+      duration: 100,
+      ease: 'Sine.easeIn',
+      onComplete: () => {
+        this.enemyInfoWindow?.destroy();
+        this.enemyInfoWindow = null;
       },
     });
   }
@@ -1232,8 +1524,35 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       container.add(label);
     }
 
+    container.setData('uid', card.uid);
     container.setData('rank', card.rank);
     container.setData('suit', card.suit ?? '');
+
+    if (card.isTemp) {
+      const spiderGfx = this.add.graphics();
+      const hw = halfW;
+      const hh = halfH;
+      spiderGfx.lineStyle(1, 0x88aacc, 0.6);
+      spiderGfx.lineBetween(0, 0, -hw, -hh);
+      spiderGfx.lineBetween(0, 0, hw, -hh * 0.7);
+      spiderGfx.lineBetween(0, 0, -hw * 0.6, hh);
+      spiderGfx.lineBetween(0, 0, hw * 0.8, hh * 0.3);
+      spiderGfx.lineBetween(0, 0, 0, -hh);
+      spiderGfx.lineBetween(0, 0, -hw * 0.3, hh * 0.5);
+      spiderGfx.lineBetween(0, 0, hw * 0.4, -hh * 0.3);
+      spiderGfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.7, -hh * 0.1);
+      spiderGfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.15, -hh * 0.7);
+      spiderGfx.lineBetween(hw * 0.5, -hh * 0.2, hw * 0.3, -hh * 0.6);
+      spiderGfx.lineBetween(0, -hh * 0.5, hw * 0.25, -hh * 0.8);
+      spiderGfx.lineStyle(0.8, 0x88aacc, 0.35);
+      spiderGfx.lineBetween(-hw * 0.15, -hh * 0.7, -hw * 0.45, -hh * 0.55);
+      spiderGfx.lineBetween(-hw * 0.7, -hh * 0.1, -hw * 0.5, hh * 0.2);
+      spiderGfx.lineBetween(hw * 0.3, -hh * 0.6, hw * 0.6, -hh * 0.4);
+      spiderGfx.lineBetween(0, hh, -hw * 0.4, hh * 0.35);
+      spiderGfx.lineBetween(-hw * 0.3, hh * 0.5, -hw * 0.6, hh * 0.1);
+      spiderGfx.setAlpha(0.4);
+      container.add(spiderGfx);
+    }
 
     return container;
   }
@@ -1309,6 +1628,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       const container = this.add.container(targetX, initY);
       container.setDepth(DEPTH_ENEMY_HAND + i);
       container.setData('cardIndex', i);
+      container.setData('uid', hand[i].uid);
+      container.setData('rank', hand[i].rank);
+      container.setData('suit', hand[i].suit ?? '');
       if (animateEntry) {
         container.setAlpha(0);
       }
@@ -1358,13 +1680,16 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   private getRevealedEnemyCardIndices(): Set<number> {
-    if (this.battle.player.characterId !== 'zhugeliang') return new Set();
+    if (this.revealedEnemyCards.size === 0) return new Set();
     if (this.battle.enemy.hand.length === 0) return new Set();
 
-    const count = Math.min(6, this.battle.enemy.hand.length);
-    const allIndices = Array.from({ length: this.battle.enemy.hand.length }, (_, i) => i);
-    const shuffled = [...allIndices].sort(() => Math.random() - 0.5);
-    return new Set(shuffled.slice(0, count));
+    const indices = new Set<number>();
+    for (let i = 0; i < this.battle.enemy.hand.length; i++) {
+      if (this.revealedEnemyCards.has(this.battle.enemy.hand[i])) {
+        indices.add(i);
+      }
+    }
+    return indices;
   }
 
   private getCardFanPositions(count: number, centerX: number, centerY: number): Array<{ x: number; y: number }> {
@@ -1498,11 +1823,15 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   private createEnemyDisplayCards(indices: number[]): Phaser.GameObjects.Container[] {
-    const entries: Array<{ card: Card; x: number; y: number }> = [];
+    const entries: Array<{ card: Card; x: number; y: number; isRevealed: boolean }> = [];
 
     for (const idx of indices) {
       if (idx < this.battle.enemy.hand.length) {
         const card = this.battle.enemy.hand[idx];
+        const isRevealed = this.revealedEnemyCards.has(card);
+        if (isRevealed) {
+          this.revealedEnemyCards.delete(card);
+        }
         let x: number;
         let y: number;
         if (idx < this.enemyCardObjects.length) {
@@ -1516,7 +1845,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
           x = startX + idx * overlapOffset;
           y = 220;
         }
-        entries.push({ card, x, y });
+        entries.push({ card, x, y, isRevealed });
       }
     }
 
@@ -1534,6 +1863,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       if (entry) {
         const display = this.createCardDisplay(card, entry.x, entry.y, false);
         display.setDepth(baseDepth + displayCards.length);
+        if (entry.isRevealed) {
+          display.setData('isRevealed', true);
+        }
         displayCards.push(display);
         cardToEntry.delete(card);
       }
@@ -1541,6 +1873,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     for (const entry of cardToEntry.values()) {
       const display = this.createCardDisplay(entry.card, entry.x, entry.y, false);
       display.setDepth(baseDepth + displayCards.length);
+      if (entry.isRevealed) {
+        display.setData('isRevealed', true);
+      }
       displayCards.push(display);
     }
 
@@ -1596,6 +1931,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     }
 
     this.updatePatternHint();
+    this.updateActiveSkillButton();
   }
 
   private getSelectedCards(): Card[] {
@@ -1610,13 +1946,17 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     }
 
     const pattern = identifyHand(selected);
-    if (!pattern) {
+    if (pattern) {
+      this.showPatternHint(pattern, selected, false);
+    } else {
       this.patternHintText.setText('无效牌型');
       this.patternHintText.setColor('#a04040');
-      return;
+      this.checkHandValidationHint(selected);
     }
+  }
 
-    const label = HAND_TYPE_LABELS[pattern.type];
+  private showPatternHint(pattern: HandPattern, selected: Card[], isChouSuan: boolean): void {
+    const label = isChouSuan ? '顺子（筹算）' : HAND_TYPE_LABELS[pattern.type];
     const cardsStr = selected.map(c => cardDisplayName(c)).join('');
 
     if (this.battle.lastPlay && this.phase === 'player_respond') {
@@ -1635,13 +1975,60 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.patternHintText.setColor('#b89050');
   }
 
+  private async checkHandValidationHint(selected: Card[]): Promise<void> {
+    const playerChar = this.battle.player.characterId;
+    if (!playerChar) return;
+
+    const ctx: SkillContext = {
+      gameScene: this,
+      battle: this.battle,
+      sourceCharacterId: playerChar,
+      playerCharacterIds: this.playerCharacterIds,
+      enemyCharacterId: this.battle.enemyCharacterId,
+      handValidation: {
+        hand: this.battle.player.hand,
+        candidateCards: selected,
+        basePattern: null,
+        additionalPatterns: [],
+      },
+    };
+    const additionalPatterns = await this.skillRunner.modifyHandValidation(ctx);
+    if (additionalPatterns.length > 0) {
+      this.showPatternHint(additionalPatterns[0], selected, true);
+    }
+  }
+
   private async onPlayClick(): Promise<void> {
     if (this.phase !== 'player_init' && this.phase !== 'player_respond') return;
 
     const selected = this.getSelectedCards();
     if (selected.length === 0) return;
 
-    const pattern = identifyHand(selected);
+    let pattern = identifyHand(selected);
+
+    if (!pattern) {
+      const playerChar = this.battle.player.characterId;
+      if (playerChar) {
+        const ctx: SkillContext = {
+          gameScene: this,
+          battle: this.battle,
+          sourceCharacterId: playerChar,
+          playerCharacterIds: this.playerCharacterIds,
+          enemyCharacterId: this.battle.enemyCharacterId,
+          handValidation: {
+            hand: this.battle.player.hand,
+            candidateCards: selected,
+            basePattern: null,
+            additionalPatterns: [],
+          },
+        };
+        const additionalPatterns = await this.skillRunner.modifyHandValidation(ctx);
+        if (additionalPatterns.length > 0) {
+          pattern = additionalPatterns[0];
+        }
+      }
+    }
+
     if (!pattern) return;
 
     if (this.phase === 'player_respond') {
@@ -1702,8 +2089,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       const cardObj = this.cardObjects.find(c => c.getData('cardIndex') === idx);
       if (cardObj) {
         const handCard = playerHand[idx];
-        const key = `${handCard.suit ?? 'joker'}-${handCard.rank}`;
-        displayMap.set(key, cardObj);
+        displayMap.set(handCard.uid, cardObj);
         const arrIdx = this.cardObjects.indexOf(cardObj);
         if (arrIdx >= 0) this.cardObjects.splice(arrIdx, 1);
       }
@@ -1715,19 +2101,33 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     for (const i of indicesToRemove) {
       playedCards.push({ ...playerHand[i] });
     }
+
+    for (const pc of pattern.cards) {
+      if (pc.consideredAs) {
+        for (const cd of playedCards) {
+          if (cd.uid === pc.uid) {
+            cd.consideredAs = { ...pc.consideredAs };
+            break;
+          }
+        }
+      }
+    }
     for (const i of indicesToRemove) {
       playerHand.splice(i, 1);
     }
-    this.battle.player.discardPile.push(...playedCards);
+    this.battle.player.discardPile.push(...playedCards.filter(c => !c.isTemp));
 
     const sortedPlayed = sortPlayedCards(playedCards);
     const animatedCards: Phaser.GameObjects.Container[] = [];
     for (const card of sortedPlayed) {
-      const key = `${card.suit ?? 'joker'}-${card.rank}`;
-      const display = displayMap.get(key);
+      const display = displayMap.get(card.uid);
       if (display) {
+        if (card.consideredAs) {
+          display.setData('consideredAsRank', card.consideredAs.rank);
+          display.setData('consideredAsLabel', `视为 ♠${card.consideredAs.rankLabel}`);
+        }
         animatedCards.push(display);
-        displayMap.delete(key);
+        displayMap.delete(card.uid);
       }
     }
     for (const display of displayMap.values()) {
@@ -1766,6 +2166,33 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const positions = this.getCardFanPositions(animatedCards.length, 1200, 475);
     await this.animateCardsToPositionsAsync(animatedCards, positions, 120);
+
+    for (const card of animatedCards) {
+      const labelText = card.getData('consideredAsLabel') as string | undefined;
+      if (labelText) {
+        const halfW = CARD_W / 2;
+        const halfH = CARD_H / 2;
+        const tagBg = this.add.graphics();
+        const tagW = 120;
+        const tagH = 26;
+        const tagX = -halfW + 4;
+        const tagY = halfH - tagH - 4;
+        tagBg.fillStyle(0xfaf5eb, 0.85);
+        tagBg.fillRoundedRect(-tagW / 2, 0, tagW, tagH, 5);
+        tagBg.lineStyle(1, 0x8a6030, 0.6);
+        tagBg.strokeRoundedRect(-tagW / 2, 0, tagW, tagH, 5);
+        const tagText = this.add.text(0, tagH / 2, labelText, {
+          fontSize: '20px',
+          fontFamily: FONT_FAMILY,
+          color: '#5a3a20',
+        }).setOrigin(0.5);
+        const tagContainer = this.add.container(tagX, tagY).setDepth(DEPTH_CENTER_BASE + 200);
+        tagContainer.add([tagBg, tagText]);
+        card.add(tagContainer);
+        card.setData('_consideredTag', tagContainer);
+      }
+    }
+
     this.centerCards = animatedCards;
     this.centerCardsOwner = 'player';
 
@@ -1839,6 +2266,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       } else {
         this.battle.turnHolder = 'player';
         this.phase = 'player_init';
+        this.initActiveSkills();
         await this.refillIfEmpty('player');
         this.updateUIForPhase();
         this.respondChainDepth = 0;
@@ -1875,6 +2303,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.battle.lastPlay = null;
       await this.fadeOutCenterCardsAsync();
       this.phase = 'player_init';
+      this.initActiveSkills();
       await this.refillIfEmpty('player');
       this.updateUIForPhase();
       this.respondChainDepth = 0;
@@ -2026,6 +2455,16 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       }
       this.battle.lastPlay = null;
       this.refillEnemyHand();
+
+      const gainTurnCtx: SkillContext = {
+        gameScene: this,
+        battle: this.battle,
+        sourceCharacterId: 'zhugeliang',
+        playerCharacterIds: this.playerCharacterIds,
+        enemyCharacterId: this.battle.enemyCharacterId,
+      };
+      await this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, gainTurnCtx);
+
       await this.renderEnemyHandAsync(300);
       await this.animateShiftAndReplaceAsync(playerCenterCards, displayCards, 150);
       this.centerCards = displayCards;
@@ -2034,6 +2473,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       await this.fadeOutCenterCardsAsync();
       this.battle.turnHolder = 'player';
       this.phase = 'player_init';
+      this.initActiveSkills();
       await this.refillIfEmpty('player');
       this.updateUIForPhase();
       this.respondChainDepth = 0;
@@ -2050,7 +2490,18 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   private async aiInitiatePlay(): Promise<void> {
+    const enemyWasEmpty = this.battle.enemy.hand.length === 0;
     await this.refillIfEmpty('enemy');
+    if (enemyWasEmpty) {
+      const gainTurnCtx: SkillContext = {
+        gameScene: this,
+        battle: this.battle,
+        sourceCharacterId: 'zhugeliang',
+        playerCharacterIds: this.playerCharacterIds,
+        enemyCharacterId: this.battle.enemyCharacterId,
+      };
+      await this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, gainTurnCtx);
+    }
     this.respondChainDepth = 0;
     const turnStartCtx: SkillContext = {
       gameScene: this,
@@ -2068,6 +2519,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.battle.lastPlay = null;
       this.battle.turnHolder = 'player';
       this.phase = 'player_init';
+      this.initActiveSkills();
       await this.refillIfEmpty('player');
       this.updateUIForPhase();
       return;
@@ -2117,10 +2569,21 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       }
       this.battle.lastPlay = null;
       this.refillEnemyHand();
+
+      const gainTurnCtx: SkillContext = {
+        gameScene: this,
+        battle: this.battle,
+        sourceCharacterId: 'zhugeliang',
+        playerCharacterIds: this.playerCharacterIds,
+        enemyCharacterId: this.battle.enemyCharacterId,
+      };
+      await this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, gainTurnCtx);
+
       await this.renderEnemyHandAsync(300);
       await this.fadeOutCenterCardsAsync();
       this.battle.turnHolder = 'player';
       this.phase = 'player_init';
+      this.initActiveSkills();
       await this.refillIfEmpty('player');
       this.updateUIForPhase();
       this.respondChainDepth = 0;
@@ -2137,7 +2600,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const result: number[] = [];
     for (const card of cards) {
       for (let i = 0; i < hand.length; i++) {
-        if (!used.has(i) && hand[i].suit === card.suit && hand[i].rank === card.rank) {
+        if (!used.has(i) && hand[i].uid === card.uid) {
           used.add(i);
           result.push(i);
           break;
@@ -2168,6 +2631,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         this.btnPlay.setVisible(this.playerHasPlayablePattern());
         this.btnPassText.setColor('#8a7a5a');
         this.btnPass.setVisible(false);
+        if (this.btnSkill) this.btnSkill.setVisible(false);
         break;
       case 'player_respond':
         this.turnIndicatorText.setText('');
@@ -2189,6 +2653,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         this.btnPlay.setVisible(false);
         this.btnPass.setVisible(false);
         this.btnPassText.setColor('#8a7a5a');
+        if (this.btnSkill) this.btnSkill.setVisible(false);
+        this.closeSkillDropdown();
         break;
       case 'ai_respond':
         this.thinkingText.setText('');
@@ -2197,29 +2663,31 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         this.btnPlay.setVisible(false);
         this.btnPass.setVisible(false);
         this.btnPassText.setColor('#8a7a5a');
+        if (this.btnSkill) this.btnSkill.setVisible(false);
+        this.closeSkillDropdown();
+        break;
+      case 'animating':
+        this.thinkingText.setVisible(false);
+        this.turnIndicatorText.setVisible(false);
+        this.btnPlay.setVisible(false);
+        this.btnPass.setVisible(false);
+        this.btnPassText.setColor('#8a7a5a');
+        if (this.btnSkill) this.btnSkill.setVisible(false);
+        this.closeSkillDropdown();
         break;
       case 'game_over':
         this.thinkingText.setVisible(false);
         this.turnIndicatorText.setVisible(false);
         this.btnPlay.setVisible(false);
         this.btnPass.setVisible(false);
+        if (this.btnSkill) this.btnSkill.setVisible(false);
+        this.closeSkillDropdown();
         break;
       default:
         break;
     }
 
-    if (this.btnPass.visible) {
-      const passTargetX = this.btnPlay.visible ? width / 2 + 160 : width / 2;
-      if (this.btnPass.x !== passTargetX) {
-        this.tweens.add({
-          targets: this.btnPass,
-          x: passTargetX,
-          duration: 200,
-          ease: 'Sine.easeOut',
-        });
-      }
-    }
-
+    this.updateButtonLayout();
     this.updateVitalityBars();
   }
 
@@ -2331,7 +2799,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.phase = 'animating';
 
     const cards = [...this.centerCards];
-    const sumRanks = pattern.cards.reduce((sum, c) => sum + c.rank, 0);
+    const sumRanks = pattern.cards.reduce((sum, c) => sum + (c.consideredAs?.rank ?? c.rank), 0);
     const coefficient = getCoefficient(pattern.type, pattern.length);
     const baseCoefficient = coefficient;
     let finalDamage = Math.round(sumRanks * coefficient);
@@ -2381,7 +2849,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     let currentSum = 0;
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i];
-      const rank = card.getData('rank') as number ?? 0;
+      const consideredAsRank = card.getData('consideredAsRank') as number | undefined;
+      const rank = consideredAsRank ?? (card.getData('rank') as number ?? 0);
 
       AudioManager.playSfx(this, 'sfx_card_reveal');
 
@@ -2572,6 +3041,17 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       }),
     ]);
 
+    if (damageInfo.finalDamage <= 0) {
+      await waitForTween(this, {
+        targets: counterText,
+        alpha: 0,
+        duration: 1200,
+        ease: 'Sine.easeOut',
+      });
+      counterText.destroy();
+      return;
+    }
+
     AudioManager.playSfx(this, 'sfx_hurt');
 
     const barX = 120;
@@ -2596,6 +3076,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const battleObj = target === 'enemy' ? this.battle.enemy : this.battle.player;
     const newVitality = Math.max(0, battleObj.vitality - damageInfo.finalDamage);
     await this.animateHealthBarDepletionAsync(target, newVitality, 300);
+
+    if (newVitality <= 0) return;
 
     const afterDmgCtx: SkillContext = {
       gameScene: this,
@@ -2779,10 +3261,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       return allPlays.length > 0;
     }
     if (this.phase === 'player_respond' && this.battle.lastPlay) {
-      const playerChar = this.battle.player.characterId;
-      if (playerChar === 'zhugeliang') {
-        return findAllPlays(hand).filter(p => canBeatOrEqual(p, this.battle.lastPlay!)).length > 0;
-      }
       return findBeatingPlays(hand, this.battle.lastPlay).length > 0;
     }
     return false;
@@ -3610,6 +4088,277 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   // ═══════════════════════════════════════════════
+  //  Active Skill System
+  // ═══════════════════════════════════════════════
+
+  getBattle(): BattleState {
+    return this.battle;
+  }
+
+  renderPlayerHandAfterSkill(): void {
+    this.selectedIndices.clear();
+    this.renderPlayerHand(false);
+    this.updatePatternHint();
+    this.updateUIForPhase();
+  }
+
+  private initActiveSkills(): void {
+    this.activeSkills = [];
+    this.activeSkillUseCounts = new Map();
+
+    if (this.playerCharacterIds.includes('liubowen')) {
+      this.activeSkills.push(LiuBoWenChouCe);
+      this.activeSkillUseCounts.set(LiuBoWenChouCe.id, 0);
+    }
+  }
+
+  private updateActiveSkillButton(): void {
+    const { width, height } = this.scale;
+
+    if (this.phase !== 'player_init' && this.phase !== 'player_respond') {
+      if (this.btnSkill) this.btnSkill.setVisible(false);
+      this.closeSkillDropdown();
+      return;
+    }
+
+    const selected = this.getSelectedCards();
+    if (selected.length === 0) {
+      if (this.btnSkill) this.btnSkill.setVisible(false);
+      this.closeSkillDropdown();
+      this.updateButtonLayout();
+      return;
+    }
+
+    const eligibleIds: string[] = [];
+    for (const skill of this.activeSkills) {
+      const used = this.activeSkillUseCounts.get(skill.id) ?? 0;
+      if (used >= skill.maxUses) continue;
+      if (skill.cardFilter(selected)) {
+        eligibleIds.push(skill.id);
+      }
+    }
+
+    this.activeSkillEligibleIds = eligibleIds;
+
+    if (eligibleIds.length === 0) {
+      if (this.btnSkill) this.btnSkill.setVisible(false);
+      this.closeSkillDropdown();
+      this.updateButtonLayout();
+      return;
+    }
+
+    const firstSkill = this.activeSkills.find(s => s.id === eligibleIds[0]);
+    if (!firstSkill) {
+      if (this.btnSkill) this.btnSkill.setVisible(false);
+      this.closeSkillDropdown();
+      this.updateButtonLayout();
+      return;
+    }
+
+    const btnY = height - 320;
+    if (!this.btnSkill) {
+      this.btnSkill = this.add.container(0, btnY).setDepth(DEPTH_UI);
+    }
+
+    this.btnSkill.removeAll(true);
+
+    const skillBg = this.add.graphics();
+    skillBg.fillStyle(0x3a1a5a, 1);
+    skillBg.fillRoundedRect(-125, -40, 250, 80, 6);
+    skillBg.lineStyle(2, 0xffd700, 0.8);
+    skillBg.strokeRoundedRect(-125, -40, 250, 80, 6);
+    this.btnSkill.add(skillBg);
+
+    const glowBorder = this.add.graphics();
+    glowBorder.lineStyle(1.5, 0xffd700, 0.5);
+    glowBorder.strokeRoundedRect(-123, -38, 246, 76, 5);
+    this.btnSkill.add(glowBorder);
+
+    if (eligibleIds.length > 1 && this.currentActiveSkillId === firstSkill.id) {
+      this.currentActiveSkillId = firstSkill.id;
+    } else if (!this.currentActiveSkillId || !eligibleIds.includes(this.currentActiveSkillId)) {
+      this.currentActiveSkillId = eligibleIds[0];
+    }
+
+    const displaySkill = this.activeSkills.find(s => s.id === this.currentActiveSkillId) ?? firstSkill;
+    this.btnSkillText = this.add.text(0, 0, displaySkill.name, {
+      fontSize: '28px',
+      fontFamily: FONT_FAMILY,
+      color: '#ffd700',
+      stroke: '#1a0a2a',
+      strokeThickness: 2,
+    }).setOrigin(0.5);
+    this.btnSkill.add(this.btnSkillText);
+
+    const skillZone = this.add.zone(0, 0, 250, 80).setInteractive({ cursor: 'pointer' });
+    skillZone.on('pointerdown', () => {
+      this.onSkillClick();
+    });
+    this.btnSkill.add(skillZone);
+
+    this.btnSkill.setVisible(true);
+
+    if (eligibleIds.length > 1) {
+      this.updateSkillDropdownTrigger(btnY);
+    } else {
+      this.closeSkillDropdown();
+    }
+
+    this.updateButtonLayout();
+  }
+
+  private closeSkillDropdown(): void {
+    this.skillDropdown?.destroy();
+    this.skillDropdown = null;
+  }
+
+  private updateSkillDropdownTrigger(btnY: number): void {
+    this.skillDropdown?.destroy();
+    this.skillDropdown = null;
+
+    const panelW = 250;
+    const panelH = Math.min(this.activeSkillEligibleIds.length * 52 + 16, 280);
+
+    this.skillDropdown = this.add.container(0, btnY - 80 - panelH / 2 - 8).setDepth(DEPTH_UI);
+
+    const listBg = this.add.graphics();
+    listBg.fillStyle(0x2a1a4a, 0.95);
+    listBg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
+    listBg.lineStyle(1.5, 0xffd700, 0.6);
+    listBg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
+    this.skillDropdown.add(listBg);
+
+    const itemH = 48;
+    const startY = -panelH / 2 + 12;
+    for (const skillId of this.activeSkillEligibleIds) {
+      const skill = this.activeSkills.find(s => s.id === skillId);
+      if (!skill) continue;
+      const idx = this.activeSkillEligibleIds.indexOf(skillId);
+      const itemY = startY + idx * itemH + itemH / 2;
+
+      const itemText = this.add.text(0, itemY, skill.name, {
+        fontSize: '24px',
+        fontFamily: FONT_FAMILY,
+        color: skillId === this.currentActiveSkillId ? '#ffd700' : '#c8a080',
+        stroke: '#1a0a24',
+        strokeThickness: 2,
+      }).setOrigin(0.5);
+      this.skillDropdown.add(itemText);
+
+      const itemZone = this.add.zone(0, itemY - itemH / 2 + panelH / 2, panelW, itemH)
+        .setInteractive({ cursor: 'pointer' });
+      const listY = btnY - 80 - panelH / 2 - 8;
+      itemZone.setPosition(0, itemY - listY);
+      itemZone.on('pointerdown', () => {
+        this.currentActiveSkillId = skillId;
+        this.updateActiveSkillButton();
+      });
+      this.skillDropdown.add(itemZone);
+    }
+  }
+
+  private async onSkillClick(): Promise<void> {
+    if (!this.currentActiveSkillId) return;
+    const skill = this.activeSkills.find(s => s.id === this.currentActiveSkillId);
+    if (!skill) return;
+
+    const selected = this.getSelectedCards();
+    if (!skill.cardFilter(selected)) return;
+
+    const prevPhase = this.phase;
+    this.phase = 'animating';
+    this.updateUIForPhase();
+
+    for (const idx of this.selectedIndices) {
+      const cardObj = this.cardObjects.find(c => c.getData('cardIndex') === idx);
+      if (cardObj) {
+        this.tweens.killTweensOf(cardObj);
+        const glowG = cardObj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
+        if (glowG) {
+          this.tweens.killTweensOf(glowG);
+        }
+      }
+    }
+
+    AudioManager.playSfx(this, 'sfx_skill_trigger');
+    await this.glowOn('liubowen');
+    await this.moveToFront('liubowen');
+    await this.shakeAndPulse('liubowen');
+    this.showDialog('liubowen', '人算不如天算，天算不如我算！');
+
+    await skill.execute(this, selected);
+
+    const used = this.activeSkillUseCounts.get(skill.id) ?? 0;
+    this.activeSkillUseCounts.set(skill.id, used + 1);
+
+    await this.glowOff('liubowen');
+    await this.restoreSlot('liubowen');
+
+    const playerHand = this.battle.player.hand;
+
+    if (playerHand.length === 0) {
+      this.battle.lastPlay = null;
+      this.refillPlayerHand();
+      this.renderPlayerHand(true);
+      await this.fadeOutCenterCardsAsync();
+      this.battle.turnHolder = 'enemy';
+      this.phase = 'ai_init';
+      this.updateUIForPhase();
+      this.respondChainDepth = 0;
+      await this.aiInitiatePlay();
+      return;
+    }
+
+    const isInit = prevPhase === 'player_init';
+    if (isInit) {
+      this.battle.turnHolder = 'player';
+      this.phase = 'player_init';
+    } else {
+      this.battle.lastPlay = null;
+      this.battle.turnHolder = 'enemy';
+      this.phase = 'ai_init';
+      this.updateUIForPhase();
+      this.respondChainDepth = 0;
+      await this.aiInitiatePlay();
+      return;
+    }
+
+    this.updateUIForPhase();
+  }
+
+  private updateButtonLayout(): void {
+    const { width } = this.scale;
+    const skillVisible = this.btnSkill?.visible ?? false;
+    const playVisible = this.btnPlay?.visible ?? false;
+    const passVisible = this.btnPass?.visible ?? false;
+
+    const visibleButtons: Phaser.GameObjects.Container[] = [];
+    if (skillVisible && this.btnSkill) visibleButtons.push(this.btnSkill);
+    if (playVisible) visibleButtons.push(this.btnPlay);
+    if (passVisible) visibleButtons.push(this.btnPass);
+
+    if (visibleButtons.length === 0) return;
+
+    const btnW = 250;
+    const gap = 10;
+    const totalW = visibleButtons.length * btnW + (visibleButtons.length - 1) * gap;
+    const startX = width / 2 - totalW / 2 + btnW / 2;
+
+    for (let i = 0; i < visibleButtons.length; i++) {
+      const targetX = startX + i * (btnW + gap);
+      const btn = visibleButtons[i];
+      if (btn.x !== targetX) {
+        this.tweens.add({
+          targets: btn,
+          x: targetX,
+          duration: 200,
+          ease: 'Sine.easeOut',
+        });
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════
   //  Drag-to-Select Hand Input
   // ═══════════════════════════════════════════════
 
@@ -3713,6 +4462,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     }
 
     this.updatePatternHint();
+    this.updateActiveSkillButton();
   }
 
   private getCardIndexAtPosition(x: number, y: number): number | null {

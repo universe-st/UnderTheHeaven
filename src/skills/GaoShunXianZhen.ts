@@ -6,32 +6,32 @@ import {
 } from './SkillTypes';
 import { waitForCounterTween } from '../utils/AnimationUtils';
 
-const DANXIN_BONUS = 10;
+const XIANZHEN_BONUS = 10;
 
-export const WenTianxiangDanXin: SkillDefinition = {
-  id: 'wentianxiang_danxin',
-  name: '丹心',
-  description: '单牌伤害结算时，你的红桃牌计分+10',
+export const GaoShunXianZhen: SkillDefinition = {
+  id: 'gaoshun_xianzhen',
+  name: '陷阵',
+  description: '单牌伤害结算时，你的黑桃牌计分+10',
   timing: SkillTiming.ON_SINGLE_CARD_SETTLEMENT,
   priority: 8,
-  dialogLines: ['人生自古谁无死，留取丹心照汗青！'],
+  dialogLines: ['陷阵之志，有死无生！'],
 
   filter: (ctx: SkillContext): boolean => {
     if (ctx.target !== 'enemy') return false;
     if (!ctx.singleCard) return false;
-    return (ctx.singleCard.card.getData('suit') as string) === 'heart';
+    return (ctx.singleCard.card.getData('suit') as string) === 'spade';
   },
 
   execute: async (ctx: SkillContext, visuals: SkillVisualManager): Promise<void> => {
     const sc = ctx.singleCard;
     if (!sc) return;
 
-    sc.scoreBonus += DANXIN_BONUS;
+    sc.scoreBonus += XIANZHEN_BONUS;
 
     visuals.playSkillTriggerSound();
 
     const scene = visuals.getScene();
-    const targetScore = sc.baseScore + DANXIN_BONUS;
+    const targetScore = sc.baseScore + XIANZHEN_BONUS;
 
     await waitForCounterTween(scene, {
       from: sc.baseScore,

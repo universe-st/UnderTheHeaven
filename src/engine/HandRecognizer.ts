@@ -1,7 +1,7 @@
 import { Card } from '../models/Card';
 import { HandPattern, HandType } from '../models/BattleTypes';
 
-function rankForOrder(r: number): number {
+export function rankForOrder(r: number): number {
   if (r === 15) return 14; // A = 14 for ordering
   if (r === 20) return 15; // 2 = 15
   if (r === 25) return 16; // 小王
@@ -9,7 +9,7 @@ function rankForOrder(r: number): number {
   return r;
 }
 
-function rankFromOrder(o: number): number {
+export function rankFromOrder(o: number): number {
   if (o === 14) return 15; // A
   if (o === 15) return 20; // 2
   if (o === 16) return 25;
@@ -17,7 +17,7 @@ function rankFromOrder(o: number): number {
   return o;
 }
 
-function canBeInConsecutive(rank: number): boolean {
+export function canBeInConsecutive(rank: number): boolean {
   return (rank >= 3 && rank <= 13) || rank === 15;
 }
 
@@ -494,8 +494,11 @@ function deduplicatePatterns(patterns: HandPattern[]): HandPattern[] {
 }
 
 export function canBeat(newPlay: HandPattern, lastPlay: HandPattern): boolean {
-  // Rocket beats everything
-  if (newPlay.type === HandType.Rocket) return true;
+  // Rocket beats everything except another Rocket
+  if (newPlay.type === HandType.Rocket) {
+    if (lastPlay.type === HandType.Rocket) return false;
+    return true;
+  }
 
   // Bomb beats non-bomb, non-rocket
   if (newPlay.type === HandType.Bomb) {

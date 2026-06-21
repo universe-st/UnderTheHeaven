@@ -11,6 +11,7 @@ export enum SkillTiming {
   ON_TURN_START = 'on_turn_start',
   ON_AI_SCORE = 'on_ai_score',
   PASSIVE_MODIFIER = 'passive_modifier',
+  HAND_VALIDATION = 'hand_validation',
 }
 
 export interface SkillContext {
@@ -49,6 +50,12 @@ export interface SkillContext {
     currentScore: number;
   };
   coefficientLabel?: Phaser.GameObjects.Text;
+  handValidation?: {
+    hand: Card[];
+    candidateCards: Card[];
+    basePattern: HandPattern | null;
+    additionalPatterns: HandPattern[];
+  };
 }
 
 export type SkillFilter = (context: SkillContext) => boolean;
@@ -129,4 +136,14 @@ export interface CharacterSlotManager {
   isPlayerCharacter(characterId: string): boolean;
   getCharacterOrder(characterId: string): number;
   showDialog(characterId: string, text: string): void;
+}
+
+export interface ActiveSkillDefinition {
+  id: string;
+  name: string;
+  description: string;
+  maxUses: number;
+  cardFilter: (selectedCards: Card[]) => boolean;
+  execute: (scene: Phaser.Scene, selectedCards: Card[]) => Promise<void>;
+  ownerCharacterId: string;
 }

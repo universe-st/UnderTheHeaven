@@ -1,7 +1,24 @@
+let nextCardId = 1;
+
+export function getNextCardId(): string {
+  return 'card-' + (nextCardId++);
+}
+
+export function resetCardIdCounter(value: number = 1): void {
+  nextCardId = value;
+}
+
 export interface Card {
+  uid: string;
   suit: 'spade' | 'club' | 'heart' | 'diamond' | null;
   rank: number;
   rankLabel: string;
+  consideredAs?: {
+    rank: number;
+    rankLabel: string;
+    suit: string;
+  };
+  isTemp?: boolean;
 }
 
 const SUITS: Array<Card['suit']> = ['spade', 'club', 'heart', 'diamond'];
@@ -11,12 +28,17 @@ const RANK_MAP: { [key: number]: string } = {
   11: 'J', 12: 'Q', 13: 'K', 15: 'A', 20: '2',
 };
 
+export function rankToLabel(rank: number): string {
+  return RANK_MAP[rank] ?? '?';
+}
+
 export function createDeck(): Card[] {
   const deck: Card[] = [];
 
   for (const suit of SUITS) {
     for (const rank of [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 20]) {
       deck.push({
+        uid: getNextCardId(),
         suit,
         rank,
         rankLabel: RANK_MAP[rank],
@@ -24,8 +46,8 @@ export function createDeck(): Card[] {
     }
   }
 
-  deck.push({ suit: null, rank: 25, rankLabel: '虎' });
-  deck.push({ suit: null, rank: 30, rankLabel: '龍' });
+  deck.push({ uid: getNextCardId(), suit: null, rank: 25, rankLabel: '虎' });
+  deck.push({ uid: getNextCardId(), suit: null, rank: 30, rankLabel: '龍' });
 
   return deck;
 }
