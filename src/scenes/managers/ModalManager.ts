@@ -21,11 +21,11 @@ interface ModalHost {
 
 export class ModalManager {
   private host: ModalHost;
-  private hostScene: Phaser.Scene;
+  private scene: Phaser.Scene;
 
-  constructor(host: ModalHost) {
+  constructor(host: ModalHost & Phaser.Scene) {
     this.host = host;
-    this.hostScene = host as unknown as Phaser.Scene;
+    this.scene = host;
   }
 
   createHandPatternButton(w: number, _h: number): void {
@@ -86,7 +86,7 @@ export class ModalManager {
       drawNormal();
     });
     zone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this.hostScene, 'sfx_button');
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
       drawPressed();
       this.host.time.delayedCall(80, () => {
         drawNormal();
@@ -150,7 +150,7 @@ export class ModalManager {
     closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
     closeZone.on('pointerout', () => closeText.setColor('#7a5a3a'));
     closeZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this.hostScene, 'sfx_button');
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
       this.closeHandPatternModal();
     });
     container.add([closeText, closeZone]);
@@ -329,7 +329,7 @@ export class ModalManager {
       });
     });
     zone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this.hostScene, 'sfx_button');
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
       if (this.host.settingsPanel) {
         this.closeSettingsPanel();
       } else {
@@ -392,7 +392,7 @@ export class ModalManager {
     volZone.on('pointerover', () => volumeText.setColor('#6a4020'));
     volZone.on('pointerout', () => volumeText.setColor('#2a1008'));
     volZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this.hostScene, 'sfx_button');
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
       this.closeSettingsPanel();
       this.showVolumeSettings();
     });
@@ -408,7 +408,7 @@ export class ModalManager {
     menuZone.on('pointerover', () => menuText.setColor('#6a4020'));
     menuZone.on('pointerout', () => menuText.setColor('#2a1008'));
     menuZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this.hostScene, 'sfx_button');
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
       this.showReturnConfirmModal();
     });
     container.add(menuZone);
@@ -519,7 +519,7 @@ export class ModalManager {
       closeText.setColor('#7a5a3a');
     });
     closeZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this.hostScene, 'sfx_button');
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
       this.closeVolumeSettings();
     });
     container.add([closeText, closeZone]);
@@ -758,7 +758,7 @@ export class ModalManager {
     const cancelZone = this.host.add.zone(cancelBtnX, btnY, btnW, btnH)
       .setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
     cancelZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this.hostScene, 'sfx_button');
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
       this.closeReturnConfirmModal();
     });
     container.add(cancelZone);
@@ -781,7 +781,7 @@ export class ModalManager {
     const confirmZone = this.host.add.zone(confirmBtnX, btnY, btnW, btnH)
       .setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
     confirmZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this.hostScene, 'sfx_button');
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
       this.closeReturnConfirmModal();
       this.closeSettingsPanel();
       this.host.cameras.main.fadeOut(400, 0, 0, 0);
