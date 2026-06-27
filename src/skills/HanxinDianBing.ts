@@ -1,13 +1,12 @@
 import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
 import { countSuits } from '../engine/CharacterAbilities';
-import { HAND_TYPE_LABELS } from '../models/BattleTypes';
-import { waitForDelay, animateCoefficientUpdate } from '../utils/AnimationUtils';
+import { animateMultiplierUpdate } from '../utils/AnimationUtils';
 
 export const HanxinDianBing: SkillDefinition = {
   id: 'hanxin_dianbing',
   name: '点兵',
-  description: '伤害结算时，系数乘以打出牌的花色数（至少为一）',
-  timing: SkillTiming.ON_COEFFICIENT_REVEALED,
+  description: '你打出牌的伤害倍数+X，X为打出牌的花色数',
+  timing: SkillTiming.ON_DAMAGE_MULTIPLIER_REVEALED,
   priority: 10,
   dialogLines: ['多多益善！', '战无不胜，攻无不克！'],
 
@@ -15,19 +14,21 @@ export const HanxinDianBing: SkillDefinition = {
     return ctx.target === 'enemy'
       && ctx.damageInfo !== undefined
       && ctx.centerCardContainers !== undefined
-      && ctx.centerCardContainers.length > 0;
+      && ctx.centerCardContainers.length > 0
+      && ctx.pattern !== undefined
+      && countSuits(ctx.pattern.cards) > 0;
   },
 
   execute: async (ctx: SkillContext, visuals: SkillVisualManager): Promise<void> => {
     const scene = visuals.getScene();
-    const { damageInfo, centerCardContainers, coefficientLabel } = ctx;
-    if (!damageInfo || !centerCardContainers) return;
+    const { damageInfo, centerCardContainers, multiplierLabel, pattern } = ctx;
+    if (!damageInfo || !centerCardContainers || !pattern) return;
 
-    const suitCount = countSuits(ctx.pattern!.cards);
-    if (suitCount <= 1) return;
+    const suitCount = countSuits(pattern.cards);
+    if (suitCount === 0) return;
 
-    const baseCoefficient = damageInfo.baseCoefficient;
-    const newCoefficient = baseCoefficient * suitCount;
+    const oldMultiplier = damageInfo.damageMultiplier;
+    const newMultiplier = oldMultiplier + suitCount;
 
     visuals.playSkillTriggerSound();
 
@@ -44,17 +45,17 @@ export const HanxinDianBing: SkillDefinition = {
       visuals.animateCardScale(cardsToAnimate, 1.35, 200);
     }
 
-    damageInfo.coefficient = newCoefficient;
-    damageInfo.finalDamage = Math.round(damageInfo.sumRanks * newCoefficient);
+    damageInfo.damageMultiplier = newMultiplier;
+    damageInfo.finalDamage = Math.round(
+      damageInfo.sumRanks * damageInfo.coefficient * newMultiplier,
+    );
 
-    if (coefficientLabel && ctx.pattern) {
-      const typeLabel = HAND_TYPE_LABELS[ctx.pattern.type];
-      await animateCoefficientUpdate(
+    if (multiplierLabel) {
+      await animateMultiplierUpdate(
         scene,
-        coefficientLabel,
-        typeLabel,
-        baseCoefficient,
-        newCoefficient,
+        multiplierLabel,
+        oldMultiplier,
+        newMultiplier,
         800,
       );
     }

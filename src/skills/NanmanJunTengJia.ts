@@ -29,7 +29,7 @@ export const NanmanJunTengJiaBlack: SkillDefinition = {
 export const NanmanJunTengJiaHeart: SkillDefinition = {
   id: 'nanmanjun_tengjia_heart',
   name: '藤甲',
-  description: '单牌伤害结算时，红桃牌计分×2',
+  description: '单牌伤害结算时，红桃牌计分×3',
   timing: SkillTiming.ON_SINGLE_CARD_SETTLEMENT,
   priority: 10,
   dialogLines: ['藤甲护体，烈火反噬！'],
@@ -41,6 +41,6 @@ export const NanmanJunTengJiaHeart: SkillDefinition = {
   },
 
   execute: async (ctx: SkillContext, visuals: SkillVisualManager): Promise<void> => {
-    await multiplyCardDamage(ctx, visuals, 2);
+    await multiplyCardDamage(ctx, visuals, 3);
   },
 };

@@ -59,7 +59,7 @@ function getRemainingHand(hand: Card[], played: Card[]): Card[] {
   for (const c of hand) {
     let consumed = false;
     for (let i = 0; i < played.length; i++) {
-      if (!used.has(i) && played[i].suit === c.suit && played[i].rank === c.rank) {
+      if (!used.has(i) && played[i]!.suit === c.suit && played[i]!.rank === c.rank) {
         used.add(i);
         consumed = true;
         break;
@@ -160,7 +160,7 @@ function selectPlay(
   lastPlay: HandPattern | null,
   enemyCharacterId?: EnemyCharacterId,
 ): HandPattern {
-  if (plays.length === 1) return plays[0];
+  if (plays.length === 1) return plays[0]!;
 
   const scored = plays.map(p => ({
     play: p,
@@ -169,7 +169,7 @@ function selectPlay(
   scored.sort((a, b) => b.score - a.score);
 
   const topN = scored.slice(0, Math.min(RANDOM_CANDIDATE_COUNT, scored.length));
-  const bestScore = topN[0].score;
+  const bestScore = topN[0]!.score;
 
   const closeCandidates = topN.filter(s => {
     if (bestScore <= 0) return true;
@@ -178,11 +178,11 @@ function selectPlay(
 
   // 多个候选分数接近时随机选择
   if (closeCandidates.length > 1) {
-    return closeCandidates[Math.floor(Math.random() * closeCandidates.length)].play;
+    return closeCandidates[Math.floor(Math.random() * closeCandidates.length)]!.play;
   }
 
   // 差距过大则取最高分
-  return topN[0].play;
+  return topN[0]!.play;
 }
 
 // ========== AI 决策主入口 ==========

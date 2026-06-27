@@ -140,7 +140,7 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
 
   cardFilter: (selectedCards: Card[]): boolean => {
     if (selectedCards.length !== 2) return false;
-    const [a, b] = selectedCards;
+    const [a, b] = selectedCards as [Card, Card];
     if (a.rank === 25 || a.rank === 30 || a.rank === 20) return false;
     if (b.rank === 25 || b.rank === 30 || b.rank === 20) return false;
     if (a.rank < 3 || a.rank > 15) return false;
@@ -153,7 +153,7 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
     const gs = scene as unknown as GameScene;
     const hand = gs.getBattle().player.hand;
 
-    const [a, b] = selectedCards;
+    const [a, b] = selectedCards as [Card, Card];
     const rankA = Math.min(a.rank, b.rank);
     const rankB = Math.max(a.rank, b.rank);
 
@@ -165,7 +165,7 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
     }
     if (possibleRanks.length === 0) return;
 
-    const middleRank = possibleRanks[Math.floor(Math.random() * possibleRanks.length)];
+    const middleRank = possibleRanks[Math.floor(Math.random() * possibleRanks.length)]!;
 
     const largerCard = a.rank >= b.rank ? a : b;
     const inheritedSuit = largerCard.suit;

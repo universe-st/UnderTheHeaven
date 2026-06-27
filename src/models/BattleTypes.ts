@@ -46,6 +46,7 @@ export interface PlayerState {
   vitalityMax: number;
   name: string;
   characterId?: PlayerCharacterId;
+  reviveUsed?: boolean;
 }
 
 export interface BattleState {

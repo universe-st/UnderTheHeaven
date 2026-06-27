@@ -49,8 +49,8 @@ export function animateCardsToPositions(
       card.setDepth((offset?.baseDepth ?? 100) - cards.length + i);
       return waitForTween(scene, {
         targets: card,
-        x: positions[i].x,
-        y: positions[i].y,
+        x: positions[i]!.x,
+        y: positions[i]!.y,
         duration,
         ease: 'Sine.easeOut',
       });
@@ -124,6 +124,24 @@ export async function animateCoefficientUpdate(
     ease: 'Cubic.easeOut',
     onUpdate: (val) => {
       labelText.setText(`✖️ ${formatCoeff(val)}（${typeLabel}）`);
+    },
+  });
+}
+
+export async function animateMultiplierUpdate(
+  scene: Phaser.Scene,
+  labelText: Phaser.GameObjects.Text,
+  fromMultiplier: number,
+  toMultiplier: number,
+  duration: number = 800,
+): Promise<void> {
+  await waitForCounterTween(scene, {
+    from: fromMultiplier,
+    to: toMultiplier,
+    duration,
+    ease: 'Cubic.easeOut',
+    onUpdate: (val) => {
+      labelText.setText(`✖️ ${Math.round(val)}`);
     },
   });
 }

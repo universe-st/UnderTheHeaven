@@ -10,6 +10,13 @@ import { ZhugeLiangLiaoJi } from './ZhugeLiangLiaoJi';
 import { LuoChengWuQiang } from './LuoChengWuQiang';
 import { XueWanCheXiaoRui } from './XueWanCheXiaoRui';
 import { GaoShunXianZhen } from './GaoShunXianZhen';
+import { ZhangFeiDuanHe } from './ZhangFeiDuanHe';
+import { ZhangHanJueShou } from './ZhangHanJueShou';
+import { BianQueHuiSheng } from './BianQueHuiSheng';
+import { BannerArmyQiShe } from './BannerArmyQiShe';
+import { MongolArmyQiangLve } from './MongolArmyQiangLve';
+import { XiliangArmyHanYong } from './XiliangArmyHanYong';
+import { XiongnuArmyLangShou } from './XiongnuArmyLangShou';
 import type { SkillDefinition } from './SkillTypes';
 import { SkillRegistry } from './SkillRegistry';
 
@@ -34,6 +41,13 @@ export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   LuoChengWuQiang,
   XueWanCheXiaoRui,
   GaoShunXianZhen,
+  ZhangFeiDuanHe,
+  ZhangHanJueShou,
+  BianQueHuiSheng,
+  BannerArmyQiShe,
+  MongolArmyQiangLve,
+  XiliangArmyHanYong,
+  XiongnuArmyLangShou,
 ];
 
 export function registerAllSkills(registry: SkillRegistry): void {

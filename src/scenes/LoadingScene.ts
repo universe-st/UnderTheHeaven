@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { VoiceManager } from '../utils/VoiceManager';
+import { UIFactory } from '../utils/UIFactory';
+import { FONT_FAMILY, CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants/Layout';
 
 export class LoadingScene extends Phaser.Scene {
   private progressBar!: Phaser.GameObjects.Graphics;
@@ -17,35 +19,13 @@ export class LoadingScene extends Phaser.Scene {
   }
 
   async create(): Promise<void> {
-    const width = Number(this.scale.width) || Number(this.game.config.width) || 2400;
-    const height = Number(this.scale.height) || Number(this.game.config.height) || 1080;
+    const width = Number(this.scale.width) || Number(this.game.config.width) || CANVAS_WIDTH;
+    const height = Number(this.scale.height) || Number(this.game.config.height) || CANVAS_HEIGHT;
     const cx = width / 2;
 
     this.cameras.main.fadeIn(500);
 
-    const bg = this.add.graphics();
-    bg.fillStyle(0x1a0f05, 1);
-    bg.fillRect(0, 0, width, height);
-
-    const border = this.add.graphics();
-    border.lineStyle(1.5, 0x2a1a0a, 0.6);
-    border.strokeRect(20, 20, width - 40, height - 40);
-
-    const corner = this.add.graphics();
-    corner.lineStyle(2, 0x4a3020, 0.4);
-    corner.lineBetween(16, 16, 16, 80);
-    corner.lineBetween(16, 16, 80, 16);
-    corner.lineBetween(width - 16, 16, width - 16, 80);
-    corner.lineBetween(width - 16, 16, width - 80, 16);
-    corner.lineBetween(16, height - 16, 16, height - 80);
-    corner.lineBetween(16, height - 16, 80, height - 16);
-    corner.lineBetween(width - 16, height - 16, width - 16, height - 80);
-    corner.lineBetween(width - 16, height - 16, width - 80, height - 16);
-
-    const centerLine = this.add.graphics();
-    centerLine.lineStyle(1, 0x3a2010, 0.3);
-    centerLine.lineBetween(0, height * 0.5, width, height * 0.5);
-    centerLine.lineBetween(width * 0.5, 0, width * 0.5, height);
+    UIFactory.darkBgWithCenteredLines(this, width, height);
 
     const barW = 480;
     const barH = 24;
@@ -62,7 +42,7 @@ export class LoadingScene extends Phaser.Scene {
 
     this.loadingText = this.add.text(cx, barY + barH + 22, '加载中... 0%', {
       fontSize: '20px',
-      fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
+      fontFamily: FONT_FAMILY,
       color: '#8a7040',
     }).setOrigin(0.5);
 
@@ -93,7 +73,7 @@ export class LoadingScene extends Phaser.Scene {
 
     this.add.text(cx, height * 0.38, '天 下 牌', {
       fontSize: '90px',
-      fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
+      fontFamily: FONT_FAMILY,
       color: '#e8d5a3',
       stroke: '#3a2010',
       strokeThickness: 4,
@@ -101,7 +81,7 @@ export class LoadingScene extends Phaser.Scene {
 
     this.add.text(cx, height * 0.38 + 58, '一 局 定 天 下', {
       fontSize: '28px',
-      fontFamily: '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif',
+      fontFamily: FONT_FAMILY,
       color: '#b89050',
       stroke: '#1a0800',
       strokeThickness: 2,
@@ -113,6 +93,8 @@ export class LoadingScene extends Phaser.Scene {
     this.load.audio('bgm_battle_2', '普通战斗背景2_44100.mp3');
     this.load.audio('bgm_battle_3', '普通战斗背景3_44100.mp3');
     this.load.audio('bgm_battle_4', '普通战斗背景4_44100.mp3');
+    this.load.audio('bgm_battle_5', '九鼎镇山河_44100.mp3');
+    this.load.audio('bgm_battle_6', '群英赴山河_44100.mp3');
     this.load.audio('victory_jingle', '旌旗归_44100.mp3');
     this.load.audio('bgm_failure', 'bgm_failure_44100.mp3');
     this.load.audio('sfx_hurt', 'sfx_hurt.mp3');
@@ -138,14 +120,26 @@ export class LoadingScene extends Phaser.Scene {
     this.load.image('char_luocheng', 'char_luocheng.png');
     this.load.image('char_xuewanche', 'char_xuewanche.png');
     this.load.image('char_gaoshun', 'char_gaoshun.png');
+    this.load.image('char_zhangfei', 'char_zhangfei.png');
+    this.load.image('char_zhanghan', 'char_zhanghan.png');
+    this.load.image('char_bianque', 'char_bianque.png');
 
     // 敌人头像图片
     this.load.image('char_huangjinjun', 'char_huangjinjun.png');
     this.load.image('char_nanmanjun', 'char_nanmanjun.png');
     this.load.image('char_qiangdao', 'char_qiangdao.png');
+    this.load.image('char_shizu', 'char_shizu.png');
+    this.load.image('char_banner_army', 'char_banner_army.png');
+    this.load.image('char_mongol_army', 'char_mongol_army.png');
+    this.load.image('char_xiliang_army', 'char_xiliang_army.png');
+    this.load.image('char_xiongnu_army', 'char_xiongnu_army.png');
 
     for (const voiceKey of VoiceManager.voiceKeys) {
       this.load.audio(voiceKey, `voice/${voiceKey}.mp3`);
+    }
+
+    for (const enemyKey of VoiceManager.enemyVoiceKeys) {
+      this.load.audio(enemyKey, `voice/${enemyKey}.mp3`);
     }
   }
 

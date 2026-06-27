@@ -7,31 +7,19 @@ import { decidePlay } from '../engine/AIBrain';
 import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
 import { AudioManager } from '../utils/AudioManager';
 import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../utils/VoiceManager';
-import { PlayerCharacterId, EnemyCharacterId, PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST } from '../models/Character';
+import { PlayerCharacterId, EnemyCharacterId, PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayerCharacter } from '../models/Character';
 import { canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, LiuBoWenChouCe, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
+import { getBlockedResponseTypes } from '../skills/PassiveSkillUtils';
 import { waitForDelay, waitForTween, waitForCounterTween, fadeOutAndDestroy } from '../utils/AnimationUtils';
-
-const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
-const CARD_W = 180;
-const CARD_H = 252;
-const SELECTED_OFFSET = -40;
-
-const SLOT_SIZE = 120;
-const SLOT_GAP = 10;
-const SLOT_STRIDE = SLOT_SIZE + SLOT_GAP;
-const VISIBLE_BAR_WIDTH = 5 * SLOT_STRIDE + SLOT_SIZE / 2;
-const FADE_WIDTH = SLOT_SIZE / 2 + 20;
-
-const DEPTH_BG = -10;
-const DEPTH_BG_BORDER = -5;
-const DEPTH_UI = 500;
-const DEPTH_ENEMY_HAND = 1;
-const DEPTH_PLAYER_HAND = 30;
-const DEPTH_CENTER_BASE = 100;
-const DEPTH_DAMAGE = 450;
-const DEPTH_OVERLAY = 900;
-const DEPTH_OVERLAY_TEXT = 1000;
+import {
+  FONT_FAMILY, CARD_W, CARD_H, SELECTED_OFFSET,
+  AVATAR_SOURCE_SIZE, SLOT_SIZE, SLOT_GAP, SLOT_STRIDE,
+  VISIBLE_BAR_WIDTH, FADE_WIDTH,
+  DEPTH_BG, DEPTH_BG_BORDER, DEPTH_UI, DEPTH_ENEMY_HAND,
+  DEPTH_PLAYER_HAND, DEPTH_CENTER_BASE, DEPTH_DAMAGE,
+  DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT,
+} from '../constants/Layout';
 
 interface TestBattleConfig {
   selectedPlayerCharacterIds?: PlayerCharacterId[];
@@ -115,7 +103,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private revealedEnemyCards: Set<Card> = new Set();
 
   private battleBgm: Phaser.Sound.BaseSound | null = null;
-  private battleBgmKeys = ['bgm_battle_1', 'bgm_battle_2', 'bgm_battle_3', 'bgm_battle_4'];
+  private battleBgmKeys = ['bgm_battle_1', 'bgm_battle_2', 'bgm_battle_3', 'bgm_battle_4', 'bgm_battle_5', 'bgm_battle_6'];
   private currentBattleBgmIndex = -1;
 
   private handPatternButton!: Phaser.GameObjects.Container;
@@ -135,6 +123,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private dragSnapshot: Set<number> = new Set();
 
   private respondChainDepth: number = 0;
+  private damageSettlementCancelled: boolean = false;
 
   private testConfig: TestBattleConfig | null = null;
   private playerCharacterIds: PlayerCharacterId[] = [];
@@ -223,6 +212,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.dragSnapshot = new Set();
 
     this.respondChainDepth = 0;
+    this.damageSettlementCancelled = false;
     this.playerCharacterIds = [];
 
     this.characterSlotContainers = [];
@@ -389,16 +379,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private selectPlayerCharacter(): PlayerCharacterId {
     if (this.testConfig?.selectedPlayerCharacterIds && this.testConfig.selectedPlayerCharacterIds.length > 0) {
       this.playerCharacterIds = [...this.testConfig.selectedPlayerCharacterIds];
-      return this.playerCharacterIds[0];
+      return this.playerCharacterIds[0]!;
     }
-    const id = this.randomPlayerCharacter();
+    const id = randomPlayerCharacter();
     this.playerCharacterIds = [id];
     return id;
-  }
-
-  private randomPlayerCharacter(): PlayerCharacterId {
-    const ids: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao'];
-    return ids[Math.floor(Math.random() * ids.length)];
   }
 
   private selectEnemyCharacter(): EnemyCharacterId {
@@ -406,7 +391,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       return this.testConfig.enemyCharacterId;
     }
     const enemies = ENEMY_CHARACTER_LIST;
-    return enemies[Math.floor(Math.random() * enemies.length)].id;
+    return enemies[Math.floor(Math.random() * enemies.length)]!.id;
   }
 
   // ═══════════════════════════════════════════════
@@ -453,6 +438,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     // 敌人头像（敌人名字左侧，战斗开始后根据 enemyCharacterId 设置纹理）
     const avatarSize = 80;
+    const avatarDisplaySize = 68;
     const avatarX = enemyBarX - 66;
     const avatarY = enemyBarY - 2;
     this.enemyAvatarBorder = this.add.graphics();
@@ -464,7 +450,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.enemyAvatarBorder.setVisible(false);
 
     this.enemyAvatarImage = this.add.image(avatarX, avatarY, 'char_huangjinjun')
-      .setDisplaySize(68, 68)
+      .setScale(avatarDisplaySize / AVATAR_SOURCE_SIZE)
       .setDepth(DEPTH_UI)
       .setVisible(false);
 
@@ -677,7 +663,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
       if (charId) {
         const avatar = this.add.image(0, 0, `char_${charId}`);
-        avatar.setDisplaySize(112, 112);
+        avatar.setScale((SLOT_SIZE - 8) / AVATAR_SOURCE_SIZE);
         container.add(avatar);
       }
 
@@ -834,7 +820,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     if (tailDir === 'down') {
       const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
       if (idx < 0 || idx >= this.characterSlotContainers.length) return;
-      const slot = this.characterSlotContainers[idx];
+      const slot = this.characterSlotContainers[idx]!;
       const barX = this.characterBarContainer ? this.characterBarContainer.x : 0;
       const barY = this.characterBarContainer ? this.characterBarContainer.y : 0;
       anchorX = slot.x + barX;
@@ -844,7 +830,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       anchorY = 160;
     }
 
-    const container = this.add.container(anchorX, anchorY).setDepth(DEPTH_DAMAGE + 5).setAlpha(0);
+    const container = this.add.container(anchorX, anchorY).setDepth(DEPTH_DAMAGE - 5).setAlpha(0);
 
     const textObj = this.add.text(0, 0, lines.join('\n'), {
       fontSize: `${fontSize}px`,
@@ -1065,20 +1051,20 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.playerCharacterIds.splice(idx, 1);
     this.playerCharacterIds.unshift(characterId as PlayerCharacterId);
 
-    const movedContainer = this.characterSlotContainers.splice(idx, 1)[0];
+    const movedContainer = this.characterSlotContainers.splice(idx, 1)[0]!;
     this.characterSlotContainers.unshift(movedContainer);
 
-    const movedGlowEls = this.characterSlotGlows.splice(idx, 1)[0];
+    const movedGlowEls = this.characterSlotGlows.splice(idx, 1)[0]!;
     this.characterSlotGlows.unshift(movedGlowEls);
 
-    const movedText = this.characterSlotTexts.splice(idx, 1)[0];
+    const movedText = this.characterSlotTexts.splice(idx, 1)[0]!;
     this.characterSlotTexts.unshift(movedText);
 
     const slotTweens: Promise<void>[] = [];
     for (let i = 0; i <= idx; i++) {
       const targetPos = this.getSlotPosition(i);
       slotTweens.push(waitForTween(this, {
-        targets: this.characterSlotContainers[i],
+        targets: this.characterSlotContainers[i]!,
         x: targetPos.x,
         duration: 300,
         ease: 'Sine.easeOut',
@@ -1108,7 +1094,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     if (!charId) return;
 
     const char = PLAYER_CHARACTERS[charId];
-    const slotContainer = this.characterSlotContainers[index];
+    const slotContainer = this.characterSlotContainers[index]!;
     const barX = this.characterBarContainer ? this.characterBarContainer.x : 0;
     const barY = this.characterBarContainer ? this.characterBarContainer.y : 0;
     const sx = slotContainer.x + barX;
@@ -1176,7 +1162,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       }).setDepth(DEPTH_OVERLAY_TEXT);
       container.add(skillName);
 
-      const descLines = descLinesList[lineIdx];
+      const descLines = descLinesList[lineIdx]!;
       for (const line of descLines) {
         abilityY += 24;
         const descText = this.add.text(tooltipX - tooltipW / 2 + 28, abilityY, line, {
@@ -1320,7 +1306,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       }).setDepth(DEPTH_OVERLAY_TEXT);
       container.add(skillName);
 
-      const descLines = descLinesList[lineIdx];
+      const descLines = descLinesList[lineIdx]!;
       for (const line of descLines) {
         abilityY += 24;
         const descText = this.add.text(tooltipX - tooltipW / 2 + 28, abilityY, line, {
@@ -1479,7 +1465,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       }).setOrigin(0, 0);
       container.add(rankTxt);
 
-      const suitTxt = this.add.text(cornerX, cornerY + 34, suitSymbol[card.suit!], {
+      const suitTxt = this.add.text(cornerX, cornerY + 34, suitSymbol[card.suit!]!, {
         fontSize: '24px',
         fontFamily: FONT_FAMILY,
         color: textColor,
@@ -1487,7 +1473,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       container.add(suitTxt);
 
       // Large faded suit symbol in center
-      const centerSuit = this.add.text(0, 0, suitSymbol[card.suit!], {
+      const centerSuit = this.add.text(0, 0, suitSymbol[card.suit!]!, {
         fontSize: '60px',
         fontFamily: FONT_FAMILY,
         color: textColor,
@@ -1593,7 +1579,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       const isSelected = this.selectedIndices.has(i);
       const y = baseY + (isSelected ? SELECTED_OFFSET : 0);
       const initX = animateEntry ? offscreenX : targetX;
-      const obj = this.createCardInteractive(hand[i], initX, y, i, isSelected);
+      const obj = this.createCardInteractive(hand[i]!, initX, y, i, isSelected);
       obj.setDepth(DEPTH_PLAYER_HAND + i);
       this.cardObjects.push(obj);
 
@@ -1628,9 +1614,10 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       const container = this.add.container(targetX, initY);
       container.setDepth(DEPTH_ENEMY_HAND + i);
       container.setData('cardIndex', i);
-      container.setData('uid', hand[i].uid);
-      container.setData('rank', hand[i].rank);
-      container.setData('suit', hand[i].suit ?? '');
+      const hc = hand[i]!;
+      container.setData('uid', hc.uid);
+      container.setData('rank', hc.rank);
+      container.setData('suit', hc.suit ?? '');
       if (animateEntry) {
         container.setAlpha(0);
       }
@@ -1641,7 +1628,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       container.add(enemyShadowG);
 
       if (revealedIndices.has(i)) {
-        const revealedDisplay = this.createCardDisplay(hand[i], 0, 0, false);
+        const revealedDisplay = this.createCardDisplay(hand[i]!, 0, 0, false);
         revealedDisplay.setAlpha(0.6);
         revealedDisplay.setScale(0.75);
         container.add(revealedDisplay);
@@ -1685,7 +1672,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const indices = new Set<number>();
     for (let i = 0; i < this.battle.enemy.hand.length; i++) {
-      if (this.revealedEnemyCards.has(this.battle.enemy.hand[i])) {
+      if (this.revealedEnemyCards.has(this.battle.enemy.hand[i]!)) {
         indices.add(i);
       }
     }
@@ -1717,11 +1704,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.centerDepthCounter += cards.length;
     let completed = 0;
     for (let i = 0; i < cards.length; i++) {
-      cards[i].setDepth(baseDepth + i);
+      cards[i]!.setDepth(baseDepth + i);
       this.tweens.add({
-        targets: cards[i],
-        x: positions[i].x,
-        y: positions[i].y,
+        targets: cards[i]!,
+        x: positions[i]!.x,
+        y: positions[i]!.y,
         duration,
         ease: 'Sine.easeOut',
         onComplete: () => {
@@ -1810,11 +1797,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const newPositions = this.getCardFanPositions(newCards.length, 1200, 475);
     for (let i = 0; i < newCards.length; i++) {
-      newCards[i].setDepth(shiftDepth + oldCards.length + i);
+      newCards[i]!.setDepth(shiftDepth + oldCards.length + i);
       this.tweens.add({
-        targets: newCards[i],
-        x: newPositions[i].x,
-        y: newPositions[i].y,
+        targets: newCards[i]!,
+        x: newPositions[i]!.x,
+        y: newPositions[i]!.y,
         duration,
         ease: 'Sine.easeOut',
         onComplete: checkDone,
@@ -1827,7 +1814,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     for (const idx of indices) {
       if (idx < this.battle.enemy.hand.length) {
-        const card = this.battle.enemy.hand[idx];
+        const card = this.battle.enemy.hand[idx]!;
         const isRevealed = this.revealedEnemyCards.has(card);
         if (isRevealed) {
           this.revealedEnemyCards.delete(card);
@@ -1835,8 +1822,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         let x: number;
         let y: number;
         if (idx < this.enemyCardObjects.length) {
-          x = this.enemyCardObjects[idx].x;
-          y = this.enemyCardObjects[idx].y;
+          x = this.enemyCardObjects[idx]!.x;
+          y = this.enemyCardObjects[idx]!.y;
         } else {
           const { width } = this.scale;
           const overlapOffset = CARD_W * 0.75;
@@ -1901,7 +1888,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const baseY = height - 90;
 
     for (let i = 0; i < this.cardObjects.length; i++) {
-      const obj = this.cardObjects[i];
+      const obj = this.cardObjects[i]!;
       const isSelected = this.selectedIndices.has(i);
       const targetY = baseY + (isSelected ? SELECTED_OFFSET : 0);
       const glowG = obj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
@@ -1935,7 +1922,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   private getSelectedCards(): Card[] {
-    return [...this.selectedIndices].sort((a, b) => a - b).map(i => this.battle.player.hand[i]);
+    return [...this.selectedIndices].sort((a, b) => a - b).map(i => this.battle.player.hand[i]!).filter((c): c is Card => c !== undefined);
   }
 
   private updatePatternHint(): void {
@@ -1994,7 +1981,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     };
     const additionalPatterns = await this.skillRunner.modifyHandValidation(ctx);
     if (additionalPatterns.length > 0) {
-      this.showPatternHint(additionalPatterns[0], selected, true);
+      this.showPatternHint(additionalPatterns[0]!, selected, true);
     }
   }
 
@@ -2024,7 +2011,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         };
         const additionalPatterns = await this.skillRunner.modifyHandValidation(ctx);
         if (additionalPatterns.length > 0) {
-          pattern = additionalPatterns[0];
+          pattern = additionalPatterns[0]!;
         }
       }
     }
@@ -2033,6 +2020,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     if (this.phase === 'player_respond') {
       if (!this.battle.lastPlay) return;
+      const blockedTypes = getBlockedResponseTypes(this.battle.enemyCharacterId, this.battle.lastPlay);
+      if (blockedTypes.includes(pattern.type)) return;
       const playerChar = this.battle.player.characterId;
       const canBeatPlay = playerChar === 'zhugeliang'
         ? canBeatOrEqual(pattern, this.battle.lastPlay)
@@ -2088,7 +2077,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     for (const idx of this.selectedIndices) {
       const cardObj = this.cardObjects.find(c => c.getData('cardIndex') === idx);
       if (cardObj) {
-        const handCard = playerHand[idx];
+        const handCard = playerHand[idx]!;
         displayMap.set(handCard.uid, cardObj);
         const arrIdx = this.cardObjects.indexOf(cardObj);
         if (arrIdx >= 0) this.cardObjects.splice(arrIdx, 1);
@@ -2099,7 +2088,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const playedCards: Card[] = [];
     for (const i of indicesToRemove) {
-      playedCards.push({ ...playerHand[i] });
+      const pc = playerHand[i]!;
+      playedCards.push({ ...pc });
     }
 
     for (const pc of pattern.cards) {
@@ -2149,7 +2139,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const onPlayCtx: SkillContext = {
       gameScene: this,
       battle: this.battle,
-      sourceCharacterId: this.battle.player.characterId ?? this.playerCharacterIds[0],
+      sourceCharacterId: this.battle.player.characterId ?? this.playerCharacterIds[0]!,
       pattern,
       target: 'enemy',
       playerCharacterIds: this.playerCharacterIds,
@@ -2254,7 +2244,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.phase = 'animating';
 
     await this.showPassAnimation(who);
-    VoiceManager.play(this, getRandomPassVoice());
+    VoiceManager.play(this, getRandomPassVoice(), who);
 
     if (!this.battle.lastPlay) {
       if (who === 'player') {
@@ -2282,6 +2272,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.updatePatternHint();
 
       await this.playDamageSettlement(lastPlay, 'player', false);
+      if (this.damageSettlementCancelled) return;
       if (this.battle.player.vitality <= 0) {
         this.showGameOver(false);
         return;
@@ -2293,6 +2284,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.respondChainDepth = 0;
       await this.aiInitiatePlay();
     } else {
+      // player pass → enemy lastPlay deals damage to enemy
       this.battle.turnHolder = 'player';
 
       await this.playDamageSettlement(lastPlay, 'enemy', false);
@@ -2416,7 +2408,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.battle.lastPlay.type !== HandType.Bomb &&
       this.battle.lastPlay.type !== HandType.Rocket;
     const voiceKey = getVoiceKeyForPlay(pattern, false, isBombOnNonBomb);
-    VoiceManager.play(this, voiceKey);
+    VoiceManager.play(this, voiceKey, 'enemy');
 
     const enemyHand = this.battle.enemy.hand;
     const indicesToRemove = this.findCardIndices(enemyHand, cards);
@@ -2425,7 +2417,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const playedCards: Card[] = [];
     for (const i of indicesToRemove) {
-      playedCards.push({ ...enemyHand[i] });
+      const ei = enemyHand[i]!; playedCards.push({ ...ei });
     }
     for (const i of indicesToRemove) {
       enemyHand.splice(i, 1);
@@ -2448,7 +2440,21 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.centerCards = [...displayCards];
       this.centerCardsOwner = 'enemy';
 
+      const aiOnPlayCtx: SkillContext = {
+        gameScene: this,
+        battle: this.battle,
+        sourceCharacterId: this.battle.enemyCharacterId ?? 'unknown',
+        pattern,
+        target: 'player',
+        playerCharacterIds: this.playerCharacterIds,
+        enemyCharacterId: this.battle.enemyCharacterId,
+        centerCardContainers: this.centerCards,
+        playedCards,
+      };
+      await this.skillEventBus.emit(SkillTiming.ON_PLAY, aiOnPlayCtx);
+
       await this.playDamageSettlement(pattern, 'player', true);
+      if (this.damageSettlementCancelled) return;
       if (this.battle.player.vitality <= 0) {
         this.showGameOver(false);
         return;
@@ -2484,6 +2490,20 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     await this.animateShiftAndReplaceAsync(playerCenterCards, displayCards, 150);
     this.centerCards = displayCards;
     this.centerCardsOwner = 'enemy';
+
+    const aiOnPlayCtx: SkillContext = {
+      gameScene: this,
+      battle: this.battle,
+      sourceCharacterId: this.battle.enemyCharacterId ?? 'unknown',
+      pattern,
+      target: 'player',
+      playerCharacterIds: this.playerCharacterIds,
+      enemyCharacterId: this.battle.enemyCharacterId,
+      centerCardContainers: this.centerCards,
+      playedCards,
+    };
+    await this.skillEventBus.emit(SkillTiming.ON_PLAY, aiOnPlayCtx);
+
     this.phase = 'player_respond';
     this.updateUIForPhase();
     this.respondChainDepth = this.respondChainDepth + 1;
@@ -2532,7 +2552,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     }
 
     const voiceKey = getVoiceKeyForPlay(pattern, true, false);
-    VoiceManager.play(this, voiceKey);
+    VoiceManager.play(this, voiceKey, 'enemy');
 
     const enemyHand = this.battle.enemy.hand;
     const indicesToRemove = this.findCardIndices(enemyHand, cards);
@@ -2541,7 +2561,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const playedCards: Card[] = [];
     for (const i of indicesToRemove) {
-      playedCards.push({ ...enemyHand[i] });
+      const ei = enemyHand[i]!; playedCards.push({ ...ei });
     }
     for (const i of indicesToRemove) {
       enemyHand.splice(i, 1);
@@ -2561,8 +2581,22 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.centerCards = displayCards;
     this.centerCardsOwner = 'enemy';
 
+    const aiOnPlayCtx: SkillContext = {
+      gameScene: this,
+      battle: this.battle,
+      sourceCharacterId: this.battle.enemyCharacterId ?? 'unknown',
+      pattern,
+      target: 'player',
+      playerCharacterIds: this.playerCharacterIds,
+      enemyCharacterId: this.battle.enemyCharacterId,
+      centerCardContainers: this.centerCards,
+      playedCards,
+    };
+    await this.skillEventBus.emit(SkillTiming.ON_PLAY, aiOnPlayCtx);
+
     if (enemyHand.length === 0) {
       await this.playDamageSettlement(pattern, 'player', true);
+      if (this.damageSettlementCancelled) return;
       if (this.battle.player.vitality <= 0) {
         this.showGameOver(false);
         return;
@@ -2600,7 +2634,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const result: number[] = [];
     for (const card of cards) {
       for (let i = 0; i < hand.length; i++) {
-        if (!used.has(i) && hand[i].uid === card.uid) {
+        if (!used.has(i) && hand[i]!.uid === card.uid) {
           used.add(i);
           result.push(i);
           break;
@@ -2797,17 +2831,18 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     isEmptyHand: boolean,
   ): Promise<void> {
     this.phase = 'animating';
+    this.damageSettlementCancelled = false;
 
     const cards = [...this.centerCards];
     const sumRanks = pattern.cards.reduce((sum, c) => sum + (c.consideredAs?.rank ?? c.rank), 0);
     const coefficient = getCoefficient(pattern.type, pattern.length);
     const baseCoefficient = coefficient;
-    let finalDamage = Math.round(sumRanks * coefficient);
-    if (isEmptyHand) finalDamage *= 5;
+    const damageMultiplier = isEmptyHand ? 5 : 1;
+    const finalDamage = Math.round(sumRanks * coefficient * damageMultiplier);
 
-    const damageInfo = { sumRanks, coefficient, baseCoefficient, finalDamage };
+    const damageInfo = { sumRanks, coefficient, baseCoefficient, damageMultiplier, finalDamage };
     const sourceCharId = target === 'enemy'
-      ? (this.battle.player.characterId ?? this.playerCharacterIds[0])
+      ? (this.battle.player.characterId ?? this.playerCharacterIds[0]!)
       : (this.battle.enemyCharacterId ?? 'unknown');
 
     const { width, height } = this.scale;
@@ -2826,12 +2861,13 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     await this.stage1RevealCards(
       cards, counterText, damageInfo, pattern, target, sourceCharId,
     );
+    if (this.damageSettlementCancelled) return;
     await waitForDelay(this, 180);
 
     // stage1 中单牌技能（如文天祥丹心）可能将加成累加进 sumRanks，重算 finalDamage
-    // 以便后续系数技能（如韩信点兵）与最终结算使用更新后的计分。
-    damageInfo.finalDamage = Math.round(damageInfo.sumRanks * damageInfo.coefficient);
-    if (isEmptyHand) damageInfo.finalDamage *= 5;
+    damageInfo.finalDamage = Math.round(
+      damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
+    );
 
     await this.stage2ShowCoefficient(
       counterText, pattern, damageInfo, baseCoefficient, isEmptyHand, target, sourceCharId,
@@ -2848,7 +2884,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   ): Promise<void> {
     let currentSum = 0;
     for (let i = 0; i < cards.length; i++) {
-      const card = cards[i];
+      const card = cards[i]!;
       const consideredAsRank = card.getData('consideredAsRank') as number | undefined;
       const rank = consideredAsRank ?? (card.getData('rank') as number ?? 0);
 
@@ -2902,11 +2938,14 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         singleCard,
       };
       await this.skillEventBus.emit(SkillTiming.ON_SINGLE_CARD_SETTLEMENT, singleCardCtx);
+      if (this.damageSettlementCancelled) break;
 
       const cardScore = rank + singleCard.scoreBonus;
       currentSum += cardScore;
       counterText.setText(`${currentSum}`);
       damageInfo.sumRanks += singleCard.scoreBonus;
+
+      await this.skillEventBus.emit(SkillTiming.AFTER_SINGLE_CARD_SETTLEMENT, singleCardCtx);
 
       // 弹出文字消失（fire-and-forget，保持与下一张牌并行的原节奏）+ 卡牌缩小
       this.tweens.add({
@@ -2937,6 +2976,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     target: 'enemy' | 'player',
     sourceCharId: string,
   ): Promise<void> {
+    if (this.damageSettlementCancelled) return;
     const { width, height } = this.scale;
     const centerX = width / 2;
     const centerY = height / 2;
@@ -2958,7 +2998,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         stroke: '#1a0800',
         strokeThickness: 3,
       },
-    ).setOrigin(0, 0.5).setDepth(DEPTH_DAMAGE).setAlpha(0);
+    ).setOrigin(0, 0.5).setDepth(DEPTH_DAMAGE).setAlpha(0)
+      .setShadow(0, 0, '#ff8800', 14, true, true);
 
     await waitForTween(this, {
       targets: coeffText,
@@ -2967,28 +3008,26 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       ease: 'Sine.easeOut',
     });
 
-    let emptyHandText: Phaser.GameObjects.Text | null = null;
-    if (isEmptyHand) {
-      emptyHandText = this.add.text(
-        coeffText.x + coeffText.width + 16,
-        centerY,
-        '✖️ 5（清空手牌）',
-        {
-          fontSize: '36px',
-          fontFamily: FONT_FAMILY,
-          color: '#cc6633',
-          stroke: '#1a0800',
-          strokeThickness: 3,
-        },
-      ).setOrigin(0, 0.5).setDepth(DEPTH_DAMAGE).setAlpha(0);
+    const multiplierText = this.add.text(
+      coeffText.x + coeffText.width + 16,
+      centerY,
+      `✖️ ${damageInfo.damageMultiplier}（伤害倍数）`,
+      {
+        fontSize: '36px',
+        fontFamily: FONT_FAMILY,
+        color: '#b08030',
+        stroke: '#1a0800',
+        strokeThickness: 3,
+      },
+    ).setOrigin(0, 0.5).setDepth(DEPTH_DAMAGE).setAlpha(0)
+      .setShadow(0, 0, '#ffaa00', 14, true, true);
 
-      await waitForTween(this, {
-        targets: emptyHandText,
-        alpha: 1,
-        duration: 600,
-        ease: 'Sine.easeOut',
-      });
-    }
+    await waitForTween(this, {
+      targets: multiplierText,
+      alpha: 1,
+      duration: 600,
+      ease: 'Sine.easeOut',
+    });
 
     const onCoeffCtx: SkillContext = {
       gameScene: this,
@@ -3004,22 +3043,42 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     };
     await this.skillEventBus.emit(SkillTiming.ON_COEFFICIENT_REVEALED, onCoeffCtx);
 
-    await this.stage3ApplyDamage(counterText, coeffText, emptyHandText, damageInfo, target, pattern, sourceCharId);
+    const multiplierCtx: SkillContext = {
+      gameScene: this,
+      battle: this.battle,
+      sourceCharacterId: sourceCharId,
+      pattern,
+      target,
+      isEmptyHand,
+      damageInfo,
+      playerCharacterIds: this.playerCharacterIds,
+      enemyCharacterId: this.battle.enemyCharacterId,
+      centerCardContainers: this.centerCards,
+      multiplierLabel: multiplierText,
+    };
+    await this.skillEventBus.emit(SkillTiming.ON_DAMAGE_MULTIPLIER_REVEALED, multiplierCtx);
+
+    // 倍数技能（如韩信点兵）可能修改 damageMultiplier，重算 finalDamage
+    damageInfo.finalDamage = Math.round(
+      damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
+    );
+
+    await this.stage3ApplyDamage(counterText, coeffText, multiplierText, damageInfo, target, pattern, sourceCharId);
   }
 
   private async stage3ApplyDamage(
     counterText: Phaser.GameObjects.Text,
     coeffText: Phaser.GameObjects.Text,
-    emptyHandText: Phaser.GameObjects.Text | null,
+    multiplierText: Phaser.GameObjects.Text,
     damageInfo: NonNullable<SkillContext['damageInfo']>,
     target: 'enemy' | 'player',
     pattern: HandPattern,
     sourceCharId: string,
   ): Promise<void> {
+    if (this.damageSettlementCancelled) return;
     const { height } = this.scale;
 
-    const labelsToFade: Phaser.GameObjects.Text[] = [coeffText];
-    if (emptyHandText) labelsToFade.push(emptyHandText);
+    const labelsToFade: Phaser.GameObjects.Text[] = [coeffText, multiplierText];
 
     const currentDisplay = parseInt(counterText.text, 10) || damageInfo.sumRanks;
 
@@ -3077,7 +3136,18 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const newVitality = Math.max(0, battleObj.vitality - damageInfo.finalDamage);
     await this.animateHealthBarDepletionAsync(target, newVitality, 300);
 
-    if (newVitality <= 0) return;
+    const healthDecreaseCtx: SkillContext = {
+      gameScene: this,
+      battle: this.battle,
+      sourceCharacterId: sourceCharId,
+      pattern,
+      target,
+      playerCharacterIds: this.playerCharacterIds,
+      damageInfo,
+    };
+    await this.skillEventBus.emit(SkillTiming.AFTER_HEALTH_DECREASE, healthDecreaseCtx);
+
+    if (battleObj.vitality <= 0) return;
 
     const afterDmgCtx: SkillContext = {
       gameScene: this,
@@ -3106,10 +3176,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     await Promise.all(
       cards.map((card, i) => {
         card.setDepth(baseDepth + i);
+        const pos = positions[i]!;
         return waitForTween(this, {
           targets: card,
-          x: positions[i].x,
-          y: positions[i].y,
+          x: pos.x,
+          y: pos.y,
           duration,
           ease: 'Sine.easeOut',
         });
@@ -3153,10 +3224,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const newPositions = this.getCardFanPositions(newCards.length, 1200, 475);
     const newPromises = newCards.map((card, i) => {
       card.setDepth(shiftDepth + oldCards.length + i);
+      const pos = newPositions[i]!;
       return waitForTween(this, {
         targets: card,
-        x: newPositions[i].x,
-        y: newPositions[i].y,
+        x: pos.x,
+        y: pos.y,
         duration,
         ease: 'Sine.easeOut',
       });
@@ -3261,7 +3333,12 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       return allPlays.length > 0;
     }
     if (this.phase === 'player_respond' && this.battle.lastPlay) {
-      return findBeatingPlays(hand, this.battle.lastPlay).length > 0;
+      let beatingPlays = findBeatingPlays(hand, this.battle.lastPlay);
+      const blockedTypes = getBlockedResponseTypes(this.battle.enemyCharacterId, this.battle.lastPlay);
+      if (blockedTypes.length > 0) {
+        beatingPlays = beatingPlays.filter(p => !blockedTypes.includes(p.type));
+      }
+      return beatingPlays.length > 0;
     }
     return false;
   }
@@ -3516,7 +3593,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     this.currentBattleBgmIndex = index;
     const settings = loadAudioSettings();
-    this.battleBgm = this.sound.add(this.battleBgmKeys[index], { loop: false, volume: settings.bgmVolume });
+    this.battleBgm = this.sound.add(this.battleBgmKeys[index]!, { loop: false, volume: settings.bgmVolume });
     AudioManager.track(this, this.battleBgm);
     this.battleBgm.on('complete', () => this.onBattleBgmComplete());
     this.battleBgm.play();
@@ -3525,6 +3602,58 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private onBattleBgmComplete(): void {
     if (this.phase === 'game_over') return;
     this.playRandomBattleBgm(this.currentBattleBgmIndex);
+  }
+
+  cancelDamageSettlement(): void {
+    this.damageSettlementCancelled = true;
+
+    const texts = this.children.list.filter(
+      c => c instanceof Phaser.GameObjects.Text &&
+        (c.depth === DEPTH_DAMAGE || c.depth === DEPTH_DAMAGE + 1)
+    ) as Phaser.GameObjects.Text[];
+
+    for (const t of texts) {
+      this.tweens.add({
+        targets: t,
+        x: t.x + 8,
+        duration: 30,
+        yoyo: true,
+        repeat: 5,
+        ease: 'Sine.easeInOut',
+      });
+
+      this.tweens.add({
+        targets: t,
+        scaleX: 0.3,
+        scaleY: 0.3,
+        alpha: 0,
+        duration: 400,
+        delay: 50,
+        ease: 'Back.easeIn',
+        onComplete: () => t.destroy(),
+      });
+    }
+
+    for (const card of this.centerCards) {
+      this.tweens.add({
+        targets: card,
+        alpha: 0,
+        scaleX: 0.1,
+        scaleY: 0.1,
+        duration: 300,
+        ease: 'Sine.easeIn',
+        onComplete: () => card.destroy(),
+      });
+    }
+    this.centerCards = [];
+    this.centerCardsOwner = null;
+    this.centerDepthCounter = DEPTH_CENTER_BASE;
+
+    this.battle.turnHolder = 'player';
+    this.phase = 'player_init';
+    this.initActiveSkills();
+    this.updateUIForPhase();
+    this.respondChainDepth = 0;
   }
 
   // ═══════════════════════════════════════════════
@@ -4115,7 +4244,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private updateActiveSkillButton(): void {
     const { width, height } = this.scale;
 
-    if (this.phase !== 'player_init' && this.phase !== 'player_respond') {
+    if (this.phase !== 'player_init') {
       if (this.btnSkill) this.btnSkill.setVisible(false);
       this.closeSkillDropdown();
       return;
@@ -4177,7 +4306,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     if (eligibleIds.length > 1 && this.currentActiveSkillId === firstSkill.id) {
       this.currentActiveSkillId = firstSkill.id;
     } else if (!this.currentActiveSkillId || !eligibleIds.includes(this.currentActiveSkillId)) {
-      this.currentActiveSkillId = eligibleIds[0];
+      this.currentActiveSkillId = eligibleIds[0] ?? null;
     }
 
     const displaySkill = this.activeSkills.find(s => s.id === this.currentActiveSkillId) ?? firstSkill;
@@ -4346,7 +4475,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     for (let i = 0; i < visibleButtons.length; i++) {
       const targetX = startX + i * (btnW + gap);
-      const btn = visibleButtons[i];
+      const btn = visibleButtons[i]!;
       if (btn.x !== targetX) {
         this.tweens.add({
           targets: btn,
@@ -4438,7 +4567,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const baseY = height - 90;
 
     for (let i = 0; i < this.cardObjects.length; i++) {
-      const obj = this.cardObjects[i];
+      const obj = this.cardObjects[i]!;
       const isSelected = this.selectedIndices.has(i);
       const targetY = baseY + (isSelected ? SELECTED_OFFSET : 0);
       const glowG = obj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;

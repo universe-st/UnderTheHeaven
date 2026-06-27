@@ -45,7 +45,7 @@ export function getRankVoiceSuffix(rank: number): string | null {
 
 function getPatternVoice(pattern: HandPattern): string {
   if (pattern.type === HandType.Single) {
-    const suffix = getRankVoiceSuffix(pattern.cards[0].rank);
+    const suffix = getRankVoiceSuffix(pattern.cards[0]!.rank);
     return suffix ? `voice_dan_${suffix}` : '';
   }
   if (pattern.type === HandType.Pair) {
@@ -86,16 +86,17 @@ export function getVoiceKeyForPlay(
 }
 
 export function getRandomPassVoice(): string {
-  return PASS_VOICES[Math.floor(Math.random() * PASS_VOICES.length)];
+  return PASS_VOICES[Math.floor(Math.random() * PASS_VOICES.length)]!;
 }
 
 export class VoiceManager {
   private static queue: string[] = [];
   private static current: Phaser.Sound.BaseSound | null = null;
 
-  static play(scene: Phaser.Scene, key: string): void {
+  static play(scene: Phaser.Scene, key: string, side: 'player' | 'enemy' = 'player'): void {
     if (!key) return;
-    VoiceManager.queue.push(key);
+    const finalKey = side === 'enemy' ? `enemy_${key}` : key;
+    VoiceManager.queue.push(finalKey);
     VoiceManager.flush(scene);
   }
 
@@ -140,6 +141,19 @@ export class VoiceManager {
     }
     keys.push('voice_guanshang', 'voice_dani', 'voice_zha');
     keys.push(...PASS_VOICES);
+    return [...new Set(keys)];
+  }
+
+  static get enemyVoiceKeys(): string[] {
+    const keys: string[] = [];
+    for (const suf of Object.values(RANK_VOICE_SUFFIX)) {
+      keys.push(`enemy_voice_dan_${suf}`, `enemy_voice_dui_${suf}`, `enemy_voice_san_${suf}`);
+    }
+    for (const vk of Object.values(PATTERN_VOICE_KEY)) {
+      if (vk) keys.push(`enemy_${vk}`);
+    }
+    keys.push('enemy_voice_guanshang', 'enemy_voice_dani', 'enemy_voice_zha');
+    keys.push('enemy_voice_yaobuqi', 'enemy_voice_buyao', 'enemy_voice_guo', 'enemy_voice_rangnichu');
     return [...new Set(keys)];
   }
 }

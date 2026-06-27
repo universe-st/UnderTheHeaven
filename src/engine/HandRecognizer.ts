@@ -36,18 +36,18 @@ function findConsecutiveRuns(ranks: number[], minLen: number, countFn: (r: numbe
   const runs: { start: number; end: number }[] = [];
   if (sorted.length === 0) return runs;
 
-  let start = sorted[0];
-  let end = sorted[0];
+  let start = sorted[0]!;
+  let end = sorted[0]!;
 
   for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i] === end + 1) {
-      end = sorted[i];
+    if (sorted[i]! === end + 1) {
+      end = sorted[i]!;
     } else {
       if (end - start + 1 >= minLen) {
         runs.push({ start, end });
       }
-      start = sorted[i];
-      end = sorted[i];
+      start = sorted[i]!;
+      end = sorted[i]!;
     }
   }
   if (end - start + 1 >= minLen) {
@@ -71,30 +71,30 @@ export function identifyHand(cards: Card[]): HandPattern | null {
   }
 
   // Rocket
-  if (n === 2 && sorted[0].rank === 25 && sorted[1].rank === 30) {
+  if (n === 2 && sorted[0]!.rank === 25 && sorted[1]!.rank === 30) {
     return { type: HandType.Rocket, cards: sorted, mainValue: 25, length: 2 };
   }
 
   // Bomb
   if (n === 4 && counts.size === 1) {
-    const rank = sorted[0].rank;
+    const rank = sorted[0]!.rank;
     return { type: HandType.Bomb, cards: sorted, mainValue: rank, length: 1 };
   }
 
   // Single
   if (n === 1) {
-    return { type: HandType.Single, cards: sorted, mainValue: sorted[0].rank, length: 1 };
+    return { type: HandType.Single, cards: sorted, mainValue: sorted[0]!.rank, length: 1 };
   }
 
   // Pair
   if (n === 2 && counts.size === 1) {
-    const rank = sorted[0].rank;
+    const rank = sorted[0]!.rank;
     return { type: HandType.Pair, cards: sorted, mainValue: rank, length: 1 };
   }
 
   // Triple
   if (n === 3 && counts.size === 1) {
-    const rank = sorted[0].rank;
+    const rank = sorted[0]!.rank;
     return { type: HandType.Triple, cards: sorted, mainValue: rank, length: 1 };
   }
 
@@ -124,7 +124,7 @@ export function identifyHand(cards: Card[]): HandPattern | null {
     const orderRanks = ranks.map(r => rankForOrder(r)).sort((a, b) => a - b);
     if (isConsecutiveSorted(orderRanks)) {
       if (orderRanks.every(r => canBeInConsecutive(rankFromOrder(r)))) {
-        return { type: HandType.Straight, cards: sorted, mainValue: rankFromOrder(orderRanks[0]), length: n };
+        return { type: HandType.Straight, cards: sorted, mainValue: rankFromOrder(orderRanks[0]!), length: n };
       }
     }
   }
@@ -138,7 +138,7 @@ export function identifyHand(cards: Card[]): HandPattern | null {
         const pairRanks = pairs.map(([r]) => r).sort((a, b) => a - b);
         const orderPairRanks = pairRanks.map(r => rankForOrder(r));
         if (isConsecutiveSorted(orderPairRanks) && pairRanks.every(r => canBeInConsecutive(r)) && orderPairRanks.length >= 3) {
-          return { type: HandType.ConsecutivePairs, cards: sorted, mainValue: rankFromOrder(orderPairRanks[0]), length: orderPairRanks.length };
+          return { type: HandType.ConsecutivePairs, cards: sorted, mainValue: rankFromOrder(orderPairRanks[0]!), length: orderPairRanks.length };
         }
       }
     }
@@ -209,7 +209,7 @@ function allSingles(counts: Map<number, number>): boolean {
 
 function isConsecutiveSorted(ranks: number[]): boolean {
   for (let i = 1; i < ranks.length; i++) {
-    if (ranks[i] !== ranks[i - 1] + 1) return false;
+    if (ranks[i]! !== ranks[i - 1]! + 1) return false;
   }
   return true;
 }
@@ -305,7 +305,7 @@ export function findAllPlays(hand: Card[]): HandPattern[] {
       for (let s = run.start; s + len - 1 <= run.end; s++) {
         const combo: Card[] = [];
         for (let r = s; r < s + len; r++) {
-          combo.push(grouped.get(r)![0]);
+          combo.push(grouped.get(r)![0]!);
         }
         results.push({
           type: HandType.Straight,
@@ -444,7 +444,7 @@ function chooseKickSingleCombos(cards: Card[], count: number): Card[][] {
       return;
     }
     for (let i = start; i < cards.length; i++) {
-      current.push(cards[i]);
+      current.push(cards[i]!);
       backtrack(i + 1, current);
       current.pop();
     }
@@ -465,7 +465,7 @@ function chooseKickPairCombos(
       return;
     }
     for (let i = start; i < ranks.length; i++) {
-      const pair = pairGroups.get(ranks[i])!.slice(0, 2);
+      const pair = pairGroups.get(ranks[i]!)!.slice(0, 2);
       current.push(...pair);
       backtrack(i + 1, current);
       current.splice(current.length - 2, 2);

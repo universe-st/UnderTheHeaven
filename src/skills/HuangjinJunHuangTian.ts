@@ -19,15 +19,15 @@ export const HuangjinJunHuangTian: SkillDefinition = {
     let minRank = Infinity;
     const minIndices: number[] = [];
     for (let i = 0; i < hand.length; i++) {
-      if (hand[i].rank < minRank) {
-        minRank = hand[i].rank;
+      if (hand[i]!.rank < minRank) {
+        minRank = hand[i]!.rank;
         minIndices.length = 0;
         minIndices.push(i);
-      } else if (hand[i].rank === minRank) {
+      } else if (hand[i]!.rank === minRank) {
         minIndices.push(i);
       }
     }
-    const idx = minIndices[Math.floor(Math.random() * minIndices.length)];
+    const idx = minIndices[Math.floor(Math.random() * minIndices.length)]!;
 
     visuals.playSkillTriggerSound();
     await discardCardsFromHand(ctx.gameScene, 'enemy', [idx]);

@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
 import { AudioManager } from '../utils/AudioManager';
-
-const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
+import { UIFactory } from '../utils/UIFactory';
+import { FONT_FAMILY } from '../constants/Layout';
 
 const SHOW_TEST_BUTTON = true;
 
@@ -46,13 +46,13 @@ export class MenuScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const cx = width / 2;
 
-    this.drawBackground(width, height);
+    this.bgImage = UIFactory.imageBg(this, width, height, 'game_background');
 
     const titleY = height * 0.26;
 
-    this.drawDivider(cx, titleY - 72);
+    UIFactory.divider(this, cx, titleY - 72);
 
-    this.drawTitleFrame(cx, titleY, 580, 140);
+    UIFactory.titleFrame(this, cx, titleY, 580, 140);
 
     this.add.text(cx, titleY - 12, '天 下 牌', {
       fontSize: '100px',
@@ -70,27 +70,48 @@ export class MenuScene extends Phaser.Scene {
       strokeThickness: 2,
     }).setOrigin(0.5);
 
-    this.drawDivider(cx, titleY + 82);
+    UIFactory.divider(this, cx, titleY + 82);
 
-    this.createButton(cx, height * 0.57, false, () => {
+    UIFactory.button(this, cx, height * 0.57, '▸', '开始游戏', () => {
       AudioManager.playSfx(this, 'sfx_button');
       AudioManager.stopBgm(this);
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         this.scene.start('GameScene');
       });
-    }, '▸', '开始游戏');
-    this.createButton(cx, height * 0.66, true, () => console.log('continue'), '✦', '继续游戏');
-    this.createButton(cx, height * 0.75, false, () => this.showSettings(), '⚙', '设  置');
+    }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
+
+    // Disabled "继续游戏" button
+    {
+      const dw = 340; const dh = 72; const dy = height * 0.66;
+      const disabledGfx = this.add.graphics();
+      disabledGfx.fillStyle(0x2a1a0f, 0.5);
+      disabledGfx.fillRoundedRect(cx - dw / 2, dy - dh / 2, dw, dh, 6);
+      disabledGfx.lineStyle(1, 0x5a4030, 0.5);
+      disabledGfx.strokeRoundedRect(cx - dw / 2, dy - dh / 2, dw, dh, 6);
+      this.add.text(cx, dy, '✦  继续游戏', {
+        fontSize: '30px',
+        fontFamily: FONT_FAMILY,
+        color: '#665544',
+        stroke: '#1a0a00',
+        strokeThickness: 2,
+      }).setOrigin(0.5);
+    }
+
+    UIFactory.button(this, cx, height * 0.75, '⚙', '设  置', () => {
+      AudioManager.playSfx(this, 'sfx_button');
+      this.showSettings();
+    }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
+
     if (SHOW_TEST_BUTTON) {
-      this.createButton(cx, height * 0.84, false, () => {
+      UIFactory.button(this, cx, height * 0.84, '▶', '测试游戏', () => {
         AudioManager.playSfx(this, 'sfx_button');
         AudioManager.stopBgm(this);
         this.cameras.main.fadeOut(400, 0, 0, 0);
         this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
           this.scene.start('TestSelectScene');
         });
-      }, '▶', '测试游戏');
+      }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
     }
 
     this.add.text(cx, height - 22, 'v0.1.0  ·  天下牌 Under The Heaven', {
@@ -108,138 +129,6 @@ export class MenuScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-M', () => this.toggleMute());
   }
 
-  private drawBackground(w: number, h: number): void {
-    this.bgImage = this.add.image(w / 2, h / 2, 'game_background');
-    this.bgImage.setDepth(-10);
-    // Scale to fill the screen while maintaining aspect ratio
-    const scaleX = w / this.bgImage.width;
-    const scaleY = h / this.bgImage.height;
-    this.bgImage.setScale(Math.max(scaleX, scaleY));
-  }
-
-  private drawDivider(cx: number, cy: number): void {
-    const gfx = this.add.graphics();
-    const half = 140;
-
-    gfx.lineStyle(1, 0xb89040, 0.5);
-    gfx.lineBetween(cx - half, cy, cx - 16, cy);
-    gfx.lineBetween(cx + 16, cy, cx + half, cy);
-
-    gfx.fillStyle(0xd4a843, 0.7);
-    gfx.fillCircle(cx, cy, 3);
-
-    gfx.lineStyle(1, 0xb89040, 0.3);
-    gfx.lineBetween(cx - half - 16, cy, cx - half, cy);
-    gfx.lineBetween(cx + half, cy, cx + half + 16, cy);
-  }
-
-  private drawTitleFrame(cx: number, cy: number, w: number, h: number): void {
-    const gfx = this.add.graphics();
-    const hw = w / 2;
-    const hh = h / 2;
-    const corner = 24;
-
-    gfx.lineStyle(2, 0xb48c3c, 0.5);
-    gfx.strokeRect(cx - hw, cy - hh, w, h);
-
-    const inset = 5;
-    gfx.lineStyle(1, 0xb48c3c, 0.2);
-    gfx.strokeRect(cx - hw + inset, cy - hh + inset, w - inset * 2, h - inset * 2);
-
-    gfx.lineStyle(2, 0xd4a843, 0.75);
-    gfx.lineBetween(cx - hw, cy - hh + corner, cx - hw, cy - hh);
-    gfx.lineBetween(cx - hw, cy - hh, cx - hw + corner, cy - hh);
-
-    gfx.lineBetween(cx + hw - corner, cy - hh, cx + hw, cy - hh);
-    gfx.lineBetween(cx + hw, cy - hh, cx + hw, cy - hh + corner);
-
-    gfx.lineBetween(cx - hw, cy + hh - corner, cx - hw, cy + hh);
-    gfx.lineBetween(cx - hw, cy + hh, cx - hw + corner, cy + hh);
-
-    gfx.lineBetween(cx + hw - corner, cy + hh, cx + hw, cy + hh);
-    gfx.lineBetween(cx + hw, cy + hh, cx + hw, cy + hh - corner);
-  }
-
-  private createButton(
-    x: number, y: number, disabled: boolean,
-    callback: () => void, icon: string, label: string
-  ): void {
-    const w = 340;
-    const h = 72;
-
-    const gfx = this.add.graphics();
-
-    const drawNormal = () => {
-      gfx.clear();
-      if (disabled) {
-        gfx.fillStyle(0x2a1a0f, 0.5);
-        gfx.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-        gfx.lineStyle(1, 0x5a4030, 0.5);
-        gfx.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-      } else {
-        gfx.fillStyle(0x5a3018, 1);
-        gfx.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-        gfx.fillStyle(0x7a4a28, 0.35);
-        gfx.fillRoundedRect(x - w / 2 + 2, y - h / 2 + 2, w - 4, h / 2 - 2, { tl: 5, tr: 5, bl: 0, br: 0 });
-        gfx.lineStyle(1.5, 0xc8a050, 0.85);
-        gfx.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-      }
-    };
-
-    const drawHover = () => {
-      if (disabled) return;
-      gfx.clear();
-      gfx.fillStyle(0x6b3820, 1);
-      gfx.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-      gfx.fillStyle(0x8a4a28, 0.45);
-      gfx.fillRoundedRect(x - w / 2 + 2, y - h / 2 + 2, w - 4, h / 2 - 2, { tl: 5, tr: 5, bl: 0, br: 0 });
-      gfx.lineStyle(2, 0xe8d5a3, 1);
-      gfx.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-      gfx.lineStyle(4, 0xd4a843, 0.12);
-      gfx.strokeRoundedRect(x - w / 2 - 2, y - h / 2 - 2, w + 4, h + 4, 8);
-    };
-
-    drawNormal();
-
-    const hitArea = new Phaser.Geom.Rectangle(x - w / 2, y - h / 2, w, h);
-    const btn = this.add.zone(x, y, w, h).setInteractive({ hitArea, cursor: 'pointer' });
-
-    const iconStr = icon === '⚙' ? '⚙' : icon;
-    const text = this.add.text(x, y, `${iconStr}  ${label}`, {
-      fontSize: '30px',
-      fontFamily: FONT_FAMILY,
-      color: disabled ? '#665544' : '#e8d5a3',
-      stroke: disabled ? '#1a0a00' : '#2a1008',
-      strokeThickness: 2,
-    }).setOrigin(0.5);
-
-    if (!disabled) {
-      btn.on('pointerover', () => drawHover());
-      btn.on('pointerout', () => drawNormal());
-      btn.on('pointerdown', () => {
-        AudioManager.playSfx(this, 'sfx_button');
-        gfx.clear();
-        gfx.fillStyle(0x3a2010, 1);
-        gfx.fillRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-        gfx.lineStyle(1.5, 0xa08040, 0.7);
-        gfx.strokeRoundedRect(x - w / 2, y - h / 2, w, h, 6);
-
-        this.tweens.add({
-          targets: text,
-          scaleX: 0.96,
-          scaleY: 0.96,
-          duration: 60,
-          yoyo: true,
-          ease: 'Sine.easeInOut',
-          onComplete: () => {
-            drawNormal();
-            callback();
-          },
-        });
-      });
-    }
-  }
-
   private createParticles(w: number, h: number): void {
     const colors = [0xd4a843, 0xe8c870, 0xf0d878, 0xc8a040, 0xb89030];
     const count = 16;
@@ -248,7 +137,7 @@ export class MenuScene extends Phaser.Scene {
       const dot = this.add.graphics();
       dot.setDepth(-1);
 
-      const color = colors[Math.floor(Math.random() * colors.length)];
+      const color = colors[Math.floor(Math.random() * colors.length)] ?? 0xd4a843;
       const size = 2 + Math.random() * 4;
       dot.fillStyle(color, 0.5 + Math.random() * 0.5);
       dot.fillCircle(0, 0, size);

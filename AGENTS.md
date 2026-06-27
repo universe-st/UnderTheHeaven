@@ -100,17 +100,104 @@ UnderTheHeaven/
 - **TypeScript** — 严格模式，目标 ES2020
 - **Cordova** — Android/iOS 原生打包
 - **Vite** — 开发服务器与构建工具
+- **Vitest** — 单元测试框架
+
+---
+
+## 源代码架构规范
+
+### 模块分层
+
+```
+src/
+├── main.ts                  # 游戏入口
+├── config.ts                # Phaser GameConfig
+├── AudioSettings.ts         # 音频设置持久化
+├── constants/               # 共享常量（布局、深度、尺寸）
+│   └── Layout.ts            # 画布尺寸、卡牌尺寸、Slot 尺寸、深度层、字体栈
+├── models/                  # 数据模型（纯 TypeScript，无 Phaser 依赖）
+│   ├── Card.ts              # 卡牌数据结构、牌组创建、洗牌
+│   ├── BattleTypes.ts       # 牌型枚举、对战状态、手牌模式
+│   └── Character.ts         # 角色定义、角色列表、角色工具函数
+├── engine/                  # 核心游戏引擎（纯逻辑，可单测）
+│   ├── HandRecognizer.ts    # 牌型识别、查找所有可能出法、比较大小
+│   ├── DamageCalculator.ts  # 伤害计算
+│   ├── AIBrain.ts           # AI 决策引擎
+│   ├── CharacterAbilities.ts# 角色技能辅助函数
+│   └── __tests__/           # 引擎层单元测试（Vitest）
+├── skills/                  # 技能系统
+│   ├── SkillTypes.ts        # 技能类型定义（SkillTiming, SkillContext, SkillDefinition 等）
+│   ├── SkillRegistry.ts     # 技能注册中心
+│   ├── SkillEventBus.ts     # 技能事件总线
+│   ├── SkillRunner.ts       # 技能执行器
+│   ├── SkillUtils.ts        # 技能工具函数
+│   ├── SkillVisualManagerImpl.ts # 技能视觉管理器
+│   ├── PassiveSkillUtils.ts # 被动技能工具
+│   ├── index.ts             # 技能系统统一导出
+│   └── *.ts                 # 各角色技能实现（一个角色一个文件）
+├── scenes/                  # Phaser 场景
+│   ├── LoadingScene.ts      # 加载场景
+│   ├── MenuScene.ts         # 主菜单
+│   ├── GameScene.ts         # 对战场景（核心）
+│   ├── TestSelectScene.ts   # 测试角色选择场景
+│   └── managers/            # GameScene 拆分的管理模块（逐步迁移中）
+└── utils/                   # 工具类
+    ├── UIFactory.ts         # 共享 UI 绘制工具（背景、分割线、面板、按钮、弹窗）
+    ├── AudioManager.ts      # 音频管理器
+    ├── CardActions.ts       # 卡牌动作（创建、动画、清除）
+    ├── AnimationUtils.ts    # 动画 Promise 封装工具
+    └── VoiceManager.ts      # 语音管理
+```
+
+### 模块职责与引用（SOLID）
+
+| 模块 | 职责 | 不可依赖 | 参考文档 |
+|------|------|----------|----------|
+| `models/` | 纯数据定义、无副作用工具函数 | Phaser, scenes | `docs/design/game/02-对战系统.md`, `docs/design/game/08-历史人物系统.md` |
+| `engine/` | 核心游戏算法（牌型、伤害、AI） | Phaser, scenes | `docs/design/game/02-对战系统.md`, `docs/design/角色技能实现方案.md` |
+| `skills/` | 技能定义、注册、触发、执行 | 直接依赖 scenes（通过接口抽象） | `docs/design/角色技能实现方案.md` |
+| `scenes/` | 场景生命周期、UI 创建、用户交互 | 只能依赖 models/engine/skills/utils | `docs/design/game/01-核心概述.md` |
+| `utils/` | 通用工具（UI 绘制、音频、动画） | 不可依赖 scenes | 本文件 `#界面元素大小规范` |
+| `constants/` | 全局共享常量 | 不可依赖任何业务模块 | `#界面元素大小规范` |
+
+### 关键共享模块引用
+
+| 用途 | 模块 | 关键导出 |
+|------|------|----------|
+| UI 绘制 | `src/utils/UIFactory.ts` | `UIFactory.darkBg`, `UIFactory.darkBgWithBorder`, `UIFactory.darkBgWithCenteredLines`, `UIFactory.imageBg`, `UIFactory.divider`, `UIFactory.panel`, `UIFactory.titleFrame`, `UIFactory.button`, `UIFactory.closeButton`, `UIFactory.modalOverlay`, `UIFactory.modalPanel` |
+| 布局常量 | `src/constants/Layout.ts` | `FONT_FAMILY`, `CARD_W`, `CARD_H`, `SLOT_SIZE`, `SLOT_STRIDE`, `AVATAR_SOURCE_SIZE`, `DEPTH_*`, `CANVAS_WIDTH`, `CANVAS_HEIGHT` |
+| 角色数据 | `src/models/Character.ts` | `PLAYER_CHARACTERS`, `ENEMY_CHARACTERS`, `randomPlayerCharacter()`, `PlayerCharacterId`, `EnemyCharacterId` |
+| 角色名称 | `src/engine/CharacterAbilities.ts` | `getCharacterEnemyName()`, `getCharacterPlayerName()` —— 直接从 `PLAYER_CHARACTERS`/`ENEMY_CHARACTERS` 数据记录中读取，禁止写 switch 语句 |
+| 字体栈 | `src/constants/Layout.ts` | `FONT_FAMILY`（替代各场景中分散定义的字体字符串） |
+
+### 禁止的做法
+
+- ❌ 在新场景中手写 `drawBackground`、`drawDivider`、`drawPanelBg` —— 统一使用 `UIFactory`
+- ❌ 在各场景中重复定义 `FONT_FAMILY`、`CARD_W` 等常量 —— 从 `src/constants/Layout.ts` 导入
+- ❌ 用 switch 语句映射角色名称 —— 从 `PLAYER_CHARACTERS[id].name` 直接获取
+- ❌ 在 engine/models/utils 模块中引入 Phaser 依赖
+- ❌ GameScene 超过 500 行 —— 新功能应提取为独立 Manager 类放入 `src/scenes/managers/`
 
 ---
 
 ## 场景结构
 
 ```
-LoadingScene -> MenuScene -> （后续: GameScene, DeckScene, ShopScene 等）
+LoadingScene -> MenuScene -> GameScene / TestSelectScene
 ```
 
-- `LoadingScene` — 入口场景，显示加载画面，跳转至 MenuScene
-- `MenuScene` — 主菜单，包含标题、按钮、背景音乐、浮动粒子特效
+- `LoadingScene` — 入口场景，显示加载画面和资源加载进度，加载完成后跳转至 MenuScene
+- `MenuScene` — 主菜单，包含标题、按钮（开始/继续/设置/测试）、背景音乐、浮动粒子特效
+- `GameScene` — 核心对战场景（4643 行，在拆解中：见 `src/scenes/managers/` 目录）
+- `TestSelectScene` — 测试用角色选择场景，可选择多角色 + 敌人 + 血量进入 GameScene
+
+### GameScene 模块拆解计划
+
+```text
+src/scenes/managers/  ← 从 GameScene 逐步提取的独立管理器
+```
+
+当前 GameScene 职责过多（UI、输入、结算、技能编排、弹窗、BGM），后续功能应作为独立 Manager 添加至此目录。
 
 ---
 
@@ -217,8 +304,19 @@ create(): void {
 | `npm run dev` | 启动 Vite 开发服务器（端口 5173） |
 | `npm run build` | TypeScript 检查 + Vite 生产构建 |
 | `npm run build:cordova` | 面向 Cordova 的 Vite 构建（输出到 cordova/www/） |
+| `npm run test` | 运行 Vitest 单元测试 |
+| `npm run test:watch` | 以 watch 模式运行测试 |
 | `npm run android` | 在 Android 设备/模拟器上运行 |
 | `npm run build:android` | 构建 + Cordova Android APK |
+
+### 代码分包
+
+Vite 构建配置了 manual chunks 将大体积库拆分为独立包：
+- `phaser` chunk — Phaser 4 框架（不变更的第三方库）
+- `engine` chunk — 核心游戏引擎（HandRecognizer, AIBrain, DamageCalculator）
+- `skills` chunk — 技能系统（可通过 skills/index.ts 动态加载各角色技能）
+
+新增大型模块时应考虑添加到对应的 chunk 或建立新的 chunk 分组。
 
 ---
 
@@ -234,6 +332,32 @@ create(): void {
 - 图片：放置于 `public/` 目录，在根路径访问
 - 音频：放置于 `public/` 目录，通过 Phaser 的 `this.load.audio()` 加载
 - 后续：spritesheets、atlases 等资源将通过 Loader 添加
+
+### 角色头像图片规范
+
+所有角色头像图片（`char_*.png`）必须遵循以下规范：
+
+1. **统一分辨率**：所有角色头像图片必须为 **512×512 px**，不论玩家角色还是敌方角色
+2. **显示缩放方式**：代码中必须使用 `setScale(displaySize / 512)` 而非 `setDisplaySize()`，确保在任何分辨率下缩放行为一致
+
+```typescript
+// ✅ 正例：定义源尺寸常量，使用 setScale
+const AVATAR_SOURCE_SIZE = 512;
+
+// 敌方角色头像（帧尺寸 80，显示尺寸 68）
+const avatarDisplaySize = 68;
+this.enemyAvatarImage = this.add.image(x, y, `char_${id}`)
+    .setScale(avatarDisplaySize / AVATAR_SOURCE_SIZE);
+
+// 己方角色头像（帧尺寸 120，显示尺寸 112）
+avatar.setScale(112 / AVATAR_SOURCE_SIZE);
+
+// ❌ 反例：使用 setDisplaySize —— 对 512×512 源图在高缩放比下行为不稳定
+avatar.setDisplaySize(112, 112);
+```
+
+3. **新增角色时**：确保头像源图为 512×512，若非此尺寸先运行 resize 脚本
+4. **帧与显示尺寸关系**：显示尺寸 = 帧尺寸 − 内边距（通常 6~8px），通过 `(frameSize - padding) / AVATAR_SOURCE_SIZE` 计算 scale
 
 ---
 
@@ -294,6 +418,10 @@ this.load.atlas('图集键名', '图集文件.png', '图集数据文件.json');
 - [ ] 是否使用了 Phaser 4 API（非 Phaser 3 废弃 API）？
 - [ ] 游戏对象是否通过场景工厂方法创建（`this.add.*`、`this.load.*`）？
 - [ ] TypeScript 严格模式是否通过（`npm run build` 无类型错误）？
+- [ ] 新增 UI 是否使用了 `UIFactory` 共享工具（非手写 Graphics 绘制）？
+- [ ] `FONT_FAMILY`、`CARD_W`、`AVATAR_SOURCE_SIZE` 等常量是否从 `src/constants/Layout.ts` 导入？
+- [ ] 角色名称是否从 `PLAYER_CHARACTERS[id].name` 直接获取（禁止 switch 映射）？
+- [ ] 纯逻辑变更（engine/）是否添加了对应的单元测试？
 - [ ] 新场景是否在 `src/scenes/` 目录下，命名为 `PascalCase.ts`？
 - [ ] 静态资源是否放置于 `public/` 目录？
 - [ ] 如需添加技能，是否通过 OpenCode skill 工具加载了对应的 Phaser 4 技能？

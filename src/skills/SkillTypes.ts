@@ -4,6 +4,7 @@ import type { Card } from '../models/Card';
 export enum SkillTiming {
   ON_PLAY = 'on_play',
   ON_COEFFICIENT_REVEALED = 'on_coefficient_revealed',
+  ON_DAMAGE_MULTIPLIER_REVEALED = 'on_damage_multiplier_revealed',
   ON_DAMAGE_CALCULATED = 'on_damage_calculated',
   ON_SINGLE_CARD_SETTLEMENT = 'on_single_card_settlement',
   AFTER_DAMAGE = 'after_damage',
@@ -12,6 +13,8 @@ export enum SkillTiming {
   ON_AI_SCORE = 'on_ai_score',
   PASSIVE_MODIFIER = 'passive_modifier',
   HAND_VALIDATION = 'hand_validation',
+  AFTER_HEALTH_DECREASE = 'after_health_decrease',
+  AFTER_SINGLE_CARD_SETTLEMENT = 'after_single_card_settlement',
 }
 
 export interface SkillContext {
@@ -25,6 +28,7 @@ export interface SkillContext {
     sumRanks: number;
     coefficient: number;
     baseCoefficient: number;
+    damageMultiplier: number;
     finalDamage: number;
   };
   playerCharacterIds: string[];
@@ -50,6 +54,7 @@ export interface SkillContext {
     currentScore: number;
   };
   coefficientLabel?: Phaser.GameObjects.Text;
+  multiplierLabel?: Phaser.GameObjects.Text;
   handValidation?: {
     hand: Card[];
     candidateCards: Card[];

@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { PlayerCharacterId, EnemyCharacterId, PLAYER_CHARACTERS, PLAYER_CHARACTER_LIST, ENEMY_CHARACTER_LIST } from '../models/Character';
 import { AudioManager } from '../utils/AudioManager';
-
-const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
+import { UIFactory } from '../utils/UIFactory';
+import { FONT_FAMILY } from '../constants/Layout';
 
 export interface TestBattleConfig {
   selectedPlayerCharacterIds: PlayerCharacterId[];
@@ -13,7 +13,7 @@ export interface TestBattleConfig {
 
 export class TestSelectScene extends Phaser.Scene {
   private selectedPlayerIds: Set<PlayerCharacterId> = new Set();
-  private selectedEnemyId: EnemyCharacterId = ENEMY_CHARACTER_LIST[0].id;
+  private selectedEnemyId: EnemyCharacterId = ENEMY_CHARACTER_LIST[0]!.id;
   private playerVitality: number = 500;
   private enemyVitality: number = 500;
   private playerVitText!: Phaser.GameObjects.Text;
@@ -27,6 +27,12 @@ export class TestSelectScene extends Phaser.Scene {
   private playerCardMaskFilter: Phaser.Filters.Mask | null = null;
   private playerScrollUpBtn: Phaser.GameObjects.Container | null = null;
   private playerScrollDownBtn: Phaser.GameObjects.Container | null = null;
+  private enemyCardScrollOffset: number = 0;
+  private enemyCardContainer: Phaser.GameObjects.Container | null = null;
+  private enemyCardMaskShape: Phaser.GameObjects.Graphics | null = null;
+  private enemyCardMaskFilter: Phaser.Filters.Mask | null = null;
+  private enemyScrollUpBtn: Phaser.GameObjects.Container | null = null;
+  private enemyScrollDownBtn: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super({ key: 'TestSelectScene' });
@@ -34,7 +40,7 @@ export class TestSelectScene extends Phaser.Scene {
 
   private resetSceneState(): void {
     this.selectedPlayerIds = new Set();
-    this.selectedEnemyId = ENEMY_CHARACTER_LIST[0].id;
+    this.selectedEnemyId = ENEMY_CHARACTER_LIST[0]!.id;
     this.playerVitality = 500;
     this.enemyVitality = 500;
     this.maxPlayerCharacterCount = 5;
@@ -48,6 +54,16 @@ export class TestSelectScene extends Phaser.Scene {
     this.playerScrollUpBtn = null;
     this.playerScrollDownBtn?.destroy();
     this.playerScrollDownBtn = null;
+    this.enemyCardScrollOffset = 0;
+    this.enemyCardContainer?.destroy();
+    this.enemyCardContainer = null;
+    this.enemyCardMaskShape?.destroy();
+    this.enemyCardMaskShape = null;
+    this.enemyCardMaskFilter = null;
+    this.enemyScrollUpBtn?.destroy();
+    this.enemyScrollUpBtn = null;
+    this.enemyScrollDownBtn?.destroy();
+    this.enemyScrollDownBtn = null;
     this.tweens.killAll();
   }
 
@@ -86,47 +102,15 @@ export class TestSelectScene extends Phaser.Scene {
   }
 
   private drawBackground(w: number, h: number): void {
-    const gfx = this.add.graphics();
-    gfx.fillStyle(0x1a0f05, 1);
-    gfx.fillRect(0, 0, w, h);
-
-    const border = this.add.graphics();
-    border.lineStyle(1, 0x6a4a2a, 0.3);
-    border.strokeRect(8, 8, w - 16, h - 16);
+    UIFactory.darkBgWithBorder(this, w, h, 8);
   }
 
   private drawDivider(cx: number, cy: number): void {
-    const gfx = this.add.graphics();
-    const half = 140;
-    gfx.lineStyle(1, 0xb89040, 0.5);
-    gfx.lineBetween(cx - half, cy, cx - 16, cy);
-    gfx.lineBetween(cx + 16, cy, cx + half, cy);
-    gfx.fillStyle(0xd4a843, 0.7);
-    gfx.fillCircle(cx, cy, 3);
+    UIFactory.divider(this, cx, cy);
   }
 
   private drawPanelBg(px: number, py: number, pw: number, ph: number, title: string): void {
-    const gfx = this.add.graphics();
-    gfx.fillStyle(0x1a0f05, 0.8);
-    gfx.fillRoundedRect(px, py, pw, ph, 10);
-    gfx.lineStyle(1.5, 0xb89040, 0.55);
-    gfx.strokeRoundedRect(px, py, pw, ph, 10);
-    gfx.lineStyle(1, 0x5a4030, 0.2);
-    gfx.strokeRoundedRect(px + 3, py + 3, pw - 6, ph - 6, 8);
-
-    const labelX = px + 16;
-    const labelY = py - 10;
-    const labelBg = this.add.graphics();
-    labelBg.fillStyle(0x1a0f05, 0.9);
-    labelBg.fillRoundedRect(labelX - 6, labelY - 10, title.length * 24 + 12, 28, 6);
-    labelBg.lineStyle(1, 0xb89040, 0.4);
-    labelBg.strokeRoundedRect(labelX - 6, labelY - 10, title.length * 24 + 12, 28, 6);
-
-    this.add.text(labelX, labelY + 4, title, {
-      fontSize: '24px',
-      fontFamily: FONT_FAMILY,
-      color: '#c8a050',
-    }).setOrigin(0, 0.5);
+    UIFactory.panel(this, px, py, pw, ph, title);
   }
 
   private createPlayerSection(w: number, h: number): void {
@@ -184,7 +168,7 @@ export class TestSelectScene extends Phaser.Scene {
       const row = Math.floor(i / cols);
       const cx = startX + col * (cardW + gapX);
       const cy = clipY + row * rowHeight + cardH / 2 - this.playerCardScrollOffset;
-      this.createPlayerCard(cx, cy, cardW, cardH, playerIds[i], container);
+      this.createPlayerCard(cx, cy, cardW, cardH, playerIds[i]!, container);
     }
 
     if (canScroll) {
@@ -232,7 +216,7 @@ export class TestSelectScene extends Phaser.Scene {
         this.maxPlayerCharacterCount = Phaser.Math.Clamp(this.maxPlayerCharacterCount + delta, 1, 10);
         while (this.selectedPlayerIds.size > this.maxPlayerCharacterCount) {
           const arr = [...this.selectedPlayerIds];
-          this.selectedPlayerIds.delete(arr[arr.length - 1]);
+          this.selectedPlayerIds.delete(arr[arr.length - 1]!);
         }
         this.maxCountValueText.setText(`${this.maxPlayerCharacterCount}`);
         this.updatePlayerCountText();
@@ -423,7 +407,7 @@ export class TestSelectScene extends Phaser.Scene {
 
     const children = cardContainer.list;
     for (let i = children.length - 1; i >= 0; i--) {
-      children[i].destroy();
+      children[i]!.destroy();
     }
 
     for (let i = 0; i < playerIds.length; i++) {
@@ -431,7 +415,7 @@ export class TestSelectScene extends Phaser.Scene {
       const row = Math.floor(i / cols);
       const cx = startX + col * (cardW + gapX);
       const cy = clipY + row * rowHeight + cardH / 2 - this.playerCardScrollOffset;
-      this.createPlayerCard(cx, cy, cardW, cardH, playerIds[i], cardContainer);
+      this.createPlayerCard(cx, cy, cardW, cardH, playerIds[i]!, cardContainer);
     }
   }
 
@@ -473,6 +457,108 @@ export class TestSelectScene extends Phaser.Scene {
     this.createPlayerSection(width, height);
   }
 
+  private createEnemyScrollButtons(
+    panelRight: number, centerY: number,
+    totalRows: number, visibleRows: number,
+    rowHeight: number, cardContainer: Phaser.GameObjects.Container
+  ): void {
+    const btnSize = 48;
+    const btnX = panelRight;
+    const maxScroll = Math.max(0, (totalRows - visibleRows) * rowHeight);
+
+    const createArrowBtn = (y: number, label: string, direction: 'up' | 'down'): Phaser.GameObjects.Container => {
+      const c = this.add.container(btnX, y);
+
+      const bg = this.add.graphics();
+      const drawBg = (hover: boolean) => {
+        bg.clear();
+        bg.fillStyle(hover ? 0x6b3820 : 0x5a3018, 1);
+        bg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+        bg.lineStyle(1.5, hover ? 0xe8d5a3 : 0xc8a050, 0.85);
+        bg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
+      };
+      drawBg(false);
+      c.add(bg);
+
+      const txt = this.add.text(0, 0, label, {
+        fontSize: '24px',
+        fontFamily: FONT_FAMILY,
+        color: '#e8d5a3',
+      }).setOrigin(0.5);
+      c.add(txt);
+
+      const zone = this.add.zone(btnX, y, btnSize + 8, btnSize + 8).setInteractive({ cursor: 'pointer' });
+      zone.on('pointerover', () => drawBg(true));
+      zone.on('pointerout', () => drawBg(false));
+      zone.on('pointerdown', () => {
+        AudioManager.playSfx(this, 'sfx_button');
+        const scrollAmt = direction === 'up' ? -rowHeight : rowHeight;
+        this.enemyCardScrollOffset = Phaser.Math.Clamp(
+          this.enemyCardScrollOffset + scrollAmt, 0, maxScroll
+        );
+        this.applyEnemyCardScroll(cardContainer);
+        this.updateEnemyScrollButtonStates(rowHeight, maxScroll);
+      });
+
+      return c;
+    };
+
+    this.enemyScrollUpBtn = createArrowBtn(centerY - btnSize / 2 - 4, '▲', 'up');
+    this.enemyScrollDownBtn = createArrowBtn(centerY + btnSize / 2 + 4, '▼', 'down');
+    this.updateEnemyScrollButtonStates(rowHeight, maxScroll);
+  }
+
+  private applyEnemyCardScroll(cardContainer: Phaser.GameObjects.Container): void {
+    const { width } = this.scale;
+    const px = 80;
+    const py = 420;
+    const pw = width - 160;
+    const cardW = 360;
+    const cardH = 100;
+    const gapX = 50;
+    const cols = 2;
+    const rowGap = 14;
+    const rowHeight = cardH + rowGap;
+    const startX = px + (pw - cols * cardW - (cols - 1) * gapX) / 2 + cardW / 2;
+    const clipY = py + 42;
+    const enemies = ENEMY_CHARACTER_LIST;
+
+    const children = cardContainer.list;
+    for (let i = children.length - 1; i >= 0; i--) {
+      children[i]!.destroy();
+    }
+
+    for (let i = 0; i < enemies.length; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cx = startX + col * (cardW + gapX);
+      const cy = clipY + row * rowHeight + cardH / 2 - this.enemyCardScrollOffset;
+      this.createEnemyCard(cx, cy, cardW, cardH, enemies[i]!.id, cardContainer);
+    }
+  }
+
+  private updateEnemyScrollButtonStates(rowHeight: number, maxScroll: number): void {
+    const atTop = this.enemyCardScrollOffset <= 0;
+    const atBottom = this.enemyCardScrollOffset >= maxScroll;
+
+    if (this.enemyScrollUpBtn) {
+      this.enemyScrollUpBtn.setAlpha(atTop ? 0.3 : 1);
+      this.enemyScrollUpBtn.list.forEach(child => {
+        if (child instanceof Phaser.GameObjects.Zone) {
+          child.setInteractive({ cursor: atTop ? 'default' : 'pointer' });
+        }
+      });
+    }
+    if (this.enemyScrollDownBtn) {
+      this.enemyScrollDownBtn.setAlpha(atBottom ? 0.3 : 1);
+      this.enemyScrollDownBtn.list.forEach(child => {
+        if (child instanceof Phaser.GameObjects.Zone) {
+          child.setInteractive({ cursor: atBottom ? 'default' : 'pointer' });
+        }
+      });
+    }
+  }
+
   private createEnemySection(w: number, h: number): void {
     const px = 80;
     const py = 420;
@@ -482,20 +568,52 @@ export class TestSelectScene extends Phaser.Scene {
     this.drawPanelBg(px, py, pw, ph, '敌方角色');
 
     const enemies = ENEMY_CHARACTER_LIST;
-    const cardW = 340;
+    const cardW = 360;
     const cardH = 100;
-    const gapX = 40;
-    const totalW = enemies.length * cardW + (enemies.length - 1) * gapX;
-    const startX = px + (pw - totalW) / 2 + cardW / 2;
-    const cy = py + 60 + cardH / 2;
+    const gapX = 50;
+    const cols = 2;
+    const rowGap = 14;
+    const rowHeight = cardH + rowGap;
+    const totalRows = Math.ceil(enemies.length / cols);
+    const startX = px + (pw - cols * cardW - (cols - 1) * gapX) / 2 + cardW / 2;
+
+    const clipX = px + 4;
+    const clipY = py + 42;
+    const clipW = pw - 8;
+    const clipH = ph - 48;
+
+    const maskShape = this.add.graphics();
+    maskShape.fillStyle(0xffffff);
+    maskShape.fillRect(clipX, clipY, clipW, clipH);
+    maskShape.setDepth(-10000);
+    this.enemyCardMaskShape = maskShape;
+
+    const container = this.add.container(0, 0);
+    container.enableFilters();
+    const maskFilter = container.filters!.internal.addMask(maskShape);
+    maskFilter.autoUpdate = false;
+    this.enemyCardMaskFilter = maskFilter;
+    this.enemyCardContainer = container;
+
+    const visibleRows = Math.floor(clipH / rowHeight);
+    const canScroll = totalRows > visibleRows;
+    const maxScroll = Math.max(0, (totalRows - visibleRows) * rowHeight);
+    this.enemyCardScrollOffset = Math.max(0, Math.min(this.enemyCardScrollOffset, maxScroll));
 
     for (let i = 0; i < enemies.length; i++) {
-      const cx = startX + i * (cardW + gapX);
-      this.createEnemyCard(cx, cy, cardW, cardH, enemies[i].id);
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const cx = startX + col * (cardW + gapX);
+      const cy = clipY + row * rowHeight + cardH / 2 - this.enemyCardScrollOffset;
+      this.createEnemyCard(cx, cy, cardW, cardH, enemies[i]!.id, container);
+    }
+
+    if (canScroll) {
+      this.createEnemyScrollButtons(px + pw + 6, py + ph / 2, totalRows, visibleRows, rowHeight, container);
     }
   }
 
-  private createEnemyCard(cx: number, cy: number, cardW: number, cardH: number, id: EnemyCharacterId): void {
+  private createEnemyCard(cx: number, cy: number, cardW: number, cardH: number, id: EnemyCharacterId, parent?: Phaser.GameObjects.Container): void {
     const char = ENEMY_CHARACTER_LIST.find(e => e.id === id)!;
     const isSelected = this.selectedEnemyId === id;
 
@@ -517,38 +635,64 @@ export class TestSelectScene extends Phaser.Scene {
     };
     draw(isSelected, false);
 
-    this.add.text(cx, cy - 20, char.name, {
+    const nameTxt = this.add.text(cx, cy - 20, char.name, {
       fontSize: '28px',
       fontFamily: FONT_FAMILY,
       color: isSelected ? '#e8d5a3' : '#c8a050',
     }).setOrigin(0.5);
 
-    this.add.text(cx, cy + 8, char.abilities[0].name, {
-      fontSize: '20px',
-      fontFamily: FONT_FAMILY,
-      color: '#8a7040',
-    }).setOrigin(0.5);
+    let abiNameTxt: Phaser.GameObjects.Text | null = null;
+    let abiDescTxt: Phaser.GameObjects.Text | null = null;
 
-    this.add.text(cx, cy + 34, char.abilities[0].description, {
-      fontSize: '16px',
-      fontFamily: FONT_FAMILY,
-      color: '#6a5030',
-    }).setOrigin(0.5);
+    if (char.abilities.length > 0) {
+      abiNameTxt = this.add.text(cx, cy + 8, char.abilities[0]!.name, {
+        fontSize: '20px',
+        fontFamily: FONT_FAMILY,
+        color: '#8a7040',
+      }).setOrigin(0.5);
+
+      abiDescTxt = this.add.text(cx, cy + 34, char.abilities[0]!.description, {
+        fontSize: '16px',
+        fontFamily: FONT_FAMILY,
+        color: '#6a5030',
+      }).setOrigin(0.5);
+    }
 
     const zone = this.add.zone(cx, cy, cardW, cardH).setInteractive({ cursor: 'pointer' });
+
+    if (parent) {
+      const children = [gfx, nameTxt, zone];
+      if (abiNameTxt) children.push(abiNameTxt);
+      if (abiDescTxt) children.push(abiDescTxt);
+      parent.add(children);
+    }
+
     zone.on('pointerover', () => draw(isSelected, true));
     zone.on('pointerout', () => draw(isSelected, false));
     zone.on('pointerdown', () => {
       AudioManager.playSfx(this, 'sfx_button');
       if (this.selectedEnemyId !== id) {
         this.selectedEnemyId = id;
-        this.refreshEnemySection();
+        if (this.enemyCardContainer) {
+          this.time.delayedCall(0, () => {
+            this.applyEnemyCardScroll(this.enemyCardContainer!);
+          });
+        }
       }
     });
   }
 
   private refreshEnemySection(): void {
     const { width, height } = this.scale;
+    this.enemyCardMaskShape?.destroy();
+    this.enemyCardMaskShape = null;
+    this.enemyCardMaskFilter = null;
+    this.enemyCardContainer?.destroy();
+    this.enemyCardContainer = null;
+    this.enemyScrollUpBtn?.destroy();
+    this.enemyScrollUpBtn = null;
+    this.enemyScrollDownBtn?.destroy();
+    this.enemyScrollDownBtn = null;
     this.clearSection(390, 590);
     this.createEnemySection(width, height);
   }
@@ -744,7 +888,7 @@ export class TestSelectScene extends Phaser.Scene {
   private clearSection(yStart: number, yEnd: number): void {
     const children = this.children.list;
     for (let i = children.length - 1; i >= 0; i--) {
-      const child = children[i];
+      const child = children[i]!;
       const ch = child as Phaser.GameObjects.Components.Transform & Phaser.GameObjects.GameObject;
       if (ch.y !== undefined && ch.y >= yStart && ch.y <= yEnd) {
         child.destroy();

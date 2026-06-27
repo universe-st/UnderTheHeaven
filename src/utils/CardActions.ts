@@ -68,7 +68,7 @@ export async function discardCardsFromHand(
   const discardingContainers: Phaser.GameObjects.Container[] = [];
   for (const idx of sortedIndices) {
     if (idx < containers.length) {
-      discardingContainers.push(containers[idx]);
+      discardingContainers.push(containers[idx]!);
     }
   }
 
@@ -98,8 +98,8 @@ export async function discardCardsFromHand(
     const centerY = target === 'player' ? scene.scale.height - 200 : 475;
 
     for (let i = 0; i < discardingContainers.length; i++) {
-      const container = discardingContainers[i];
-      const card = removed[i];
+      const container = discardingContainers[i]!;
+      const card = removed[i]!;
       if (target === 'enemy' && card) {
         const faceUp = s.createCardDisplay(card, container.x, container.y, false);
         faceUp.setDepth(450);
@@ -239,7 +239,7 @@ async function insertCardsWithAnimation(
   }> = [];
 
   for (let i = 0; i < hand.length; i++) {
-    const card = hand[i];
+    const card = hand[i]!;
     const key = card.uid;
     const targetX = startX + i * OVERLAP_OFFSET;
     const isNew = newIdentitySet.has(key);
@@ -392,10 +392,10 @@ function layoutExistingHand(
   const startX = (width - totalW) / 2 + CARD_W / 2;
 
   for (let i = 0; i < containers.length; i++) {
-    const container = containers[i];
+    const container = containers[i]!;
     const targetX = startX + i * OVERLAP_OFFSET;
     const newDepth = baseDepth + i;
-    const card = hand[i];
+    const card = hand[i]!;
 
     if (card) {
       container.setData('uid', card.uid);

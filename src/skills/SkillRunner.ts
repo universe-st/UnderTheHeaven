@@ -75,7 +75,7 @@ export class SkillRunner {
       }
 
       if (skill.dialogLines && skill.dialogLines.length > 0) {
-        const line = skill.dialogLines[Math.floor(Math.random() * skill.dialogLines.length)];
+        const line = skill.dialogLines[Math.floor(Math.random() * skill.dialogLines.length)]!;
         this.slotManager.showDialog(ownerId, line);
       }
 

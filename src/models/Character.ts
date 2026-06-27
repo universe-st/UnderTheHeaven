@@ -1,5 +1,5 @@
-export type PlayerCharacterId = 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun';
-export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan';
+export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army';
 
 export interface CharacterAbility {
   skillId: string;
@@ -21,11 +21,17 @@ export interface EnemyCharacter {
 }
 
 export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
+  bianque: {
+    id: 'bianque',
+    name: '扁鹊',
+    cost: 3,
+    abilities: [{ skillId: 'bianque_huisheng', name: '回生', description: '你气数降到0时，回复一半气数避免失败。每局只能触发一次。' }],
+  },
   hanxin: {
     id: 'hanxin',
     name: '韩信',
     cost: 8,
-    abilities: [{ skillId: 'hanxin_dianbing', name: '点兵', description: '伤害结算时，系数乘以打出牌的花色数（至少为一）' }],
+    abilities: [{ skillId: 'hanxin_dianbing', name: '点兵', description: '你打出牌的伤害倍数+X，X为打出牌的花色数' }],
   },
   liubowen: {
     id: 'liubowen',
@@ -78,6 +84,18 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     cost: 5,
     abilities: [{ skillId: 'gaoshun_xianzhen', name: '陷阵', description: '你的黑桃牌结算伤害+10' }],
   },
+  zhangfei: {
+    id: 'zhangfei',
+    name: '张飞',
+    cost: 5,
+    abilities: [{ skillId: 'zhangfei_duanhe', name: '断喝', description: '若你手牌数量不大于四张，敌方对你结算伤害时，如果结算到了与你手牌中拥有花色的牌，你直接令已计数伤害归零并无效后续待结算牌。你获得牌权。' }],
+  },
+  zhanghan: {
+    id: 'zhanghan',
+    name: '章邯',
+    cost: 5,
+    abilities: [{ skillId: 'zhanghan_jueshou', name: '绝守', description: '你的气数损失每有10%，伤害结算时系数时+0.3。' }],
+  },
 };
 
 export const ENEMY_CHARACTERS: Record<EnemyCharacterId, EnemyCharacter> = {
@@ -91,7 +109,7 @@ export const ENEMY_CHARACTERS: Record<EnemyCharacterId, EnemyCharacter> = {
     name: '南蛮军',
     abilities: [
       { skillId: 'nanmanjun_tengjia_black', name: '藤甲', description: '单牌伤害结算时，黑色牌不计算分数' },
-      { skillId: 'nanmanjun_tengjia_heart', name: '藤甲', description: '单牌伤害结算时，红桃牌计分×2' },
+      { skillId: 'nanmanjun_tengjia_heart', name: '藤甲', description: '单牌伤害结算时，红桃牌计分×3' },
     ],
   },
   qiangdao: {
@@ -99,7 +117,38 @@ export const ENEMY_CHARACTERS: Record<EnemyCharacterId, EnemyCharacter> = {
     name: '强盗',
     abilities: [{ skillId: 'qiangdao_jianjing', name: '剪径', description: '造成伤害后，随机获得你的一张牌' }],
   },
+  shizu: {
+    id: 'shizu',
+    name: '士卒',
+    abilities: [],
+  },
+  banner_army: {
+    id: 'banner_army',
+    name: '八旗军',
+    abilities: [{ skillId: 'banner_army_qishe', name: '骑射', description: '打出方片花色的单张牌型时，对方无法用单张响应' }],
+  },
+  mongol_army: {
+    id: 'mongol_army',
+    name: '蒙古军',
+    abilities: [{ skillId: 'mongol_army_qianglve', name: '抢掠', description: '单牌结算伤害时，若为黑桃牌，获得对方一张牌' }],
+  },
+  xiliang_army: {
+    id: 'xiliang_army',
+    name: '西凉军',
+    abilities: [{ skillId: 'xiliang_army_hanyong', name: '悍勇', description: '结算伤害时，若没有手牌，伤害倍数+3' }],
+  },
+  xiongnu_army: {
+    id: 'xiongnu_army',
+    name: '匈奴军',
+    abilities: [{ skillId: 'xiongnu_army_langshou', name: '狼狩', description: '单牌结算伤害后，若为红桃牌，你回复等同于结算伤害的气数' }],
+  },
 };
 
 export const PLAYER_CHARACTER_LIST: PlayerCharacter[] = Object.values(PLAYER_CHARACTERS);
 export const ENEMY_CHARACTER_LIST: EnemyCharacter[] = Object.values(ENEMY_CHARACTERS);
+
+const DEFAULT_PLAYER_CHARACTER_IDS: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao'];
+
+export function randomPlayerCharacter(): PlayerCharacterId {
+  return DEFAULT_PLAYER_CHARACTER_IDS[Math.floor(Math.random() * DEFAULT_PLAYER_CHARACTER_IDS.length)]!;
+}
