@@ -140,10 +140,12 @@ src/
 │   ├── MenuScene.ts         # 主菜单
 │   ├── GameScene.ts         # 对战场景（核心）
 │   ├── TestSelectScene.ts   # 测试角色选择场景
-│   └── managers/            # GameScene 拆分的管理模块（逐步迁移中）
+│   └── managers/            # GameScene 拆分的管理模块
+│       ├── DragInputManager.ts   # 拖拽选择输入逻辑
+│       └── HealthBarManager.ts   # 气血条渲染与动画
 └── utils/                   # 工具类
     ├── UIFactory.ts         # 共享 UI 绘制工具（背景、分割线、面板、按钮、弹窗）
-    ├── AudioManager.ts      # 音频管理器
+    ├── GameAudioManager.ts  # 音频管理器
     ├── CardActions.ts       # 卡牌动作（创建、动画、清除）
     ├── AnimationUtils.ts    # 动画 Promise 封装工具
     └── VoiceManager.ts      # 语音管理
@@ -188,13 +190,19 @@ LoadingScene -> MenuScene -> GameScene / TestSelectScene
 
 - `LoadingScene` — 入口场景，显示加载画面和资源加载进度，加载完成后跳转至 MenuScene
 - `MenuScene` — 主菜单，包含标题、按钮（开始/继续/设置/测试）、背景音乐、浮动粒子特效
-- `GameScene` — 核心对战场景（4643 行，在拆解中：见 `src/scenes/managers/` 目录）
+- `GameScene` — 核心对战场景（4415 行，持续拆解中：见 `src/scenes/managers/` 目录）
 - `TestSelectScene` — 测试用角色选择场景，可选择多角色 + 敌人 + 血量进入 GameScene
 
 ### GameScene 模块拆解计划
 
 ```text
-src/scenes/managers/  ← 从 GameScene 逐步提取的独立管理器
+src/scenes/managers/
+├── DragInputManager.ts   ✅ 已提取 — 拖拽选择输入逻辑（~170 行）
+├── HealthBarManager.ts   ✅ 已提取 — 气血条渲染与动画（~115 行）
+├── DamageSettlementManager.ts  □ 待提取 — 三阶段伤害结算动画
+├── ModalManager.ts             □ 待提取 — 设置/音量/返回确认/牌型系数弹窗
+├── CardDisplayManager.ts       □ 待提取 — 卡牌渲染/动画/选择交互
+└── BattleFlowManager.ts        □ 待提取 — 战斗阶段编排
 ```
 
 当前 GameScene 职责过多（UI、输入、结算、技能编排、弹窗、BGM），后续功能应作为独立 Manager 添加至此目录。
