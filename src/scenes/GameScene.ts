@@ -28,6 +28,7 @@ import { CardDisplayManager } from './managers/CardDisplayManager';
 import { BattleFlowManager } from './managers/BattleFlowManager';
 import { CharacterBarManager } from './managers/CharacterBarManager';
 import { ActiveSkillManager } from './managers/ActiveSkillManager';
+import { BgmManager } from './managers/BgmManager';
 
 interface TestBattleConfig {
   selectedPlayerCharacterIds?: PlayerCharacterId[];
@@ -83,9 +84,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
   revealedEnemyCards: Set<Card> = new Set();
 
-  private battleBgm: Phaser.Sound.BaseSound | null = null;
-  private battleBgmKeys = ['bgm_battle_1', 'bgm_battle_2', 'bgm_battle_3', 'bgm_battle_4', 'bgm_battle_5', 'bgm_battle_6'];
-  private currentBattleBgmIndex = -1;
+  private bgmManager!: BgmManager;
 
   handPatternButton!: Phaser.GameObjects.Container;
   handPatternModal: Phaser.GameObjects.Container | null = null;
@@ -161,9 +160,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.centerCardsOwner = null;
     this.centerDepthCounter = DEPTH_CENTER_BASE;
 
-    this.battleBgm?.stop();
-    this.battleBgm = null;
-    this.currentBattleBgmIndex = -1;
+    this.bgmManager.stopBattleBgm();
 
     this.handPatternModal?.destroy();
     this.handPatternModal = null;
@@ -254,6 +251,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.cardDisplayManager = new CardDisplayManager(this);
     this.battleFlowManager = new BattleFlowManager(this);
     this.activeSkillManager = new ActiveSkillManager(this);
+    this.bgmManager = new BgmManager(this);
 
     this.renderAllCards();
     this.dragInputManager.setup();
@@ -1030,7 +1028,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
   showGameOver(playerWin: boolean): void {
     this.phase = 'game_over';
-    this.battleBgm?.stop();
+    this.bgmManager.stopBattleBgm();
 
     if (playerWin) {
       const settings = loadAudioSettings();
@@ -1108,82 +1106,15 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   // ═══════════════════════════════════════════════
-  //  Battle BGM
+  //  Battle BGM (delegated to BgmManager)
   // ═══════════════════════════════════════════════
 
   private initBattleBgm(): void {
-    this.playRandomBattleBgm();
-  }
-
-  private playRandomBattleBgm(excludeIndex?: number): void {
-    let index: number;
-    do {
-      index = Math.floor(Math.random() * this.battleBgmKeys.length);
-    } while (index === excludeIndex && this.battleBgmKeys.length > 1);
-
-    this.currentBattleBgmIndex = index;
-    const settings = loadAudioSettings();
-    this.battleBgm = this.sound.add(this.battleBgmKeys[index]!, { loop: false, volume: settings.bgmVolume });
-    GameAudioManager.track(this, this.battleBgm);
-    this.battleBgm.on('complete', () => this.onBattleBgmComplete());
-    this.battleBgm.play();
-  }
-
-  private onBattleBgmComplete(): void {
-    if (this.phase === 'game_over') return;
-    this.playRandomBattleBgm(this.currentBattleBgmIndex);
+    this.bgmManager.initBattleBgm();
   }
 
   cancelDamageSettlement(): void {
-    this.damageSettlementCancelled = true;
-
-    const texts = this.children.list.filter(
-      c => c instanceof Phaser.GameObjects.Text &&
-        (c.depth === DEPTH_DAMAGE || c.depth === DEPTH_DAMAGE + 1)
-    ) as Phaser.GameObjects.Text[];
-
-    for (const t of texts) {
-      this.tweens.add({
-        targets: t,
-        x: t.x + 8,
-        duration: 30,
-        yoyo: true,
-        repeat: 5,
-        ease: 'Sine.easeInOut',
-      });
-
-      this.tweens.add({
-        targets: t,
-        scaleX: 0.3,
-        scaleY: 0.3,
-        alpha: 0,
-        duration: 400,
-        delay: 50,
-        ease: 'Back.easeIn',
-        onComplete: () => t.destroy(),
-      });
-    }
-
-    for (const card of this.centerCards) {
-      this.tweens.add({
-        targets: card,
-        alpha: 0,
-        scaleX: 0.1,
-        scaleY: 0.1,
-        duration: 300,
-        ease: 'Sine.easeIn',
-        onComplete: () => card.destroy(),
-      });
-    }
-    this.centerCards = [];
-    this.centerCardsOwner = null;
-    this.centerDepthCounter = DEPTH_CENTER_BASE;
-
-    this.battle.turnHolder = 'player';
-    this.phase = 'player_init';
-    this.initActiveSkills();
-    this.updateUIForPhase();
-    this.respondChainDepth = 0;
+    this.bgmManager.cancelDamageSettlement();
   }
 
   // ═══════════════════════════════════════════════
