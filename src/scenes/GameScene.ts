@@ -11,7 +11,7 @@ import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../utils/V
 import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
 import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayerCharacter } from '../models/Character';
 import { canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
-import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, LiuBoWenChouCe, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
+import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
 import { getBlockedResponseTypes, clearPassiveSkills } from '../skills/PassiveSkillUtils';
 import {
   FONT_FAMILY, SELECTED_OFFSET,
@@ -27,6 +27,7 @@ import { ModalManager } from './managers/ModalManager';
 import { CardDisplayManager } from './managers/CardDisplayManager';
 import { BattleFlowManager } from './managers/BattleFlowManager';
 import { CharacterBarManager } from './managers/CharacterBarManager';
+import { ActiveSkillManager } from './managers/ActiveSkillManager';
 
 interface TestBattleConfig {
   selectedPlayerCharacterIds?: PlayerCharacterId[];
@@ -54,18 +55,18 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private patternHintText!: Phaser.GameObjects.Text;
   private turnIndicatorText!: Phaser.GameObjects.Text;
   private thinkingText!: Phaser.GameObjects.Text;
-  private btnPlay!: Phaser.GameObjects.Container;
-  private btnPass!: Phaser.GameObjects.Container;
+  btnPlay!: Phaser.GameObjects.Container;
+  btnPass!: Phaser.GameObjects.Container;
   private btnPlayText!: Phaser.GameObjects.Text;
   private btnPassText!: Phaser.GameObjects.Text;
 
-  private btnSkill: Phaser.GameObjects.Container | null = null;
-  private btnSkillText: Phaser.GameObjects.Text | null = null;
-  private skillDropdown: Phaser.GameObjects.Container | null = null;
-  private activeSkills: ActiveSkillDefinition[] = [];
-  private activeSkillUseCounts: Map<string, number> = new Map();
-  private activeSkillEligibleIds: string[] = [];
-  private currentActiveSkillId: string | null = null;
+  btnSkill: Phaser.GameObjects.Container | null = null;
+  btnSkillText: Phaser.GameObjects.Text | null = null;
+  skillDropdown: Phaser.GameObjects.Container | null = null;
+  activeSkills: ActiveSkillDefinition[] = [];
+  activeSkillUseCounts: Map<string, number> = new Map();
+  activeSkillEligibleIds: string[] = [];
+  currentActiveSkillId: string | null = null;
 
   private enemyNameText!: Phaser.GameObjects.Text;
   private enemyNameFrame!: Phaser.GameObjects.Graphics;
@@ -130,6 +131,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private cardDisplayManager!: CardDisplayManager;
   private battleFlowManager!: BattleFlowManager;
   private characterBarManager!: CharacterBarManager;
+  private activeSkillManager!: ActiveSkillManager;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -251,6 +253,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.modalManager = new ModalManager(this);
     this.cardDisplayManager = new CardDisplayManager(this);
     this.battleFlowManager = new BattleFlowManager(this);
+    this.activeSkillManager = new ActiveSkillManager(this);
 
     this.renderAllCards();
     this.dragInputManager.setup();
@@ -826,7 +829,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     return this.battleFlowManager.showPassAnimation(who);
   }
 
-  private refillPlayerHand(): void {
+  refillPlayerHand(): void {
     this.battleFlowManager.refillPlayerHand();
   }
 
@@ -846,7 +849,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     await this.battleFlowManager.aiRespond();
   }
 
-  private async aiInitiatePlay(): Promise<void> {
+  async aiInitiatePlay(): Promise<void> {
     await this.battleFlowManager.aiInitiatePlay();
   }
 
@@ -1192,274 +1195,39 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   // ═══════════════════════════════════════════════
-  //  Active Skill System
+  //  Active Skill System (delegated to ActiveSkillManager)
   // ═══════════════════════════════════════════════
 
   getBattle(): BattleState {
-    return this.battle;
+    return this.activeSkillManager.getBattle();
   }
 
   renderPlayerHandAfterSkill(): void {
-    this.selectedIndices.clear();
-    this.renderPlayerHand(false);
-    this.updatePatternHint();
-    this.updateUIForPhase();
+    this.activeSkillManager.renderPlayerHandAfterSkill();
   }
 
   initActiveSkills(): void {
-    this.activeSkills = [];
-    this.activeSkillUseCounts = new Map();
-
-    if (this.playerCharacterIds.includes('liubowen')) {
-      this.activeSkills.push(LiuBoWenChouCe);
-      this.activeSkillUseCounts.set(LiuBoWenChouCe.id, 0);
-    }
+    this.activeSkillManager.initActiveSkills();
   }
 
   updateActiveSkillButton(): void {
-    const { width, height } = this.scale;
-
-    if (this.phase !== 'player_init') {
-      if (this.btnSkill) this.btnSkill.setVisible(false);
-      this.closeSkillDropdown();
-      return;
-    }
-
-    const selected = this.getSelectedCards();
-    if (selected.length === 0) {
-      if (this.btnSkill) this.btnSkill.setVisible(false);
-      this.closeSkillDropdown();
-      this.updateButtonLayout();
-      return;
-    }
-
-    const eligibleIds: string[] = [];
-    for (const skill of this.activeSkills) {
-      const used = this.activeSkillUseCounts.get(skill.id) ?? 0;
-      if (used >= skill.maxUses) continue;
-      if (skill.cardFilter(selected)) {
-        eligibleIds.push(skill.id);
-      }
-    }
-
-    this.activeSkillEligibleIds = eligibleIds;
-
-    if (eligibleIds.length === 0) {
-      if (this.btnSkill) this.btnSkill.setVisible(false);
-      this.closeSkillDropdown();
-      this.updateButtonLayout();
-      return;
-    }
-
-    const firstSkill = this.activeSkills.find(s => s.id === eligibleIds[0]);
-    if (!firstSkill) {
-      if (this.btnSkill) this.btnSkill.setVisible(false);
-      this.closeSkillDropdown();
-      this.updateButtonLayout();
-      return;
-    }
-
-    const btnY = height - 320;
-    if (!this.btnSkill) {
-      this.btnSkill = this.add.container(0, btnY).setDepth(DEPTH_UI);
-    }
-
-    this.btnSkill.removeAll(true);
-
-    const skillBg = this.add.graphics();
-    skillBg.fillStyle(0x3a1a5a, 1);
-    skillBg.fillRoundedRect(-125, -40, 250, 80, 6);
-    skillBg.lineStyle(2, 0xffd700, 0.8);
-    skillBg.strokeRoundedRect(-125, -40, 250, 80, 6);
-    this.btnSkill.add(skillBg);
-
-    const glowBorder = this.add.graphics();
-    glowBorder.lineStyle(1.5, 0xffd700, 0.5);
-    glowBorder.strokeRoundedRect(-123, -38, 246, 76, 5);
-    this.btnSkill.add(glowBorder);
-
-    if (eligibleIds.length > 1 && this.currentActiveSkillId === firstSkill.id) {
-      this.currentActiveSkillId = firstSkill.id;
-    } else if (!this.currentActiveSkillId || !eligibleIds.includes(this.currentActiveSkillId)) {
-      this.currentActiveSkillId = eligibleIds[0] ?? null;
-    }
-
-    const displaySkill = this.activeSkills.find(s => s.id === this.currentActiveSkillId) ?? firstSkill;
-    this.btnSkillText = this.add.text(0, 0, displaySkill.name, {
-      fontSize: '28px',
-      fontFamily: FONT_FAMILY,
-      color: '#ffd700',
-      stroke: '#1a0a2a',
-      strokeThickness: 2,
-    }).setOrigin(0.5);
-    this.btnSkill.add(this.btnSkillText);
-
-    const skillZone = this.add.zone(0, 0, 250, 80).setInteractive({ cursor: 'pointer' });
-    skillZone.on('pointerdown', () => {
-      this.onSkillClick();
-    });
-    this.btnSkill.add(skillZone);
-
-    this.btnSkill.setVisible(true);
-
-    if (eligibleIds.length > 1) {
-      this.updateSkillDropdownTrigger(btnY);
-    } else {
-      this.closeSkillDropdown();
-    }
-
-    this.updateButtonLayout();
+    this.activeSkillManager.updateActiveSkillButton();
   }
 
   private closeSkillDropdown(): void {
-    this.skillDropdown?.destroy();
-    this.skillDropdown = null;
+    this.activeSkillManager.closeSkillDropdown();
   }
 
   private updateSkillDropdownTrigger(btnY: number): void {
-    this.skillDropdown?.destroy();
-    this.skillDropdown = null;
-
-    const panelW = 250;
-    const panelH = Math.min(this.activeSkillEligibleIds.length * 52 + 16, 280);
-
-    this.skillDropdown = this.add.container(0, btnY - 80 - panelH / 2 - 8).setDepth(DEPTH_UI);
-
-    const listBg = this.add.graphics();
-    listBg.fillStyle(0x2a1a4a, 0.95);
-    listBg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
-    listBg.lineStyle(1.5, 0xffd700, 0.6);
-    listBg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
-    this.skillDropdown.add(listBg);
-
-    const itemH = 48;
-    const startY = -panelH / 2 + 12;
-    for (const skillId of this.activeSkillEligibleIds) {
-      const skill = this.activeSkills.find(s => s.id === skillId);
-      if (!skill) continue;
-      const idx = this.activeSkillEligibleIds.indexOf(skillId);
-      const itemY = startY + idx * itemH + itemH / 2;
-
-      const itemText = this.add.text(0, itemY, skill.name, {
-        fontSize: '24px',
-        fontFamily: FONT_FAMILY,
-        color: skillId === this.currentActiveSkillId ? '#ffd700' : '#c8a080',
-        stroke: '#1a0a24',
-        strokeThickness: 2,
-      }).setOrigin(0.5);
-      this.skillDropdown.add(itemText);
-
-      const itemZone = this.add.zone(0, itemY - itemH / 2 + panelH / 2, panelW, itemH)
-        .setInteractive({ cursor: 'pointer' });
-      const listY = btnY - 80 - panelH / 2 - 8;
-      itemZone.setPosition(0, itemY - listY);
-      itemZone.on('pointerdown', () => {
-        this.currentActiveSkillId = skillId;
-        this.updateActiveSkillButton();
-      });
-      this.skillDropdown.add(itemZone);
-    }
+    this.activeSkillManager.updateSkillDropdownTrigger(btnY);
   }
 
   private async onSkillClick(): Promise<void> {
-    if (!this.currentActiveSkillId) return;
-    const skill = this.activeSkills.find(s => s.id === this.currentActiveSkillId);
-    if (!skill) return;
-
-    const selected = this.getSelectedCards();
-    if (!skill.cardFilter(selected)) return;
-
-    const prevPhase = this.phase;
-    this.phase = 'animating';
-    this.updateUIForPhase();
-
-    for (const idx of this.selectedIndices) {
-      const cardObj = this.cardObjects.find(c => c.getData('cardIndex') === idx);
-      if (cardObj) {
-        this.tweens.killTweensOf(cardObj);
-        const glowG = cardObj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
-        if (glowG) {
-          this.tweens.killTweensOf(glowG);
-        }
-      }
-    }
-
-    GameAudioManager.playSfx(this, 'sfx_skill_trigger');
-    await this.glowOn('liubowen');
-    await this.moveToFront('liubowen');
-    await this.shakeAndPulse('liubowen');
-    this.showDialog('liubowen', '人算不如天算，天算不如我算！');
-
-    await skill.execute(this, selected);
-
-    const used = this.activeSkillUseCounts.get(skill.id) ?? 0;
-    this.activeSkillUseCounts.set(skill.id, used + 1);
-
-    await this.glowOff('liubowen');
-    await this.restoreSlot('liubowen');
-
-    const playerHand = this.battle.player.hand;
-
-    if (playerHand.length === 0) {
-      this.battle.lastPlay = null;
-      this.refillPlayerHand();
-      this.renderPlayerHand(true);
-      await this.fadeOutCenterCardsAsync();
-      this.battle.turnHolder = 'enemy';
-      this.phase = 'ai_init';
-      this.updateUIForPhase();
-      this.respondChainDepth = 0;
-      await this.aiInitiatePlay();
-      return;
-    }
-
-    const isInit = prevPhase === 'player_init';
-    if (isInit) {
-      this.battle.turnHolder = 'player';
-      this.phase = 'player_init';
-    } else {
-      this.battle.lastPlay = null;
-      this.battle.turnHolder = 'enemy';
-      this.phase = 'ai_init';
-      this.updateUIForPhase();
-      this.respondChainDepth = 0;
-      await this.aiInitiatePlay();
-      return;
-    }
-
-    this.updateUIForPhase();
+    await this.activeSkillManager.onSkillClick();
   }
 
   private updateButtonLayout(): void {
-    const { width } = this.scale;
-    const skillVisible = this.btnSkill?.visible ?? false;
-    const playVisible = this.btnPlay?.visible ?? false;
-    const passVisible = this.btnPass?.visible ?? false;
-
-    const visibleButtons: Phaser.GameObjects.Container[] = [];
-    if (skillVisible && this.btnSkill) visibleButtons.push(this.btnSkill);
-    if (playVisible) visibleButtons.push(this.btnPlay);
-    if (passVisible) visibleButtons.push(this.btnPass);
-
-    if (visibleButtons.length === 0) return;
-
-    const btnW = 250;
-    const gap = 10;
-    const totalW = visibleButtons.length * btnW + (visibleButtons.length - 1) * gap;
-    const startX = width / 2 - totalW / 2 + btnW / 2;
-
-    for (let i = 0; i < visibleButtons.length; i++) {
-      const targetX = startX + i * (btnW + gap);
-      const btn = visibleButtons[i]!;
-      if (btn.x !== targetX) {
-        this.tweens.add({
-          targets: btn,
-          x: targetX,
-          duration: 200,
-          ease: 'Sine.easeOut',
-        });
-      }
-    }
+    this.activeSkillManager.updateButtonLayout();
   }
 
   // ═══════════════════════════════════════════════
