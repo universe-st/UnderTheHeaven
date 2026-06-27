@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Card} from '../models/Card';
-import { createDeck, shuffleDeck, cardDisplayName, sortHand, resetCardIdCounter } from '../models/Card';
+import { createDeck, shuffleDeck, cardDisplayName, sortHand, resetCardIdCounter, sortPlayedCards } from '../models/Card';
 import type { BattleState, HandPattern} from '../models/BattleTypes';
 import { HandType, HAND_TYPE_LABELS } from '../models/BattleTypes';
 import { identifyHand, canBeat, findAllPlays, findBeatingPlays } from '../engine/HandRecognizer';
@@ -13,19 +13,20 @@ import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayer
 import { canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, LiuBoWenChouCe, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
 import { getBlockedResponseTypes, clearPassiveSkills } from '../skills/PassiveSkillUtils';
-import { waitForDelay, waitForTween, fadeOutAndDestroy } from '../utils/AnimationUtils';
+import { waitForDelay, waitForTween } from '../utils/AnimationUtils';
 import {
   FONT_FAMILY, CARD_W, CARD_H, SELECTED_OFFSET,
   AVATAR_SOURCE_SIZE, SLOT_SIZE, SLOT_GAP, SLOT_STRIDE,
   VISIBLE_BAR_WIDTH, FADE_WIDTH,
-  DEPTH_BG, DEPTH_BG_BORDER, DEPTH_UI, DEPTH_ENEMY_HAND,
-  DEPTH_PLAYER_HAND, DEPTH_CENTER_BASE, DEPTH_DAMAGE,
+  DEPTH_BG, DEPTH_BG_BORDER, DEPTH_UI,
+  DEPTH_CENTER_BASE, DEPTH_DAMAGE,
   DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT,
 } from '../constants/Layout';
 import { DragInputManager } from './managers/DragInputManager';
 import { HealthBarManager } from './managers/HealthBarManager';
 import { DamageSettlementManager } from './managers/DamageSettlementManager';
 import { ModalManager } from './managers/ModalManager';
+import { CardDisplayManager } from './managers/CardDisplayManager';
 
 interface TestBattleConfig {
   selectedPlayerCharacterIds?: PlayerCharacterId[];
@@ -36,40 +37,13 @@ interface TestBattleConfig {
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
-function sortPlayedCards(cards: Card[]): Card[] {
-  const rankCounts = new Map<number, number>();
-  for (const c of cards) {
-    const effectiveRank = c.consideredAs?.rank ?? c.rank;
-    rankCounts.set(effectiveRank, (rankCounts.get(effectiveRank) || 0) + 1);
-  }
-
-  const suitOrder: Record<string, number> = { spade: 0, club: 1, heart: 2, diamond: 3 };
-
-  return [...cards].sort((a, b) => {
-    const rankA = a.consideredAs?.rank ?? a.rank;
-    const rankB = b.consideredAs?.rank ?? b.rank;
-    const countA = rankCounts.get(rankA)!;
-    const countB = rankCounts.get(rankB)!;
-
-    if (countA !== countB) return countB - countA;
-    if (rankA !== rankB) return rankA - rankB;
-
-    if (a.consideredAs && !b.consideredAs) return 1;
-    if (!a.consideredAs && b.consideredAs) return -1;
-
-    const suitA = a.suit ? (suitOrder[a.suit] ?? 4) : 4;
-    const suitB = b.suit ? (suitOrder[b.suit] ?? 4) : 4;
-    return suitA - suitB;
-  });
-}
-
 export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   battle!: BattleState;
   phase: GamePhase = 'player_init';
 
   selectedIndices: Set<number> = new Set();
   cardObjects: Phaser.GameObjects.Container[] = [];
-  private enemyCardObjects: Phaser.GameObjects.Container[] = [];
+  enemyCardObjects: Phaser.GameObjects.Container[] = [];
 
   playerVitalityBar!: Phaser.GameObjects.Graphics;
   enemyVitalityBar!: Phaser.GameObjects.Graphics;
@@ -103,10 +77,10 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private aiHandGroup!: Phaser.GameObjects.Container;
 
   centerCards: Phaser.GameObjects.Container[] = [];
-  private centerCardsOwner: 'player' | 'enemy' | null = null;
-  private centerDepthCounter = DEPTH_CENTER_BASE;
+  centerCardsOwner: 'player' | 'enemy' | null = null;
+  centerDepthCounter = DEPTH_CENTER_BASE;
 
-  private revealedEnemyCards: Set<Card> = new Set();
+  revealedEnemyCards: Set<Card> = new Set();
 
   private battleBgm: Phaser.Sound.BaseSound | null = null;
   private battleBgmKeys = ['bgm_battle_1', 'bgm_battle_2', 'bgm_battle_3', 'bgm_battle_4', 'bgm_battle_5', 'bgm_battle_6'];
@@ -153,6 +127,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private healthBarManager!: HealthBarManager;
   private damageSettlementManager!: DamageSettlementManager;
   private modalManager!: ModalManager;
+  private cardDisplayManager!: CardDisplayManager;
 
   private cachedWidth = 2400;
   private cachedHeight = 1080;
@@ -284,6 +259,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.healthBarManager = new HealthBarManager(this);
     this.damageSettlementManager = new DamageSettlementManager(this);
     this.modalManager = new ModalManager(this);
+    this.cardDisplayManager = new CardDisplayManager(this);
 
     this.renderAllCards();
     this.dragInputManager.setup();
@@ -1360,335 +1336,39 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   // ═══════════════════════════════════════════════
-  //  Card Rendering
+  //  Card Rendering (delegated to CardDisplayManager)
   // ═══════════════════════════════════════════════
 
   private createCardDisplay(card: Card, x: number, y: number, isSelected: boolean = false): Phaser.GameObjects.Container {
-    const container = this.add.container(x, y);
-    const halfW = CARD_W / 2;
-    const halfH = CARD_H / 2;
-
-    const shadowG = this.add.graphics();
-    container.add(shadowG);
-    container.setData('_shadowG', shadowG);
-    shadowG.fillStyle(0x1a0a04, 0.25);
-    shadowG.fillRoundedRect(-halfW + 5, -halfH + 6, CARD_W, CARD_H, 8);
-
-    const glowG = this.add.graphics();
-    container.add(glowG);
-    container.setData('_glowG', glowG);
-    glowG.fillStyle(0xffd700, 0.30);
-    glowG.fillRoundedRect(-halfW - 4, -halfH - 4, CARD_W + 8, CARD_H + 8, 10);
-    glowG.fillStyle(0xffd700, 0.18);
-    glowG.fillRoundedRect(-halfW - 9, -halfH - 9, CARD_W + 18, CARD_H + 18, 12);
-    glowG.fillStyle(0xffd700, 0.09);
-    glowG.fillRoundedRect(-halfW - 15, -halfH - 15, CARD_W + 30, CARD_H + 30, 14);
-    glowG.setAlpha(isSelected ? 1 : 0);
-
-    const isRed = card.suit === 'heart' || card.suit === 'diamond';
-    const textColor = isRed ? '#b02828' : '#1a0a04';
-    const isJoker = card.rank >= 25;
-
-    const suitSymbol: Record<string, string> = {
-      spade: '♠', club: '♣', heart: '♥', diamond: '♦',
-    };
-
-    const g = this.add.graphics();
-
-    // Card background
-    g.fillStyle(0xfaf5eb, 1);
-    g.fillRoundedRect(-halfW, -halfH, CARD_W, CARD_H, 8);
-
-    // Outer border — double line
-    g.lineStyle(2.5, 0x6b4e2b, 0.85);
-    g.strokeRoundedRect(-halfW + 3, -halfH + 3, CARD_W - 6, CARD_H - 6, 7);
-    g.lineStyle(1, 0xb8963e, 0.5);
-    g.strokeRoundedRect(-halfW + 8, -halfH + 8, CARD_W - 16, CARD_H - 16, 6);
-
-    // Corner ornaments — diamond shapes at four corners
-    const cornerM = 16;
-    const cornerSz = 8;
-    const corners: Array<[number, number]> = [
-      [-halfW + cornerM, -halfH + cornerM],
-      [ halfW - cornerM, -halfH + cornerM],
-      [-halfW + cornerM,  halfH - cornerM],
-      [ halfW - cornerM,  halfH - cornerM],
-    ];
-
-    g.fillStyle(0xb8963e, 0.35);
-    for (const [cx, cy] of corners) {
-      g.fillPoints([
-        new Phaser.Math.Vector2(cx, cy - cornerSz),
-        new Phaser.Math.Vector2(cx + cornerSz, cy),
-        new Phaser.Math.Vector2(cx, cy + cornerSz),
-        new Phaser.Math.Vector2(cx - cornerSz, cy),
-      ], true);
-    }
-
-    // Decorative dots along inner border edges (one dot every 30px)
-    g.fillStyle(0xb8963e, 0.25);
-    const step = 28;
-    for (let t = halfH - 30; t >= -halfH + 30; t -= step) {
-      g.fillCircle(-halfW + 18, t, 2);
-      g.fillCircle( halfW - 18, t, 2);
-    }
-    for (let l = halfW - 30; l >= -halfW + 30; l -= step) {
-      g.fillCircle(l, -halfH + 18, 2);
-      g.fillCircle(l,  halfH - 18, 2);
-    }
-
-    // Central medallion — rotated square frame
-    const midSize = 36;
-    g.lineStyle(1.2, 0xb8963e, 0.25);
-    const midPoints = [
-      new Phaser.Math.Vector2(0, -midSize - 8),
-      new Phaser.Math.Vector2(midSize + 8, 0),
-      new Phaser.Math.Vector2(0, midSize + 8),
-      new Phaser.Math.Vector2(-midSize - 8, 0),
-    ];
-    g.strokePoints(midPoints, true);
-
-    // Small circle inside medallion
-    g.lineStyle(1, 0xb8963e, 0.2);
-    g.strokeCircle(0, 0, 14);
-
-    container.add(g);
-
-    // ═══ Top-left corner: rank + suit ═══
-    const cornerX = -halfW + 16;
-    const cornerY = -halfH + 10;
-
-    if (!isJoker) {
-      const rankTxt = this.add.text(cornerX, cornerY, card.rankLabel, {
-        fontSize: '34px',
-        fontFamily: FONT_FAMILY,
-        color: textColor,
-      }).setOrigin(0, 0);
-      container.add(rankTxt);
-
-      const suitTxt = this.add.text(cornerX, cornerY + 34, suitSymbol[card.suit!]!, {
-        fontSize: '24px',
-        fontFamily: FONT_FAMILY,
-        color: textColor,
-      }).setOrigin(0, 0);
-      container.add(suitTxt);
-
-      // Large faded suit symbol in center
-      const centerSuit = this.add.text(0, 0, suitSymbol[card.suit!]!, {
-        fontSize: '60px',
-        fontFamily: FONT_FAMILY,
-        color: textColor,
-      }).setOrigin(0.5).setAlpha(0.12);
-      container.add(centerSuit);
-    }
-
-    // ═══ Joker rendering ═══
-    if (isJoker) {
-      const jokerColor = card.rank === 30 ? '#c9a030' : '#1a0a04';
-
-      const cornerLabel = this.add.text(cornerX, cornerY, card.rankLabel, {
-        fontSize: '30px',
-        fontFamily: FONT_FAMILY,
-        color: jokerColor,
-      }).setOrigin(0, 0);
-      container.add(cornerLabel);
-
-      const patternName = card.rank === 30 ? 'card_pattern_dragon' : 'card_pattern_tiger';
-      const pattern = this.add.image(0, 0, patternName);
-      const maxPatternW = CARD_W * 0.7;
-      const maxPatternH = CARD_H * 0.7;
-      const scale = Math.min(maxPatternW / pattern.width, maxPatternH / pattern.height);
-      if (scale < 1) {
-        pattern.setScale(scale);
-      }
-      container.add(pattern);
-
-      const label = this.add.text(0, halfH - 22, 'JOKER', {
-        fontSize: '13px',
-        fontFamily: FONT_FAMILY,
-        color: '#8a6830',
-      }).setOrigin(0.5);
-      container.add(label);
-    }
-
-    container.setData('uid', card.uid);
-    container.setData('rank', card.rank);
-    container.setData('suit', card.suit ?? '');
-
-    if (card.isTemp) {
-      const spiderGfx = this.add.graphics();
-      const hw = halfW;
-      const hh = halfH;
-      spiderGfx.lineStyle(1, 0x88aacc, 0.6);
-      spiderGfx.lineBetween(0, 0, -hw, -hh);
-      spiderGfx.lineBetween(0, 0, hw, -hh * 0.7);
-      spiderGfx.lineBetween(0, 0, -hw * 0.6, hh);
-      spiderGfx.lineBetween(0, 0, hw * 0.8, hh * 0.3);
-      spiderGfx.lineBetween(0, 0, 0, -hh);
-      spiderGfx.lineBetween(0, 0, -hw * 0.3, hh * 0.5);
-      spiderGfx.lineBetween(0, 0, hw * 0.4, -hh * 0.3);
-      spiderGfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.7, -hh * 0.1);
-      spiderGfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.15, -hh * 0.7);
-      spiderGfx.lineBetween(hw * 0.5, -hh * 0.2, hw * 0.3, -hh * 0.6);
-      spiderGfx.lineBetween(0, -hh * 0.5, hw * 0.25, -hh * 0.8);
-      spiderGfx.lineStyle(0.8, 0x88aacc, 0.35);
-      spiderGfx.lineBetween(-hw * 0.15, -hh * 0.7, -hw * 0.45, -hh * 0.55);
-      spiderGfx.lineBetween(-hw * 0.7, -hh * 0.1, -hw * 0.5, hh * 0.2);
-      spiderGfx.lineBetween(hw * 0.3, -hh * 0.6, hw * 0.6, -hh * 0.4);
-      spiderGfx.lineBetween(0, hh, -hw * 0.4, hh * 0.35);
-      spiderGfx.lineBetween(-hw * 0.3, hh * 0.5, -hw * 0.6, hh * 0.1);
-      spiderGfx.setAlpha(0.4);
-      container.add(spiderGfx);
-    }
-
-    return container;
+    return this.cardDisplayManager.createCardDisplay(card, x, y, isSelected);
   }
 
   private updateCardShadowGlow(container: Phaser.GameObjects.Container, isGlow: boolean): void {
-    const glowG = container.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
-    if (!glowG) return;
-    glowG.setAlpha(isGlow ? 1 : 0);
+    this.cardDisplayManager.updateCardShadowGlow(container, isGlow);
   }
 
   private createCardInteractive(card: Card, x: number, y: number, index: number, isSelected: boolean = false): Phaser.GameObjects.Container {
-    const container = this.createCardDisplay(card, x, y, isSelected);
-    container.setDepth(DEPTH_PLAYER_HAND);
-    container.setData('cardIndex', index);
-
-    return container;
+    return this.cardDisplayManager.createCardInteractive(card, x, y, index, isSelected);
   }
 
   private renderAllCards(): void {
-    this.renderPlayerHand(true);
-    this.renderEnemyHand(true);
+    this.cardDisplayManager.renderAllCards();
   }
 
   private renderPlayerHand(animateEntry: boolean = false): void {
-    this.cardObjects.forEach(c => c.destroy());
-    this.cardObjects = [];
-
-    const hand = this.battle.player.hand;
-    const { width, height } = this.scale;
-    const baseY = height - 90;
-    const overlapOffset = CARD_W * 0.75;
-    const totalW = CARD_W + (hand.length - 1) * overlapOffset;
-    const startX = (width - totalW) / 2 + CARD_W / 2;
-    const offscreenX = width + CARD_W;
-
-    for (let i = 0; i < hand.length; i++) {
-      const targetX = startX + i * overlapOffset;
-      const isSelected = this.selectedIndices.has(i);
-      const y = baseY + (isSelected ? SELECTED_OFFSET : 0);
-      const initX = animateEntry ? offscreenX : targetX;
-      const obj = this.createCardInteractive(hand[i]!, initX, y, i, isSelected);
-      obj.setDepth(DEPTH_PLAYER_HAND + i);
-      this.cardObjects.push(obj);
-
-      if (animateEntry) {
-        this.tweens.add({
-          targets: obj,
-          x: targetX,
-          duration: 200,
-          delay: i * 50,
-          ease: 'Cubic.easeOut',
-        });
-      }
-    }
+    this.cardDisplayManager.renderPlayerHand(animateEntry);
   }
 
   private renderEnemyHand(animateEntry: boolean = false, baseDelay: number = 700, onComplete?: () => void): void {
-    this.enemyCardObjects.forEach(c => c.destroy());
-    this.enemyCardObjects = [];
-
-    const hand = this.battle.enemy.hand;
-    const { width } = this.scale;
-    const baseY = 220;
-    const overlapOffset = CARD_W * 0.75;
-    const totalW = CARD_W + (hand.length - 1) * overlapOffset;
-    const startX = (width - totalW) / 2 + CARD_W / 2;
-
-    const revealedIndices = this.getRevealedEnemyCardIndices();
-
-    for (let i = 0; i < hand.length; i++) {
-      const targetX = startX + i * overlapOffset;
-      const initY = animateEntry ? -CARD_H : baseY;
-      const container = this.add.container(targetX, initY);
-      container.setDepth(DEPTH_ENEMY_HAND + i);
-      container.setData('cardIndex', i);
-      const hc = hand[i]!;
-      container.setData('uid', hc.uid);
-      container.setData('rank', hc.rank);
-      container.setData('suit', hc.suit ?? '');
-      if (animateEntry) {
-        container.setAlpha(0);
-      }
-
-      const enemyShadowG = this.add.graphics();
-      enemyShadowG.fillStyle(0x1a0a04, 0.25);
-      enemyShadowG.fillRoundedRect(-CARD_W / 2 + 5, -CARD_H / 2 + 6, CARD_W, CARD_H, 8);
-      container.add(enemyShadowG);
-
-      if (revealedIndices.has(i)) {
-        const revealedDisplay = this.createCardDisplay(hand[i]!, 0, 0, false);
-        revealedDisplay.setAlpha(0.6);
-        revealedDisplay.setScale(0.75);
-        container.add(revealedDisplay);
-      } else {
-        const cardBack = this.add.image(0, 0, 'card_back');
-        cardBack.setDisplaySize(CARD_W, CARD_H);
-        container.add(cardBack);
-      }
-
-      this.enemyCardObjects.push(container);
-
-      if (animateEntry) {
-        this.tweens.add({
-          targets: container,
-          y: baseY,
-          alpha: 1,
-          duration: 120,
-          delay: baseDelay + i * 100,
-          ease: 'Cubic.easeOut',
-        });
-      }
-    }
-
-    if (animateEntry) {
-      if (hand.length === 0 && onComplete) {
-        onComplete();
-      } else if (hand.length > 0) {
-        const lastCardAnimEnd = baseDelay + (hand.length - 1) * 100 + 120;
-        this.time.delayedCall(lastCardAnimEnd, () => {
-          onComplete?.();
-        });
-      }
-    } else if (onComplete) {
-      onComplete();
-    }
+    this.cardDisplayManager.renderEnemyHand(animateEntry, baseDelay, onComplete);
   }
 
   private getRevealedEnemyCardIndices(): Set<number> {
-    if (this.revealedEnemyCards.size === 0) return new Set();
-    if (this.battle.enemy.hand.length === 0) return new Set();
-
-    const indices = new Set<number>();
-    for (let i = 0; i < this.battle.enemy.hand.length; i++) {
-      if (this.revealedEnemyCards.has(this.battle.enemy.hand[i]!)) {
-        indices.add(i);
-      }
-    }
-    return indices;
+    return this.cardDisplayManager.getRevealedEnemyCardIndices();
   }
 
   private getCardFanPositions(count: number, centerX: number, centerY: number): Array<{ x: number; y: number }> {
-    const gap = CARD_W * 0.75;
-    const totalW = CARD_W + (count - 1) * gap;
-    const startX = centerX - totalW / 2 + CARD_W / 2;
-    const positions: Array<{ x: number; y: number }> = [];
-    for (let i = 0; i < count; i++) {
-      positions.push({ x: startX + i * gap, y: centerY });
-    }
-    return positions;
+    return this.cardDisplayManager.getCardFanPositions(count, centerX, centerY);
   }
 
   private animateCardsToPositions(
@@ -1697,66 +1377,15 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     duration: number,
     onComplete?: () => void
   ): void {
-    if (cards.length === 0) {
-      onComplete?.();
-      return;
-    }
-    const baseDepth = this.centerDepthCounter;
-    this.centerDepthCounter += cards.length;
-    let completed = 0;
-    for (let i = 0; i < cards.length; i++) {
-      cards[i]!.setDepth(baseDepth + i);
-      this.tweens.add({
-        targets: cards[i]!,
-        x: positions[i]!.x,
-        y: positions[i]!.y,
-        duration,
-        ease: 'Sine.easeOut',
-        onComplete: () => {
-          completed++;
-          if (completed >= cards.length) {
-            onComplete?.();
-          }
-        },
-      });
-    }
+    this.cardDisplayManager.animateCardsToPositions(cards, positions, duration, onComplete);
   }
 
   private clearCenterCards(): void {
-    for (const c of this.centerCards) {
-      c.destroy();
-    }
-    this.centerCards = [];
-    this.centerCardsOwner = null;
-    this.centerDepthCounter = DEPTH_CENTER_BASE;
+    this.cardDisplayManager.clearCenterCards();
   }
 
   private fadeOutCenterCards(onComplete: () => void): void {
-    const cards = [...this.centerCards];
-    this.centerCards = [];
-    this.centerCardsOwner = null;
-    if (cards.length === 0) {
-      onComplete();
-      return;
-    }
-    this.centerDepthCounter = DEPTH_CENTER_BASE;
-    let done = 0;
-    for (const c of cards) {
-      this.tweens.add({
-        targets: c,
-        alpha: 0,
-        scaleX: 0.5,
-        scaleY: 0.5,
-        y: c.y - 30,
-        duration: 80,
-        ease: 'Sine.easeIn',
-        onComplete: () => {
-          c.destroy();
-          done++;
-          if (done >= cards.length) onComplete();
-        },
-      });
-    }
+    this.cardDisplayManager.fadeOutCenterCards(onComplete);
   }
 
   private animateShiftAndReplace(
@@ -1765,109 +1394,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     duration: number,
     onComplete: () => void
   ): void {
-    const total = oldCards.length + newCards.length;
-    if (total === 0) {
-      onComplete();
-      return;
-    }
-    let completed = 0;
-    const checkDone = () => {
-      completed++;
-      if (completed >= total) onComplete();
-    };
-
-    const shiftDepth = this.centerDepthCounter;
-    this.centerDepthCounter += newCards.length + oldCards.length;
-
-    for (const c of oldCards) {
-      c.setDepth(shiftDepth + oldCards.indexOf(c));
-      this.tweens.add({
-        targets: c,
-        x: c.x - 150,
-        alpha: 0,
-        scaleX: 0.5,
-        scaleY: 0.5,
-        duration,
-        ease: 'Sine.easeIn',
-        onComplete: () => {
-          c.destroy();
-          checkDone();
-        },
-      });
-    }
-
-    const newPositions = this.getCardFanPositions(newCards.length, 1200, 475);
-    for (let i = 0; i < newCards.length; i++) {
-      newCards[i]!.setDepth(shiftDepth + oldCards.length + i);
-      this.tweens.add({
-        targets: newCards[i]!,
-        x: newPositions[i]!.x,
-        y: newPositions[i]!.y,
-        duration,
-        ease: 'Sine.easeOut',
-        onComplete: checkDone,
-      });
-    }
+    this.cardDisplayManager.animateShiftAndReplace(oldCards, newCards, duration, onComplete);
   }
 
   private createEnemyDisplayCards(indices: number[]): Phaser.GameObjects.Container[] {
-    const entries: Array<{ card: Card; x: number; y: number; isRevealed: boolean }> = [];
-
-    for (const idx of indices) {
-      if (idx < this.battle.enemy.hand.length) {
-        const card = this.battle.enemy.hand[idx]!;
-        const isRevealed = this.revealedEnemyCards.has(card);
-        if (isRevealed) {
-          this.revealedEnemyCards.delete(card);
-        }
-        let x: number;
-        let y: number;
-        if (idx < this.enemyCardObjects.length) {
-          x = this.enemyCardObjects[idx]!.x;
-          y = this.enemyCardObjects[idx]!.y;
-        } else {
-          const { width } = this.scale;
-          const overlapOffset = CARD_W * 0.75;
-          const totalW = CARD_W + (this.battle.enemy.hand.length - 1) * overlapOffset;
-          const startX = (width - totalW) / 2 + CARD_W / 2;
-          x = startX + idx * overlapOffset;
-          y = 220;
-        }
-        entries.push({ card, x, y, isRevealed });
-      }
-    }
-
-    const sortedCards = sortPlayedCards(entries.map(e => e.card));
-    const cardToEntry = new Map<Card, typeof entries[0]>();
-    for (const entry of entries) {
-      cardToEntry.set(entry.card, entry);
-    }
-
-    const baseDepth = this.centerDepthCounter;
-    this.centerDepthCounter += entries.length;
-    const displayCards: Phaser.GameObjects.Container[] = [];
-    for (const card of sortedCards) {
-      const entry = cardToEntry.get(card);
-      if (entry) {
-        const display = this.createCardDisplay(card, entry.x, entry.y, false);
-        display.setDepth(baseDepth + displayCards.length);
-        if (entry.isRevealed) {
-          display.setData('isRevealed', true);
-        }
-        displayCards.push(display);
-        cardToEntry.delete(card);
-      }
-    }
-    for (const entry of cardToEntry.values()) {
-      const display = this.createCardDisplay(entry.card, entry.x, entry.y, false);
-      display.setDepth(baseDepth + displayCards.length);
-      if (entry.isRevealed) {
-        display.setData('isRevealed', true);
-      }
-      displayCards.push(display);
-    }
-
-    return displayCards;
+    return this.cardDisplayManager.createEnemyDisplayCards(indices);
   }
 
   // ═══════════════════════════════════════════════
@@ -2768,31 +2299,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     positions: Array<{ x: number; y: number }>,
     duration: number,
   ): Promise<void> {
-    if (cards.length === 0) return;
-    const baseDepth = this.centerDepthCounter;
-    this.centerDepthCounter += cards.length;
-    await Promise.all(
-      cards.map((card, i) => {
-        card.setDepth(baseDepth + i);
-        const pos = positions[i]!;
-        return waitForTween(this, {
-          targets: card,
-          x: pos.x,
-          y: pos.y,
-          duration,
-          ease: 'Sine.easeOut',
-        });
-      }),
-    );
+    return this.cardDisplayManager.animateCardsToPositionsAsync(cards, positions, duration);
   }
 
   private async fadeOutCenterCardsAsync(): Promise<void> {
-    const cards = [...this.centerCards];
-    this.centerCards = [];
-    this.centerCardsOwner = null;
-    if (cards.length === 0) return;
-    this.centerDepthCounter = DEPTH_CENTER_BASE;
-    await fadeOutAndDestroy(cards, 80, this);
+    return this.cardDisplayManager.fadeOutCenterCardsAsync();
   }
 
   private async animateShiftAndReplaceAsync(
@@ -2800,45 +2311,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     newCards: Phaser.GameObjects.Container[],
     duration: number,
   ): Promise<void> {
-    const total = oldCards.length + newCards.length;
-    if (total === 0) return;
-
-    const shiftDepth = this.centerDepthCounter;
-    this.centerDepthCounter += newCards.length + oldCards.length;
-
-    const oldPromises = oldCards.map((c, i) => {
-      c.setDepth(shiftDepth + i);
-      return waitForTween(this, {
-        targets: c,
-        x: c.x - 150,
-        alpha: 0,
-        scaleX: 0.5,
-        scaleY: 0.5,
-        duration,
-        ease: 'Sine.easeIn',
-      }).then(() => c.destroy());
-    });
-
-    const newPositions = this.getCardFanPositions(newCards.length, 1200, 475);
-    const newPromises = newCards.map((card, i) => {
-      card.setDepth(shiftDepth + oldCards.length + i);
-      const pos = newPositions[i]!;
-      return waitForTween(this, {
-        targets: card,
-        x: pos.x,
-        y: pos.y,
-        duration,
-        ease: 'Sine.easeOut',
-      });
-    });
-
-    await Promise.all([...oldPromises, ...newPromises]);
+    return this.cardDisplayManager.animateShiftAndReplaceAsync(oldCards, newCards, duration);
   }
 
   private renderEnemyHandAsync(delay: number): Promise<void> {
-    return new Promise(resolve => {
-      this.renderEnemyHand(true, delay, resolve);
-    });
+    return this.cardDisplayManager.renderEnemyHandAsync(delay);
   }
 
   async animateHealthBarDepletionAsync(

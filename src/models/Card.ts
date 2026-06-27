@@ -79,6 +79,38 @@ export function sortHand(hand: Card[]): void {
   });
 }
 
+/**
+ * Sort played cards for display. Groups by rank multiplicity (most frequent first),
+ * then by rank ascending, then by suit (spade < club < heart < diamond).
+ * consideredAs cards are sorted after regular cards of the same rank.
+ */
+export function sortPlayedCards(cards: Card[]): Card[] {
+  const rankCounts = new Map<number, number>();
+  for (const c of cards) {
+    const effectiveRank = c.consideredAs?.rank ?? c.rank;
+    rankCounts.set(effectiveRank, (rankCounts.get(effectiveRank) || 0) + 1);
+  }
+
+  const suitOrder: Record<string, number> = { spade: 0, club: 1, heart: 2, diamond: 3 };
+
+  return [...cards].sort((a, b) => {
+    const rankA = a.consideredAs?.rank ?? a.rank;
+    const rankB = b.consideredAs?.rank ?? b.rank;
+    const countA = rankCounts.get(rankA)!;
+    const countB = rankCounts.get(rankB)!;
+
+    if (countA !== countB) return countB - countA;
+    if (rankA !== rankB) return rankA - rankB;
+
+    if (a.consideredAs && !b.consideredAs) return 1;
+    if (!a.consideredAs && b.consideredAs) return -1;
+
+    const suitA = a.suit ? (suitOrder[a.suit] ?? 4) : 4;
+    const suitB = b.suit ? (suitOrder[b.suit] ?? 4) : 4;
+    return suitA - suitB;
+  });
+}
+
 export function cardDisplayName(card: Card): string {
   const suitSymbol: Record<string, string> = {
     spade: '♠',
