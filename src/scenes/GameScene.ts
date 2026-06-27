@@ -13,11 +13,9 @@ import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayer
 import { canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, LiuBoWenChouCe, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
 import { getBlockedResponseTypes, clearPassiveSkills } from '../skills/PassiveSkillUtils';
-import { waitForDelay, waitForTween } from '../utils/AnimationUtils';
 import {
-  FONT_FAMILY, CARD_W, CARD_H, SELECTED_OFFSET,
-  AVATAR_SOURCE_SIZE, SLOT_SIZE, SLOT_GAP, SLOT_STRIDE,
-  VISIBLE_BAR_WIDTH, FADE_WIDTH,
+  FONT_FAMILY, SELECTED_OFFSET,
+  AVATAR_SOURCE_SIZE,
   DEPTH_BG, DEPTH_BG_BORDER, DEPTH_UI,
   DEPTH_CENTER_BASE, DEPTH_DAMAGE,
   DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT,
@@ -28,6 +26,7 @@ import { DamageSettlementManager } from './managers/DamageSettlementManager';
 import { ModalManager } from './managers/ModalManager';
 import { CardDisplayManager } from './managers/CardDisplayManager';
 import { BattleFlowManager } from './managers/BattleFlowManager';
+import { CharacterBarManager } from './managers/CharacterBarManager';
 
 interface TestBattleConfig {
   selectedPlayerCharacterIds?: PlayerCharacterId[];
@@ -71,7 +70,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private enemyNameText!: Phaser.GameObjects.Text;
   private enemyNameFrame!: Phaser.GameObjects.Graphics;
   private playerNameText!: Phaser.GameObjects.Text;
-  private enemyAvatarImage!: Phaser.GameObjects.Image;
+  enemyAvatarImage!: Phaser.GameObjects.Image;
   private enemyAvatarBorder!: Phaser.GameObjects.Graphics;
 
   private cardHandGroup!: Phaser.GameObjects.Container;
@@ -101,24 +100,24 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private testConfig: TestBattleConfig | null = null;
   playerCharacterIds: PlayerCharacterId[] = [];
 
-  private characterSlotContainers: Phaser.GameObjects.Container[] = [];
-  private characterSlotTexts: Phaser.GameObjects.Text[] = [];
-  private characterTooltip: Phaser.GameObjects.Container | null = null;
-  private enemyInfoWindow: Phaser.GameObjects.Container | null = null;
+  characterSlotContainers: Phaser.GameObjects.Container[] = [];
+  characterSlotTexts: Phaser.GameObjects.Text[] = [];
+  characterTooltip: Phaser.GameObjects.Container | null = null;
+  enemyInfoWindow: Phaser.GameObjects.Container | null = null;
 
-  private characterBarContainer: Phaser.GameObjects.Container | null = null;
-  private characterBarMaskShape: Phaser.GameObjects.Graphics | null = null;
-  private characterBarScrollX: number = 0;
-  private characterBarMaxScroll: number = 0;
-  private characterBarDragging: boolean = false;
-  private barDragStartPointerX: number = 0;
-  private barDragStartScrollX: number = 0;
-  private barDragPending: boolean = false;
-  private barDragMoved: boolean = false;
+  characterBarContainer: Phaser.GameObjects.Container | null = null;
+  characterBarMaskShape: Phaser.GameObjects.Graphics | null = null;
+  characterBarScrollX: number = 0;
+  characterBarMaxScroll: number = 0;
+  characterBarDragging: boolean = false;
+  barDragStartPointerX: number = 0;
+  barDragStartScrollX: number = 0;
+  barDragPending: boolean = false;
+  barDragMoved: boolean = false;
 
-  private skillTriggeredCharacters: Set<PlayerCharacterId> = new Set();
-  private characterSlotGlows: { innerGlow: Phaser.GameObjects.Graphics; midGlow: Phaser.GameObjects.Graphics; outerGlow: Phaser.GameObjects.Graphics; sweepGfx: Phaser.GameObjects.Graphics }[] = [];
-  private characterSlotGlowTweens: Map<number, Phaser.Tweens.Tween[]> = new Map();
+  skillTriggeredCharacters: Set<PlayerCharacterId> = new Set();
+  characterSlotGlows: { innerGlow: Phaser.GameObjects.Graphics; midGlow: Phaser.GameObjects.Graphics; outerGlow: Phaser.GameObjects.Graphics; sweepGfx: Phaser.GameObjects.Graphics }[] = [];
+  characterSlotGlowTweens: Map<number, Phaser.Tweens.Tween[]> = new Map();
 
   skillEventBus!: SkillEventBus;
   private skillRegistry!: SkillRegistry;
@@ -130,17 +129,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private modalManager!: ModalManager;
   private cardDisplayManager!: CardDisplayManager;
   private battleFlowManager!: BattleFlowManager;
-
-  private cachedWidth = 2400;
-  private cachedHeight = 1080;
-
-  private getSlotPosition(index: number): { x: number; y: number } {
-    return { x: SLOT_SIZE / 2 + FADE_WIDTH + index * SLOT_STRIDE, y: 0 };
-  }
-
-  private getCharacterBarOrigin(): { x: number; y: number } {
-    return { x: this.cachedWidth - 180 - VISIBLE_BAR_WIDTH, y: this.cachedHeight - 420 };
-  }
+  private characterBarManager!: CharacterBarManager;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -232,8 +221,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   create(): void {
     this.resetSceneState();
     const { width, height } = this.scale;
-    this.cachedWidth = width;
-    this.cachedHeight = height;
     this.cameras.main.fadeIn(400);
 
     this.drawBackground(width, height);
@@ -246,6 +233,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     this.battle = this.initBattle();
 
+    this.characterBarManager = new CharacterBarManager(this);
     this.createCharacterSlots(width, height);
 
     this.enemyNameText.setText(this.battle.enemy.name);
@@ -577,197 +565,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   private createCharacterSlots(w: number, h: number): void {
-    const slotCount = Math.max(1, this.playerCharacterIds.length);
-    const origin = this.getCharacterBarOrigin();
-
-    const maskShape = this.add.graphics();
-    // 左侧渐隐带：alpha 0 → 1
-    maskShape.fillGradientStyle(0xffffff, 0xffffff, 0xffffff, 0xffffff, 0, 1, 0, 1);
-    maskShape.fillRect(origin.x, origin.y - SLOT_SIZE, FADE_WIDTH, SLOT_SIZE * 3);
-    // 中间实体遮罩：alpha 1
-    maskShape.fillStyle(0xffffff, 1);
-    maskShape.fillRect(origin.x + FADE_WIDTH, origin.y - SLOT_SIZE, VISIBLE_BAR_WIDTH - 2 * FADE_WIDTH, SLOT_SIZE * 3);
-    // 右侧渐隐带：alpha 1 → 0
-    maskShape.fillGradientStyle(0xffffff, 0xffffff, 0xffffff, 0xffffff, 1, 0, 1, 0);
-    maskShape.fillRect(origin.x + VISIBLE_BAR_WIDTH - FADE_WIDTH, origin.y - SLOT_SIZE, FADE_WIDTH, SLOT_SIZE * 3);
-    maskShape.setDepth(-10000);
-    this.characterBarMaskShape = maskShape;
-
-    const barContainer = this.add.container(origin.x, origin.y).setDepth(DEPTH_UI);
-    barContainer.enableFilters();
-    const maskFilter = barContainer.filters!.internal.addMask(maskShape);
-    maskFilter.autoUpdate = false;
-    this.characterBarContainer = barContainer;
-
-    for (let i = 0; i < slotCount; i++) {
-      const pos = this.getSlotPosition(i);
-      const container = this.add.container(pos.x, pos.y);
-      this.characterSlotContainers.push(container);
-
-      const glowContainer = this.add.container(0, 0).setAlpha(0);
-      container.addAt(glowContainer, 0);
-
-      const innerGlow = this.add.graphics();
-      innerGlow.fillStyle(0xffd700, 0.5);
-      innerGlow.fillRoundedRect(-SLOT_SIZE / 2 + 2, -SLOT_SIZE / 2 + 2, SLOT_SIZE - 4, SLOT_SIZE - 4, 7);
-      glowContainer.add(innerGlow);
-
-      const midGlow = this.add.graphics();
-      midGlow.fillStyle(0xffaa00, 0.3);
-      midGlow.fillRoundedRect(-SLOT_SIZE / 2 - 4, -SLOT_SIZE / 2 - 4, SLOT_SIZE + 8, SLOT_SIZE + 8, 9);
-      glowContainer.add(midGlow);
-
-      const outerGlow = this.add.graphics();
-      outerGlow.fillStyle(0xffd700, 0.12);
-      outerGlow.fillRoundedRect(-SLOT_SIZE / 2 - 10, -SLOT_SIZE / 2 - 10, SLOT_SIZE + 20, SLOT_SIZE + 20, 11);
-      glowContainer.add(outerGlow);
-
-      const sweepGfx = this.add.graphics();
-      sweepGfx.fillGradientStyle(0xffd700, 0xffd700, 0xffd700, 0xffd700, 0.35, 0.35, 0, 0);
-      sweepGfx.fillRoundedRect(-SLOT_SIZE / 2 - 6, -SLOT_SIZE / 2 - 6, SLOT_SIZE + 12, 8, 4);
-      glowContainer.add(sweepGfx);
-
-      this.characterSlotGlows.push({ innerGlow, midGlow, outerGlow, sweepGfx });
-
-      const gfx = this.add.graphics();
-      gfx.fillStyle(0x2a1a0f, 0.7);
-      gfx.fillRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
-      gfx.lineStyle(2, 0xb89040, 0.6);
-      gfx.strokeRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
-      gfx.lineStyle(1, 0x5a4030, 0.3);
-      gfx.strokeRoundedRect(-SLOT_SIZE / 2 + 4, -SLOT_SIZE / 2 + 4, SLOT_SIZE - 8, SLOT_SIZE - 8, 6);
-      container.add(gfx);
-
-      const charId = this.playerCharacterIds[i] ?? null;
-      const char = charId ? PLAYER_CHARACTERS[charId] : null;
-
-      if (charId) {
-        const avatar = this.add.image(0, 0, `char_${charId}`);
-        avatar.setScale((SLOT_SIZE - 8) / AVATAR_SOURCE_SIZE);
-        container.add(avatar);
-      }
-
-      const slotText = this.add.text(0, SLOT_SIZE / 2 + 18, char ? char.name : '?', {
-        fontSize: char ? '28px' : '42px',
-        fontFamily: FONT_FAMILY,
-        color: char ? '#c8a050' : '#5a4030',
-        stroke: '#000000',
-        strokeThickness: 3,
-      }).setOrigin(0.5).setShadow(0, 2, '#1a0800', 4, true, true);
-      container.add(slotText);
-      this.characterSlotTexts.push(slotText);
-
-      const zone = this.add.zone(0, 0, SLOT_SIZE + 8, SLOT_SIZE + 8)
-        .setInteractive({ cursor: 'pointer' });
-      zone.on('pointerover', () => {
-        gfx.clear();
-        gfx.fillStyle(0x3a2510, 0.8);
-        gfx.fillRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
-        gfx.lineStyle(2, 0xe8d5a3, 0.8);
-        gfx.strokeRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
-        gfx.lineStyle(1, 0x5a4030, 0.3);
-        gfx.strokeRoundedRect(-SLOT_SIZE / 2 + 4, -SLOT_SIZE / 2 + 4, SLOT_SIZE - 8, SLOT_SIZE - 8, 6);
-      });
-      zone.on('pointerout', () => {
-        gfx.clear();
-        gfx.fillStyle(0x2a1a0f, 0.7);
-        gfx.fillRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
-        gfx.lineStyle(2, 0xb89040, 0.6);
-        gfx.strokeRoundedRect(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE, 8);
-        gfx.lineStyle(1, 0x5a4030, 0.3);
-        gfx.strokeRoundedRect(-SLOT_SIZE / 2 + 4, -SLOT_SIZE / 2 + 4, SLOT_SIZE - 8, SLOT_SIZE - 8, 6);
-      });
-      this.attachSlotDragAndClick(zone, charId as PlayerCharacterId | null);
-      container.add(zone);
-
-      const cornerGfx = this.add.graphics();
-      const cornerLen = 12;
-      const cornerGap = 6;
-      cornerGfx.lineStyle(1.5, 0xb89040, 0.4);
-      cornerGfx.lineBetween(-SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap + cornerLen);
-      cornerGfx.lineBetween(-SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap, -SLOT_SIZE / 2 + cornerGap + cornerLen, -SLOT_SIZE / 2 + cornerGap);
-      cornerGfx.lineBetween(SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap + cornerLen);
-      cornerGfx.lineBetween(SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap - cornerLen, -SLOT_SIZE / 2 + cornerGap);
-      cornerGfx.lineBetween(-SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap - cornerLen);
-      cornerGfx.lineBetween(-SLOT_SIZE / 2 + cornerGap, SLOT_SIZE / 2 - cornerGap, -SLOT_SIZE / 2 + cornerGap + cornerLen, SLOT_SIZE / 2 - cornerGap);
-      cornerGfx.lineBetween(SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap - cornerLen);
-      cornerGfx.lineBetween(SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap, SLOT_SIZE / 2 - cornerGap - cornerLen, SLOT_SIZE / 2 - cornerGap);
-      container.add(cornerGfx);
-
-      barContainer.add(container);
-    }
-
-    const totalSlotsWidth = slotCount * SLOT_STRIDE - SLOT_GAP;
-    this.characterBarMaxScroll = Math.min(0, VISIBLE_BAR_WIDTH - 2 * FADE_WIDTH - totalSlotsWidth);
-
-    this.setCharacterBarScroll(0);
-  }
-
-  private attachSlotDragAndClick(zone: Phaser.GameObjects.Zone, zoneCharId: PlayerCharacterId | null): void {
-    this.input.setDraggable(zone);
-    zone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.characterBarDragging) return;
-      this.barDragPending = true;
-      this.barDragMoved = false;
-      this.barDragStartPointerX = pointer.x;
-      this.barDragStartScrollX = this.characterBarScrollX;
-    });
-    zone.on('drag', (pointer: Phaser.Input.Pointer) => {
-      if (!this.barDragPending || this.characterBarDragging) return;
-      const dx = pointer.x - this.barDragStartPointerX;
-      if (!this.barDragMoved && Math.abs(dx) > 5) this.barDragMoved = true;
-      if (this.barDragMoved) {
-        this.setCharacterBarScroll(this.barDragStartScrollX + dx);
-      }
-    });
-    zone.on('pointerup', () => {
-      const wasMoved = this.barDragMoved;
-      this.barDragPending = false;
-      this.barDragMoved = false;
-      if (wasMoved) return;
-      if (!zoneCharId) return;
-      const idx = this.playerCharacterIds.indexOf(zoneCharId);
-      if (idx < 0 || !this.isSlotVisible(idx)) return;
-      GameAudioManager.playSfx(this, 'sfx_button');
-      this.showCharacterTooltip(idx);
-    });
-  }
-
-  private setCharacterBarScroll(x: number): void {
-    if (!this.characterBarContainer) return;
-    if (this.characterBarMaxScroll >= 0) {
-      this.characterBarScrollX = 0;
-    } else {
-      this.characterBarScrollX = Phaser.Math.Clamp(x, this.characterBarMaxScroll, 0);
-    }
-    const origin = this.getCharacterBarOrigin();
-    this.characterBarContainer.x = origin.x + this.characterBarScrollX;
-  }
-
-  private isSlotVisible(slotIndex: number): boolean {
-    if (!this.characterBarContainer) return false;
-    const origin = this.getCharacterBarOrigin();
-    const container = this.characterSlotContainers[slotIndex];
-    if (!container) return false;
-    const worldCenterX = this.characterBarContainer.x + container.x;
-    const slotHalf = SLOT_SIZE / 2;
-    return worldCenterX + slotHalf > origin.x && worldCenterX - slotHalf < origin.x + VISIBLE_BAR_WIDTH;
-  }
-
-  private async resetCharacterBarScroll(): Promise<void> {
-    if (this.characterBarScrollX === 0 || !this.characterBarContainer) {
-      this.setCharacterBarScroll(0);
-      return;
-    }
-    this.characterBarDragging = true;
-    await waitForTween(this, {
-      targets: this,
-      characterBarScrollX: 0,
-      duration: 200,
-      ease: 'Sine.easeOut',
-      onUpdate: () => this.setCharacterBarScroll(this.characterBarScrollX),
-    });
-    this.characterBarDragging = false;
+    this.characterBarManager.createCharacterSlots(w, h);
   }
 
   // ═══════════════════════════════════════════════
@@ -775,174 +573,19 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   // ═══════════════════════════════════════════════
 
   isPlayerCharacter(characterId: string): boolean {
-    return this.playerCharacterIds.includes(characterId as PlayerCharacterId);
+    return this.characterBarManager.isPlayerCharacter(characterId);
   }
 
   getCharacterOrder(characterId: string): number {
-    const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
-    if (idx >= 0) return idx;
-    if (characterId === this.battle?.enemyCharacterId) return 999;
-    return 999;
+    return this.characterBarManager.getCharacterOrder(characterId);
   }
 
   showDialog(characterId: string, text: string): void {
-    if (!text) return;
-
-    const lines = this.wrapDialogText(text, 15);
-    const fontSize = 22;
-    const padX = 16;
-    const padY = 12;
-
-    let anchorX: number;
-    let anchorY: number;
-    const tailDir: 'up' | 'down' = this.playerCharacterIds.includes(characterId as PlayerCharacterId) ? 'down' : 'up';
-
-    if (tailDir === 'down') {
-      const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
-      if (idx < 0 || idx >= this.characterSlotContainers.length) return;
-      const slot = this.characterSlotContainers[idx]!;
-      const barX = this.characterBarContainer ? this.characterBarContainer.x : 0;
-      const barY = this.characterBarContainer ? this.characterBarContainer.y : 0;
-      anchorX = slot.x + barX;
-      anchorY = slot.y + barY - 140;
-    } else {
-      anchorX = 54;
-      anchorY = 160;
-    }
-
-    const container = this.add.container(anchorX, anchorY).setDepth(DEPTH_DAMAGE - 5).setAlpha(0);
-
-    const textObj = this.add.text(0, 0, lines.join('\n'), {
-      fontSize: `${fontSize}px`,
-      fontFamily: FONT_FAMILY,
-      color: '#2a1008',
-      align: 'center',
-      lineSpacing: 6,
-    }).setOrigin(0.5, 0);
-
-    const textW = textObj.width;
-    const textH = textObj.height;
-    const boxW = Math.max(textW + padX * 2, 80);
-    const boxH = Math.max(textH + padY * 2, 40);
-    const totalH = boxH + 10;
-
-    const tailSize = 8;
-    const graphicsTop = tailDir === 'down' ? 0 : tailSize;
-    const textY = tailDir === 'down' ? padY + 5 : padY + tailSize + 5;
-
-    const gfx = this.add.graphics();
-    gfx.fillStyle(0xfffdf5, 0.95);
-    gfx.fillRoundedRect(-boxW / 2, graphicsTop, boxW, boxH, 10);
-    if (tailDir === 'down') {
-      gfx.fillTriangle(-tailSize, boxH, tailSize, boxH, 0, totalH);
-    } else {
-      gfx.fillTriangle(-tailSize, tailSize, tailSize, tailSize, 0, 0);
-    }
-    gfx.lineStyle(2, 0x6a4a2a, 0.7);
-    gfx.strokeRoundedRect(-boxW / 2, graphicsTop, boxW, boxH, 10);
-    if (tailDir === 'down') {
-      gfx.lineBetween(-tailSize, boxH, 0, totalH);
-      gfx.lineBetween(tailSize, boxH, 0, totalH);
-    } else {
-      gfx.lineBetween(-tailSize, tailSize, 0, 0);
-      gfx.lineBetween(tailSize, tailSize, 0, 0);
-    }
-    container.add(gfx);
-
-    textObj.setY(textY);
-    container.add(textObj);
-
-    this.tweens.add({
-      targets: container,
-      alpha: 1,
-      duration: 200,
-      ease: 'Sine.easeOut',
-      onComplete: () => {
-        this.time.delayedCall(2200, () => {
-          this.tweens.add({
-            targets: container,
-            alpha: 0,
-            duration: 400,
-            ease: 'Sine.easeIn',
-            onComplete: () => container.destroy(),
-          });
-        });
-      },
-    });
-  }
-
-  private wrapDialogText(text: string, maxPerLine: number): string[] {
-    const lines: string[] = [];
-    let current = '';
-    for (const ch of text) {
-      current += ch;
-      if (current.length >= maxPerLine) {
-        lines.push(current);
-        current = '';
-      }
-    }
-    if (current) lines.push(current);
-    return lines.length > 0 ? lines : [text];
+    this.characterBarManager.showDialog(characterId, text);
   }
 
   async glowOn(characterId: string): Promise<void> {
-    const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
-    if (idx === -1) return;
-    await this.resetCharacterBarScroll();
-    this.skillTriggeredCharacters.add(characterId as PlayerCharacterId);
-
-    const container = this.characterSlotContainers[idx];
-    if (!container) return;
-    const glowContainer = container.getAt(0) as Phaser.GameObjects.Container | undefined;
-    if (!glowContainer) return;
-
-    this.tweens.killTweensOf(glowContainer);
-    glowContainer.setAlpha(0);
-    glowContainer.setScale(1);
-
-    const glowEls = this.characterSlotGlows[idx];
-    if (glowEls) {
-      this.tweens.killTweensOf(glowEls.sweepGfx);
-      glowEls.sweepGfx.setY(0);
-    }
-
-    await waitForTween(this, {
-      targets: glowContainer,
-      alpha: { from: 0, to: 1 },
-      duration: 200,
-      ease: 'Sine.easeOut',
-    });
-
-    const tweens: Phaser.Tweens.Tween[] = [];
-    tweens.push(this.tweens.add({
-      targets: glowContainer,
-      alpha: { from: 0.7, to: 1 },
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    }));
-    tweens.push(this.tweens.add({
-      targets: glowContainer,
-      scaleX: { from: 1, to: 1.06 },
-      scaleY: { from: 1, to: 1.06 },
-      duration: 1800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    }));
-    if (glowEls) {
-      const halfSlot = 64;
-      tweens.push(this.tweens.add({
-        targets: glowEls.sweepGfx,
-        y: { from: -halfSlot, to: halfSlot },
-        duration: 1500,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      }));
-    }
-    this.characterSlotGlowTweens.set(idx, tweens);
+    return this.characterBarManager.glowOn(characterId);
   }
 
   /**
@@ -950,392 +593,27 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
    * 在 moveToFront 之后调用。晃动与放大并行以缩短总时长。
    */
   async shakeAndPulse(characterId: string): Promise<void> {
-    const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
-    if (idx === -1) return;
-    const container = this.characterSlotContainers[idx];
-    if (!container) return;
-
-    const origX = container.x;
-    const shakeOffsets = [-8, 8, -8, 8, 0];
-    const stepMs = 30;
-    const scaleTo = 1.15;
-
-    const shakePromise = (async () => {
-      for (const offset of shakeOffsets) {
-        await waitForTween(this, {
-          targets: container,
-          x: origX + offset,
-          duration: stepMs,
-          ease: 'Linear',
-        });
-      }
-    })();
-
-    const scaleUpPromise = waitForTween(this, {
-      targets: container,
-      scaleX: scaleTo,
-      scaleY: scaleTo,
-      duration: shakeOffsets.length * stepMs,
-      ease: 'Sine.easeOut',
-    });
-
-    await Promise.all([shakePromise, scaleUpPromise]);
-
-    await waitForTween(this, {
-      targets: container,
-      scaleX: 1.0,
-      scaleY: 1.0,
-      x: origX,
-      duration: 150,
-      ease: 'Sine.easeIn',
-    });
+    return this.characterBarManager.shakeAndPulse(characterId);
   }
 
   async glowOff(characterId: string): Promise<void> {
-    const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
-    if (idx === -1) return;
-    this.skillTriggeredCharacters.delete(characterId as PlayerCharacterId);
-
-    const container = this.characterSlotContainers[idx];
-    if (!container) return;
-    const glowContainer = container.getAt(0) as Phaser.GameObjects.Container | undefined;
-    if (!glowContainer) return;
-
-    const existingTweens = this.characterSlotGlowTweens.get(idx);
-    if (existingTweens) {
-      for (const t of existingTweens) t.stop();
-      this.characterSlotGlowTweens.delete(idx);
-    }
-
-    await waitForTween(this, {
-      targets: glowContainer,
-      alpha: 0,
-      duration: 300,
-      ease: 'Sine.easeOut',
-    });
+    return this.characterBarManager.glowOff(characterId);
   }
 
   async moveToFront(characterId: string): Promise<void> {
-    const idx = this.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
-    if (idx <= 0) return;
-
-    const triggeredChars = new Set(this.skillTriggeredCharacters);
-    for (const [key, tweens] of this.characterSlotGlowTweens) {
-      for (const t of tweens) t.stop();
-    }
-    this.characterSlotGlowTweens.clear();
-    for (const c of this.characterSlotContainers) {
-      this.tweens.killTweensOf(c);
-    }
-
-    this.playerCharacterIds.splice(idx, 1);
-    this.playerCharacterIds.unshift(characterId as PlayerCharacterId);
-
-    const movedContainer = this.characterSlotContainers.splice(idx, 1)[0]!;
-    this.characterSlotContainers.unshift(movedContainer);
-
-    const movedGlowEls = this.characterSlotGlows.splice(idx, 1)[0]!;
-    this.characterSlotGlows.unshift(movedGlowEls);
-
-    const movedText = this.characterSlotTexts.splice(idx, 1)[0]!;
-    this.characterSlotTexts.unshift(movedText);
-
-    const slotTweens: Promise<void>[] = [];
-    for (let i = 0; i <= idx; i++) {
-      const targetPos = this.getSlotPosition(i);
-      slotTweens.push(waitForTween(this, {
-        targets: this.characterSlotContainers[i]!,
-        x: targetPos.x,
-        duration: 300,
-        ease: 'Sine.easeOut',
-      }));
-    }
-    await Promise.all(slotTweens);
-
-    for (const cid of triggeredChars) {
-      const newIdx = this.playerCharacterIds.indexOf(cid);
-      if (newIdx >= 0) {
-        const glowEls = this.characterSlotGlows[newIdx];
-        if (!glowEls) continue;
-        const gc = this.characterSlotContainers[newIdx]?.getAt(0) as Phaser.GameObjects.Container | undefined;
-        if (!gc) continue;
-        await this.glowOn(cid);
-      }
-    }
+    return this.characterBarManager.moveToFront(characterId);
   }
 
   async restoreSlot(_characterId: string): Promise<void> {
-  }
-
-  private showCharacterTooltip(index: number): void {
-    this.closeCharacterTooltip();
-
-    const charId = this.playerCharacterIds[index];
-    if (!charId) return;
-
-    const char = PLAYER_CHARACTERS[charId];
-    const slotContainer = this.characterSlotContainers[index]!;
-    const barX = this.characterBarContainer ? this.characterBarContainer.x : 0;
-    const barY = this.characterBarContainer ? this.characterBarContainer.y : 0;
-    const sx = slotContainer.x + barX;
-    const slotY = slotContainer.y + barY;
-    const slotSize = 120;
-
-    const tooltipW = 320;
-    const tooltipRadius = 8;
-    const { width: sw, height: sh } = this.scale;
-
-    const descLinesList: string[][] = [];
-    let tooltipH = 50;
-    for (const ability of char.abilities) {
-      tooltipH += 28;
-      const lines = this.wrapText(ability.description, tooltipW - 48, '18px');
-      descLinesList.push(lines);
-      tooltipH += lines.length * 24;
-      tooltipH += 32;
-    }
-    tooltipH += 12;
-
-    let tooltipX = sx;
-    let tooltipY = slotY - slotSize / 2 - tooltipH - 12;
-    if (tooltipY < 20) tooltipY = slotY + slotSize / 2 + 12;
-    if (tooltipX - tooltipW / 2 < 10) tooltipX = tooltipW / 2 + 10;
-    if (tooltipX + tooltipW / 2 > sw - 10) tooltipX = sw - tooltipW / 2 - 10;
-
-    const container = this.add.container(0, 0).setDepth(DEPTH_OVERLAY);
-    this.characterTooltip = container;
-
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.3);
-    overlay.fillRect(0, 0, sw, sh);
-    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, sw, sh), Phaser.Geom.Rectangle.Contains);
-    overlay.on('pointerdown', () => this.closeCharacterTooltip());
-    container.add(overlay);
-
-    const panel = this.add.graphics();
-    panel.fillStyle(0xf5f0e5, 0.97);
-    panel.fillRoundedRect(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH, tooltipRadius);
-    panel.lineStyle(2, 0x8a6830, 0.8);
-    panel.strokeRoundedRect(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH, tooltipRadius);
-    panel.setInteractive(new Phaser.Geom.Rectangle(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH), Phaser.Geom.Rectangle.Contains);
-    container.add(panel);
-
-    const nameText = this.add.text(tooltipX, tooltipY + 28, char.name, {
-      fontSize: '30px',
-      fontFamily: FONT_FAMILY,
-      color: '#2a1008',
-    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
-    container.add(nameText);
-
-    const divider = this.add.graphics();
-    divider.lineStyle(1, 0xd0c4a8, 0.5);
-    divider.lineBetween(tooltipX - tooltipW / 2 + 20, tooltipY + 50, tooltipX + tooltipW / 2 - 20, tooltipY + 50);
-    container.add(divider);
-
-    let abilityY = tooltipY + 72;
-    let lineIdx = 0;
-    for (const ability of char.abilities) {
-      const skillName = this.add.text(tooltipX - tooltipW / 2 + 22, abilityY, `【${ability.name}】`, {
-        fontSize: '20px',
-        fontFamily: FONT_FAMILY,
-        color: '#8a6030',
-      }).setDepth(DEPTH_OVERLAY_TEXT);
-      container.add(skillName);
-
-      const descLines = descLinesList[lineIdx]!;
-      for (const line of descLines) {
-        abilityY += 24;
-        const descText = this.add.text(tooltipX - tooltipW / 2 + 28, abilityY, line, {
-          fontSize: '18px',
-          fontFamily: FONT_FAMILY,
-          color: '#5a4a30',
-        }).setDepth(DEPTH_OVERLAY_TEXT);
-        container.add(descText);
-      }
-      abilityY += 32;
-      lineIdx++;
-    }
-
-    const closeText = this.add.text(tooltipX + tooltipW / 2 - 28, tooltipY + 14, '✕', {
-      fontSize: '22px',
-      fontFamily: FONT_FAMILY,
-      color: '#7a5a3a',
-    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
-    const closeZone = this.add.zone(tooltipX + tooltipW / 2 - 28, tooltipY + 14, 36, 36)
-      .setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
-    closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
-    closeZone.on('pointerout', () => closeText.setColor('#7a5a3a'));
-    closeZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this, 'sfx_button');
-      this.closeCharacterTooltip();
-    });
-    container.add([closeText, closeZone]);
-
-    container.setAlpha(0);
-    this.tweens.add({
-      targets: container,
-      alpha: 1,
-      duration: 150,
-      ease: 'Sine.easeOut',
-    });
-  }
-
-  private wrapText(text: string, maxWidth: number, fontSize: string): string[] {
-    const lines: string[] = [];
-    let currentLine = '';
-    for (const char of text) {
-      const testLine = currentLine + char;
-      const testText = this.add.text(0, 0, testLine, { fontSize, fontFamily: FONT_FAMILY });
-      if (testText.width > maxWidth && currentLine.length > 0) {
-        lines.push(currentLine);
-        currentLine = char;
-      } else {
-        currentLine = testLine;
-      }
-      testText.destroy();
-    }
-    if (currentLine.length > 0) lines.push(currentLine);
-    return lines;
-  }
-
-  private closeCharacterTooltip(): void {
-    if (!this.characterTooltip) return;
-    this.tweens.add({
-      targets: this.characterTooltip,
-      alpha: 0,
-      duration: 100,
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        this.characterTooltip?.destroy();
-        this.characterTooltip = null;
-      },
-    });
+    return this.characterBarManager.restoreSlot(_characterId);
   }
 
   private showEnemyInfoWindow(): void {
-    this.closeEnemyInfoWindow();
-
-    const enemyCharId = this.battle.enemyCharacterId;
-    if (!enemyCharId) return;
-
-    const enemy = ENEMY_CHARACTERS[enemyCharId];
-    if (!enemy) return;
-
-    const tooltipW = 320;
-    const tooltipRadius = 8;
-    const { width: sw, height: sh } = this.scale;
-
-    const descLinesList: string[][] = [];
-    let tooltipH = 50;
-    for (const ability of enemy.abilities) {
-      tooltipH += 28;
-      const lines = this.wrapText(ability.description, tooltipW - 48, '18px');
-      descLinesList.push(lines);
-      tooltipH += lines.length * 24;
-      tooltipH += 32;
-    }
-    tooltipH += 12;
-
-    const avatarY = this.enemyAvatarImage.y;
-    const avatarX = this.enemyAvatarImage.x;
-    const avatarSize = 80;
-    let tooltipX = avatarX;
-    let tooltipY = avatarY + avatarSize / 2 + 12;
-
-    if (tooltipY + tooltipH > sh - 20) tooltipY = avatarY - avatarSize / 2 - tooltipH - 12;
-    if (tooltipX - tooltipW / 2 < 10) tooltipX = tooltipW / 2 + 10;
-    if (tooltipX + tooltipW / 2 > sw - 10) tooltipX = sw - tooltipW / 2 - 10;
-
-    const container = this.add.container(0, 0).setDepth(DEPTH_OVERLAY);
-    this.enemyInfoWindow = container;
-
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.3);
-    overlay.fillRect(0, 0, sw, sh);
-    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, sw, sh), Phaser.Geom.Rectangle.Contains);
-    overlay.on('pointerdown', () => this.closeEnemyInfoWindow());
-    container.add(overlay);
-
-    const panel = this.add.graphics();
-    panel.fillStyle(0xf5f0e5, 0.97);
-    panel.fillRoundedRect(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH, tooltipRadius);
-    panel.lineStyle(2, 0x8a6830, 0.8);
-    panel.strokeRoundedRect(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH, tooltipRadius);
-    panel.setInteractive(new Phaser.Geom.Rectangle(tooltipX - tooltipW / 2, tooltipY, tooltipW, tooltipH), Phaser.Geom.Rectangle.Contains);
-    container.add(panel);
-
-    const nameText = this.add.text(tooltipX, tooltipY + 28, enemy.name, {
-      fontSize: '30px',
-      fontFamily: FONT_FAMILY,
-      color: '#2a1008',
-    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
-    container.add(nameText);
-
-    const divider = this.add.graphics();
-    divider.lineStyle(1, 0xd0c4a8, 0.5);
-    divider.lineBetween(tooltipX - tooltipW / 2 + 20, tooltipY + 50, tooltipX + tooltipW / 2 - 20, tooltipY + 50);
-    container.add(divider);
-
-    let abilityY = tooltipY + 72;
-    let lineIdx = 0;
-    for (const ability of enemy.abilities) {
-      const skillName = this.add.text(tooltipX - tooltipW / 2 + 22, abilityY, `【${ability.name}】`, {
-        fontSize: '20px',
-        fontFamily: FONT_FAMILY,
-        color: '#8a6030',
-      }).setDepth(DEPTH_OVERLAY_TEXT);
-      container.add(skillName);
-
-      const descLines = descLinesList[lineIdx]!;
-      for (const line of descLines) {
-        abilityY += 24;
-        const descText = this.add.text(tooltipX - tooltipW / 2 + 28, abilityY, line, {
-          fontSize: '18px',
-          fontFamily: FONT_FAMILY,
-          color: '#5a4a30',
-        }).setDepth(DEPTH_OVERLAY_TEXT);
-        container.add(descText);
-      }
-      abilityY += 32;
-      lineIdx++;
-    }
-
-    const closeText = this.add.text(tooltipX + tooltipW / 2 - 28, tooltipY + 14, '✕', {
-      fontSize: '22px',
-      fontFamily: FONT_FAMILY,
-      color: '#7a5a3a',
-    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
-    const closeZone = this.add.zone(tooltipX + tooltipW / 2 - 28, tooltipY + 14, 36, 36)
-      .setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
-    closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
-    closeZone.on('pointerout', () => closeText.setColor('#7a5a3a'));
-    closeZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this, 'sfx_button');
-      this.closeEnemyInfoWindow();
-    });
-    container.add([closeText, closeZone]);
-
-    container.setAlpha(0);
-    this.tweens.add({
-      targets: container,
-      alpha: 1,
-      duration: 150,
-      ease: 'Sine.easeOut',
-    });
+    this.characterBarManager.showEnemyInfoWindow();
   }
 
   private closeEnemyInfoWindow(): void {
-    if (!this.enemyInfoWindow) return;
-    this.tweens.add({
-      targets: this.enemyInfoWindow,
-      alpha: 0,
-      duration: 100,
-      ease: 'Sine.easeIn',
-      onComplete: () => {
-        this.enemyInfoWindow?.destroy();
-        this.enemyInfoWindow = null;
-      },
-    });
+    this.characterBarManager.closeEnemyInfoWindow();
   }
 
   // ═══════════════════════════════════════════════
