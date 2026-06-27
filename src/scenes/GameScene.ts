@@ -2199,8 +2199,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         return;
       }
       this.battle.lastPlay = null;
-      this.refillPlayerHand();
-      this.renderPlayerHand(true);
+      await this.refillIfEmpty('player');
       await this.fadeOutCenterCardsAsync();
       this.battle.turnHolder = 'enemy';
       this.phase = 'ai_init';
@@ -2225,8 +2224,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         return;
       }
       this.battle.lastPlay = null;
-      this.refillPlayerHand();
-      this.renderPlayerHand(true);
+      await this.refillIfEmpty('player');
       await this.fadeOutCenterCardsAsync();
       this.battle.turnHolder = 'enemy';
       this.phase = 'ai_init';
@@ -2605,7 +2603,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         return;
       }
       this.battle.lastPlay = null;
-      this.refillEnemyHand();
+      await this.refillIfEmpty('enemy');
 
       const gainTurnCtx: SkillContext = {
         gameScene: this,
