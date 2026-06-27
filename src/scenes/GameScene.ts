@@ -4,7 +4,6 @@ import { createDeck, shuffleDeck, cardDisplayName, sortHand, resetCardIdCounter 
 import type { BattleState, HandPattern} from '../models/BattleTypes';
 import { HandType, HAND_TYPE_LABELS } from '../models/BattleTypes';
 import { identifyHand, canBeat, findAllPlays, findBeatingPlays } from '../engine/HandRecognizer';
-import { calculateDamage, calculateDamageWithEmptyHand, getCoefficient } from '../engine/DamageCalculator';
 import { decidePlay } from '../engine/AIBrain';
 import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
 import { GameAudioManager } from '../utils/GameAudioManager';
@@ -14,7 +13,7 @@ import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayer
 import { canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, LiuBoWenChouCe, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
 import { getBlockedResponseTypes, clearPassiveSkills } from '../skills/PassiveSkillUtils';
-import { waitForDelay, waitForTween, waitForCounterTween, fadeOutAndDestroy } from '../utils/AnimationUtils';
+import { waitForDelay, waitForTween, fadeOutAndDestroy } from '../utils/AnimationUtils';
 import {
   FONT_FAMILY, CARD_W, CARD_H, SELECTED_OFFSET,
   AVATAR_SOURCE_SIZE, SLOT_SIZE, SLOT_GAP, SLOT_STRIDE,
@@ -25,6 +24,7 @@ import {
 } from '../constants/Layout';
 import { DragInputManager } from './managers/DragInputManager';
 import { HealthBarManager } from './managers/HealthBarManager';
+import { DamageSettlementManager } from './managers/DamageSettlementManager';
 
 interface TestBattleConfig {
   selectedPlayerCharacterIds?: PlayerCharacterId[];
@@ -101,7 +101,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private cardHandGroup!: Phaser.GameObjects.Container;
   private aiHandGroup!: Phaser.GameObjects.Container;
 
-  private centerCards: Phaser.GameObjects.Container[] = [];
+  centerCards: Phaser.GameObjects.Container[] = [];
   private centerCardsOwner: 'player' | 'enemy' | null = null;
   private centerDepthCounter = DEPTH_CENTER_BASE;
 
@@ -120,10 +120,10 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private returnConfirmModal: Phaser.GameObjects.Container | null = null;
 
   private respondChainDepth: number = 0;
-  private damageSettlementCancelled: boolean = false;
+  damageSettlementCancelled: boolean = false;
 
   private testConfig: TestBattleConfig | null = null;
-  private playerCharacterIds: PlayerCharacterId[] = [];
+  playerCharacterIds: PlayerCharacterId[] = [];
 
   private characterSlotContainers: Phaser.GameObjects.Container[] = [];
   private characterSlotTexts: Phaser.GameObjects.Text[] = [];
@@ -144,12 +144,13 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private characterSlotGlows: { innerGlow: Phaser.GameObjects.Graphics; midGlow: Phaser.GameObjects.Graphics; outerGlow: Phaser.GameObjects.Graphics; sweepGfx: Phaser.GameObjects.Graphics }[] = [];
   private characterSlotGlowTweens: Map<number, Phaser.Tweens.Tween[]> = new Map();
 
-  private skillEventBus!: SkillEventBus;
+  skillEventBus!: SkillEventBus;
   private skillRegistry!: SkillRegistry;
   private skillRunner!: SkillRunner;
 
   private dragInputManager!: DragInputManager;
   private healthBarManager!: HealthBarManager;
+  private damageSettlementManager!: DamageSettlementManager;
 
   private cachedWidth = 2400;
   private cachedHeight = 1080;
@@ -279,6 +280,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     this.dragInputManager = new DragInputManager(this);
     this.healthBarManager = new HealthBarManager(this);
+    this.damageSettlementManager = new DamageSettlementManager(this);
 
     this.renderAllCards();
     this.dragInputManager.setup();
@@ -2751,340 +2753,12 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     target: 'enemy' | 'player',
     isEmptyHand: boolean,
   ): Promise<void> {
-    this.phase = 'animating';
-    this.damageSettlementCancelled = false;
-
-    const cards = [...this.centerCards];
-    const sumRanks = pattern.cards.reduce((sum, c) => sum + (c.consideredAs?.rank ?? c.rank), 0);
-    const coefficient = getCoefficient(pattern.type, pattern.length);
-    const baseCoefficient = coefficient;
-    const damageMultiplier = isEmptyHand ? 5 : 1;
-    const finalDamage = Math.round(sumRanks * coefficient * damageMultiplier);
-
-    const damageInfo = { sumRanks, coefficient, baseCoefficient, damageMultiplier, finalDamage };
-    const sourceCharId = target === 'enemy'
-      ? (this.battle.player.characterId ?? this.playerCharacterIds[0]!)
-      : (this.battle.enemyCharacterId ?? 'unknown');
-
-    const { width, height } = this.scale;
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    const counterText = this.add.text(centerX, centerY, '0', {
-      fontSize: '72px',
-      fontFamily: FONT_FAMILY,
-      fontStyle: 'bold',
-      color: '#cc3333',
-    }).setOrigin(0.5).setDepth(DEPTH_DAMAGE).setShadow(0, 0, '#ff8800', 14, true, true);
-
-    const cardPhaseMs = cards.length > 0 ? cards.length * 360 + 180 : 0;
-
-    await this.stage1RevealCards(
-      cards, counterText, damageInfo, pattern, target, sourceCharId,
-    );
-    if (this.damageSettlementCancelled) return;
-    await waitForDelay(this, 180);
-
-    // stage1 中单牌技能（如文天祥丹心）可能将加成累加进 sumRanks，重算 finalDamage
-    damageInfo.finalDamage = Math.round(
-      damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
-    );
-
-    await this.stage2ShowCoefficient(
-      counterText, pattern, damageInfo, baseCoefficient, isEmptyHand, target, sourceCharId,
-    );
+    await this.damageSettlementManager.playDamageSettlement(pattern, target, isEmptyHand);
   }
 
-  private async stage1RevealCards(
-    cards: Phaser.GameObjects.Container[],
-    counterText: Phaser.GameObjects.Text,
-    damageInfo: NonNullable<SkillContext['damageInfo']>,
-    pattern: HandPattern,
-    target: 'enemy' | 'player',
-    sourceCharId: string,
-  ): Promise<void> {
-    let currentSum = 0;
-    for (let i = 0; i < cards.length; i++) {
-      const card = cards[i]!;
-      const consideredAsRank = card.getData('consideredAsRank') as number | undefined;
-      const rank = consideredAsRank ?? (card.getData('rank') as number ?? 0);
 
-      GameAudioManager.playSfx(this, 'sfx_card_reveal');
 
-      const floatText = this.add.text(card.x, card.y, `+${rank}`, {
-        fontSize: '36px',
-        fontFamily: FONT_FAMILY,
-        color: '#b08030',
-        stroke: '#1a0800',
-        strokeThickness: 3,
-      }).setOrigin(0.5).setDepth(DEPTH_DAMAGE + 1).setAlpha(0).setScale(0.5);
 
-      // 弹出文字出现 + 卡牌放大 并行
-      await Promise.all([
-        waitForTween(this, {
-          targets: floatText,
-          alpha: 1,
-          scaleX: 1.15,
-          scaleY: 1.15,
-          y: floatText.y - 40,
-          duration: 180,
-          ease: 'Back.easeOut',
-        }),
-        waitForTween(this, {
-          targets: card,
-          scaleX: 1.25,
-          scaleY: 1.25,
-          duration: 180,
-          ease: 'Sine.easeIn',
-        }),
-      ]);
-
-      // 单牌伤害结算时：分数出现后、消失前。技能可修改弹出分数并将加成写入 scoreBonus。
-      const singleCard = {
-        card,
-        scoreText: floatText,
-        baseScore: rank,
-        scoreBonus: 0,
-      };
-      const singleCardCtx: SkillContext = {
-        gameScene: this,
-        battle: this.battle,
-        sourceCharacterId: sourceCharId,
-        pattern,
-        target,
-        damageInfo,
-        playerCharacterIds: this.playerCharacterIds,
-        enemyCharacterId: this.battle.enemyCharacterId,
-        centerCardContainers: this.centerCards,
-        singleCard,
-      };
-      await this.skillEventBus.emit(SkillTiming.ON_SINGLE_CARD_SETTLEMENT, singleCardCtx);
-      if (this.damageSettlementCancelled) break;
-
-      const cardScore = rank + singleCard.scoreBonus;
-      currentSum += cardScore;
-      counterText.setText(`${currentSum}`);
-      damageInfo.sumRanks += singleCard.scoreBonus;
-
-      await this.skillEventBus.emit(SkillTiming.AFTER_SINGLE_CARD_SETTLEMENT, singleCardCtx);
-
-      // 弹出文字消失（fire-and-forget，保持与下一张牌并行的原节奏）+ 卡牌缩小
-      this.tweens.add({
-        targets: floatText,
-        alpha: 0,
-        y: floatText.y - 100,
-        duration: 400,
-        ease: 'Sine.easeIn',
-        onComplete: () => floatText.destroy(),
-      });
-
-      await waitForTween(this, {
-        targets: card,
-        scaleX: 1,
-        scaleY: 1,
-        duration: 180,
-        ease: 'Sine.easeOut',
-      });
-    }
-  }
-
-  private async stage2ShowCoefficient(
-    counterText: Phaser.GameObjects.Text,
-    pattern: HandPattern,
-    damageInfo: NonNullable<SkillContext['damageInfo']>,
-    baseCoefficient: number,
-    isEmptyHand: boolean,
-    target: 'enemy' | 'player',
-    sourceCharId: string,
-  ): Promise<void> {
-    if (this.damageSettlementCancelled) return;
-    const { width, height } = this.scale;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const typeLabel = HAND_TYPE_LABELS[pattern.type];
-
-    await waitForTween(this, {
-      targets: counterText,
-      x: centerX - 50,
-      duration: 600,
-      ease: 'Sine.easeOut',
-    });
-
-    const coeffText = this.add.text(centerX + 60, centerY,
-      `✖️ ${baseCoefficient}（${typeLabel}）`,
-      {
-        fontSize: '36px',
-        fontFamily: FONT_FAMILY,
-        color: '#8a5a20',
-        stroke: '#1a0800',
-        strokeThickness: 3,
-      },
-    ).setOrigin(0, 0.5).setDepth(DEPTH_DAMAGE).setAlpha(0)
-      .setShadow(0, 0, '#ff8800', 14, true, true);
-
-    await waitForTween(this, {
-      targets: coeffText,
-      alpha: 1,
-      duration: 600,
-      ease: 'Sine.easeOut',
-    });
-
-    const multiplierText = this.add.text(
-      coeffText.x + coeffText.width + 16,
-      centerY,
-      `✖️ ${damageInfo.damageMultiplier}（伤害倍数）`,
-      {
-        fontSize: '36px',
-        fontFamily: FONT_FAMILY,
-        color: '#b08030',
-        stroke: '#1a0800',
-        strokeThickness: 3,
-      },
-    ).setOrigin(0, 0.5).setDepth(DEPTH_DAMAGE).setAlpha(0)
-      .setShadow(0, 0, '#ffaa00', 14, true, true);
-
-    await waitForTween(this, {
-      targets: multiplierText,
-      alpha: 1,
-      duration: 600,
-      ease: 'Sine.easeOut',
-    });
-
-    const onCoeffCtx: SkillContext = {
-      gameScene: this,
-      battle: this.battle,
-      sourceCharacterId: sourceCharId,
-      pattern,
-      target,
-      damageInfo,
-      playerCharacterIds: this.playerCharacterIds,
-      enemyCharacterId: this.battle.enemyCharacterId,
-      centerCardContainers: this.centerCards,
-      coefficientLabel: coeffText,
-    };
-    await this.skillEventBus.emit(SkillTiming.ON_COEFFICIENT_REVEALED, onCoeffCtx);
-
-    const multiplierCtx: SkillContext = {
-      gameScene: this,
-      battle: this.battle,
-      sourceCharacterId: sourceCharId,
-      pattern,
-      target,
-      isEmptyHand,
-      damageInfo,
-      playerCharacterIds: this.playerCharacterIds,
-      enemyCharacterId: this.battle.enemyCharacterId,
-      centerCardContainers: this.centerCards,
-      multiplierLabel: multiplierText,
-    };
-    await this.skillEventBus.emit(SkillTiming.ON_DAMAGE_MULTIPLIER_REVEALED, multiplierCtx);
-
-    // 倍数技能（如韩信点兵）可能修改 damageMultiplier，重算 finalDamage
-    damageInfo.finalDamage = Math.round(
-      damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
-    );
-
-    await this.stage3ApplyDamage(counterText, coeffText, multiplierText, damageInfo, target, pattern, sourceCharId);
-  }
-
-  private async stage3ApplyDamage(
-    counterText: Phaser.GameObjects.Text,
-    coeffText: Phaser.GameObjects.Text,
-    multiplierText: Phaser.GameObjects.Text,
-    damageInfo: NonNullable<SkillContext['damageInfo']>,
-    target: 'enemy' | 'player',
-    pattern: HandPattern,
-    sourceCharId: string,
-  ): Promise<void> {
-    if (this.damageSettlementCancelled) return;
-    const { height } = this.scale;
-
-    const labelsToFade: Phaser.GameObjects.Text[] = [coeffText, multiplierText];
-
-    const currentDisplay = parseInt(counterText.text, 10) || damageInfo.sumRanks;
-
-    await Promise.all([
-      Promise.all(labelsToFade.map(t =>
-        waitForTween(this, {
-          targets: t,
-          alpha: 0,
-          duration: 600,
-          ease: 'Sine.easeOut',
-        }).then(() => t.destroy()),
-      )),
-      waitForCounterTween(this, {
-        from: currentDisplay,
-        to: damageInfo.finalDamage,
-        duration: 600,
-        ease: 'Cubic.easeOut',
-        onUpdate: (val) => counterText.setText(`${Math.round(val)}`),
-      }),
-    ]);
-
-    if (damageInfo.finalDamage <= 0) {
-      await waitForTween(this, {
-        targets: counterText,
-        alpha: 0,
-        duration: 1200,
-        ease: 'Sine.easeOut',
-      });
-      counterText.destroy();
-      return;
-    }
-
-    GameAudioManager.playSfx(this, 'sfx_hurt');
-
-    const barX = 120;
-    const barW = 420;
-    const barH = 34;
-    const barTargetY = target === 'enemy' ? 56 : height - 374;
-    const barCenterX = barX + barW / 2;
-    const barCenterY = barTargetY + barH / 2;
-
-    await waitForTween(this, {
-      targets: counterText,
-      x: barCenterX,
-      y: barCenterY,
-      scaleX: 2.0,
-      scaleY: 2.0,
-      duration: 300,
-      ease: 'Cubic.easeIn',
-    });
-
-    counterText.destroy();
-
-    const battleObj = target === 'enemy' ? this.battle.enemy : this.battle.player;
-    const newVitality = Math.max(0, battleObj.vitality - damageInfo.finalDamage);
-    await this.animateHealthBarDepletionAsync(target, newVitality, 300);
-
-    const healthDecreaseCtx: SkillContext = {
-      gameScene: this,
-      battle: this.battle,
-      sourceCharacterId: sourceCharId,
-      pattern,
-      target,
-      playerCharacterIds: this.playerCharacterIds,
-      damageInfo,
-    };
-    await this.skillEventBus.emit(SkillTiming.AFTER_HEALTH_DECREASE, healthDecreaseCtx);
-
-    if (battleObj.vitality <= 0) return;
-
-    const afterDmgCtx: SkillContext = {
-      gameScene: this,
-      battle: this.battle,
-      sourceCharacterId: sourceCharId,
-      pattern,
-      target,
-      playerCharacterIds: this.playerCharacterIds,
-      enemyCharacterId: this.battle.enemyCharacterId,
-    };
-    await this.skillEventBus.emit(SkillTiming.AFTER_DAMAGE, afterDmgCtx);
-    this.applyPostDamageEffects(pattern, target, damageInfo.finalDamage);
-  }
-
-  private applyPostDamageEffects(_pattern: HandPattern, _target: 'enemy' | 'player', _finalDamage: number): void {
-  }
 
   private async animateCardsToPositionsAsync(
     cards: Phaser.GameObjects.Container[],
@@ -3164,7 +2838,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     });
   }
 
-  private async animateHealthBarDepletionAsync(
+  async animateHealthBarDepletionAsync(
     target: 'enemy' | 'player',
     newVitality: number,
     duration: number,
