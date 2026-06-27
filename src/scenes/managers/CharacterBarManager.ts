@@ -659,17 +659,21 @@ export class CharacterBarManager implements CharacterSlotManager {
     const h = this.host;
     const lines: string[] = [];
     let currentLine = '';
-    for (const char of text) {
-      const testLine = currentLine + char;
-      const testText = h.add.text(0, 0, testLine, { fontSize, fontFamily: FONT_FAMILY });
-      if (testText.width > maxWidth && currentLine.length > 0) {
+
+    const measureText = h.add.text(0, 0, '', { fontSize, fontFamily: FONT_FAMILY });
+
+    for (const ch of text) {
+      const testLine = currentLine + ch;
+      measureText.setText(testLine);
+      if (measureText.width > maxWidth && currentLine.length > 0) {
         lines.push(currentLine);
-        currentLine = char;
+        currentLine = ch;
       } else {
         currentLine = testLine;
       }
-      testText.destroy();
     }
+
+    measureText.destroy();
     if (currentLine.length > 0) lines.push(currentLine);
     return lines;
   }

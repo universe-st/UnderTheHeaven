@@ -79,14 +79,14 @@ export class GameAudioManager {
 
   static setBgmVolume(volume: number): void {
     for (const bgm of GameAudioManager.bgmSounds.values()) {
-      (bgm as unknown as { volume: number }).volume = volume;
+      if ('volume' in bgm) (bgm as Phaser.Sound.BaseSound & { volume: number }).volume = volume;
     }
   }
 
   static setSfxVolume(volume: number): void {
     for (const sounds of GameAudioManager.sfxSounds.values()) {
       for (const sound of sounds) {
-        (sound as unknown as { volume: number }).volume = volume;
+        if ('volume' in sound) (sound as Phaser.Sound.BaseSound & { volume: number }).volume = volume;
       }
     }
   }
@@ -105,33 +105,14 @@ export class GameAudioManager {
   static setVoiceVolume(volume: number): void {
     for (const sounds of GameAudioManager.voiceSounds.values()) {
       for (const sound of sounds) {
-        (sound as unknown as { volume: number }).volume = volume;
+        if ('volume' in sound) (sound as Phaser.Sound.BaseSound & { volume: number }).volume = volume;
       }
     }
   }
 
   static unlock(scene: Phaser.Scene): void {
-    // Phaser 4: try multiple ways to get the AudioContext
-    const sm = scene.sound as any;
-    let ctx: AudioContext | null = null;
-
-    if (typeof AudioContext !== 'undefined') {
-      // Direct browser AudioContext as fallback
-      ctx = (window as any)._gameAudioCtx;
-    }
-
-    // Try Phaser's WebAudioSoundManager context
-    if (!ctx && sm.context) {
-      ctx = sm.context;
-    }
-
-    if (ctx?.state === 'suspended') {
-      ctx.resume();
-    }
-
-    // Also try Phaser 4's own unlock mechanism
-    if (typeof sm.unlock === 'function') {
-      sm.unlock();
+    if (typeof scene.sound?.unlock === 'function') {
+      scene.sound.unlock();
     }
   }
 

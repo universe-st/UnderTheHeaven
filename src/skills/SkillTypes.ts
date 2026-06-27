@@ -154,6 +154,13 @@ export interface CharacterSlotManager {
   showDialog(characterId: string, text: string): void;
 }
 
+export interface ActiveSkillSceneAccess {
+  readonly scale: Phaser.Scale.ScaleManager;
+  readonly add: Phaser.GameObjects.GameObjectFactory;
+  getBattle(): BattleState;
+  renderPlayerHandAfterSkill(): void;
+}
+
 export interface ActiveSkillDefinition {
   id: string;
   name: string;

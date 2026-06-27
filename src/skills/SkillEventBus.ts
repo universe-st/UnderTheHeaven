@@ -16,7 +16,11 @@ export class SkillEventBus {
     const handlers = this.listeners.get(timing);
     if (!handlers || handlers.length === 0) return;
     for (const handler of handlers) {
-      await handler(context);
+      try {
+        await handler(context);
+      } catch (err) {
+        console.warn(`[SkillEventBus] handler for ${timing} error:`, err);
+      }
     }
   }
 

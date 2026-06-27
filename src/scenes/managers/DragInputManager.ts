@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { BattleState } from '../../models/BattleTypes';
-import { CARD_W, CARD_H, SELECTED_OFFSET } from '../../constants/Layout';
+import { CARD_W, CARD_H, SELECTED_OFFSET, CARD_OVERLAP_OFFSET } from '../../constants/Layout';
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
@@ -142,7 +142,7 @@ export class DragInputManager {
 
     const { width, height } = this.host.scale;
     const baseY = height - 90;
-    const overlapOffset = CARD_W * 0.75;
+    const overlapOffset = CARD_OVERLAP_OFFSET;
     const totalW = CARD_W + (hand.length - 1) * overlapOffset;
     const startX = (width - totalW) / 2 + CARD_W / 2;
 

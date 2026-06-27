@@ -1,10 +1,10 @@
-import type Phaser from 'phaser';
+import Phaser from 'phaser';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
 import { HAND_TYPE_LABELS } from '../../models/BattleTypes';
 import { getCoefficient } from '../../engine/DamageCalculator';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import { waitForDelay, waitForTween, waitForCounterTween } from '../../utils/AnimationUtils';
-import { FONT_FAMILY, DEPTH_DAMAGE } from '../../constants/Layout';
+import { FONT_FAMILY, DEPTH_DAMAGE, DEPTH_CENTER_BASE } from '../../constants/Layout';
 import { SkillTiming, type SkillContext, type SkillEventBus } from '../../skills';
 import type { PlayerCharacterId } from '../../models/Character';
 
@@ -18,8 +18,13 @@ interface DamageSettlementHost {
   phase: GamePhase;
   damageSettlementCancelled: boolean;
   centerCards: Phaser.GameObjects.Container[];
+  centerCardsOwner: 'player' | 'enemy' | null;
+  centerDepthCounter: number;
+  respondChainDepth: number;
   playerCharacterIds: PlayerCharacterId[];
   skillEventBus: SkillEventBus;
+  initActiveSkills(): void;
+  updateUIForPhase(): void;
   animateHealthBarDepletionAsync(target: 'enemy' | 'player', newVitality: number, duration: number): Promise<void>;
 }
 
@@ -360,9 +365,57 @@ export class DamageSettlementManager {
       enemyCharacterId: this.host.battle.enemyCharacterId,
     };
     await this.host.skillEventBus.emit(SkillTiming.AFTER_DAMAGE, afterDmgCtx);
-    this.applyPostDamageEffects(pattern, target, damageInfo.finalDamage);
   }
 
-  private applyPostDamageEffects(_pattern: HandPattern, _target: 'enemy' | 'player', _finalDamage: number): void {
+  cancelDamageSettlement(): void {
+    this.host.damageSettlementCancelled = true;
+
+    const texts = this.scene.children.list.filter(
+      c => c instanceof Phaser.GameObjects.Text &&
+        (c.depth === DEPTH_DAMAGE || c.depth === DEPTH_DAMAGE + 1)
+    ) as Phaser.GameObjects.Text[];
+
+    for (const t of texts) {
+      this.scene.tweens.add({
+        targets: t,
+        x: t.x + 8,
+        duration: 30,
+        yoyo: true,
+        repeat: 5,
+        ease: 'Sine.easeInOut',
+      });
+
+      this.scene.tweens.add({
+        targets: t,
+        scaleX: 0.3,
+        scaleY: 0.3,
+        alpha: 0,
+        duration: 400,
+        delay: 50,
+        ease: 'Back.easeIn',
+        onComplete: () => t.destroy(),
+      });
+    }
+
+    for (const card of this.host.centerCards) {
+      this.scene.tweens.add({
+        targets: card,
+        alpha: 0,
+        scaleX: 0.1,
+        scaleY: 0.1,
+        duration: 300,
+        ease: 'Sine.easeIn',
+        onComplete: () => card.destroy(),
+      });
+    }
+    this.host.centerCards = [];
+    this.host.centerCardsOwner = null;
+    this.host.centerDepthCounter = DEPTH_CENTER_BASE;
+
+    this.host.battle.turnHolder = 'player';
+    this.host.phase = 'player_init';
+    this.host.initActiveSkills();
+    this.host.updateUIForPhase();
+    this.host.respondChainDepth = 0;
   }
 }

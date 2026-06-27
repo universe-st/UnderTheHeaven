@@ -1,11 +1,8 @@
-import type { ActiveSkillDefinition } from './SkillTypes';
+import type { ActiveSkillDefinition, ActiveSkillSceneAccess } from './SkillTypes';
 import type { Card } from '../models/Card';
 import { rankToLabel, sortHand, getNextCardId } from '../models/Card';
-import type { GameScene } from '../scenes/GameScene';
 import { waitForTween, waitForDelay } from '../utils/AnimationUtils';
-
-const CARD_W = 180;
-const CARD_H = 252;
+import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET } from '../constants/Layout';
 
 function createSpiderWebGfx(
   gfx: Phaser.GameObjects.Graphics,
@@ -42,7 +39,7 @@ function createSpiderWebGfx(
 }
 
 async function createTempCardToHand(
-  scene: GameScene,
+  scene: ActiveSkillSceneAccess & Phaser.Scene,
   tempCard: Card,
 ): Promise<void> {
   const { width, height } = scene.scale;
@@ -111,7 +108,7 @@ async function createTempCardToHand(
   await waitForDelay(scene, 500);
 
   const hand = scene.getBattle().player.hand;
-  const overlapOffset = CARD_W * 0.75;
+  const overlapOffset = CARD_OVERLAP_OFFSET;
   const totalW = CARD_W + (hand.length * overlapOffset);
   const startX = (width - totalW) / 2 + CARD_W / 2;
   const baseY = height - 90;
@@ -150,7 +147,7 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
   },
 
   execute: async (scene: Phaser.Scene, selectedCards: Card[]): Promise<void> => {
-    const gs = scene as unknown as GameScene;
+    const gs = scene as unknown as ActiveSkillSceneAccess & Phaser.Scene;
     const hand = gs.getBattle().player.hand;
 
     const [a, b] = selectedCards as [Card, Card];

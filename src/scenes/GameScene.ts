@@ -1114,7 +1114,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   }
 
   cancelDamageSettlement(): void {
-    this.bgmManager.cancelDamageSettlement();
+    this.damageSettlementManager.cancelDamageSettlement();
   }
 
   // ═══════════════════════════════════════════════

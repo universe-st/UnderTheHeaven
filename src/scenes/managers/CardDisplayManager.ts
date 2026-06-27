@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import type { Card } from '../../models/Card';
-import { sortPlayedCards } from '../../models/Card';
+import { sortPlayedCards, JOKER_MIN_RANK } from '../../models/Card';
 import { waitForTween, fadeOutAndDestroy } from '../../utils/AnimationUtils';
 import {
-  FONT_FAMILY, CARD_W, CARD_H, SELECTED_OFFSET,
+  FONT_FAMILY, CARD_W, CARD_H, SELECTED_OFFSET, CARD_OVERLAP_OFFSET,
   DEPTH_PLAYER_HAND, DEPTH_ENEMY_HAND, DEPTH_CENTER_BASE,
 } from '../../constants/Layout';
 
@@ -55,7 +55,7 @@ export class CardDisplayManager {
 
     const isRed = card.suit === 'heart' || card.suit === 'diamond';
     const textColor = isRed ? '#b02828' : '#1a0a04';
-    const isJoker = card.rank >= 25;
+    const isJoker = card.rank >= JOKER_MIN_RANK;
 
     const suitSymbol: Record<string, string> = {
       spade: '♠', club: '♣', heart: '♥', diamond: '♦',
@@ -224,7 +224,7 @@ export class CardDisplayManager {
     const hand = this.host.battle.player.hand;
     const { width, height } = this.host.scale;
     const baseY = height - 90;
-    const overlapOffset = CARD_W * 0.75;
+    const overlapOffset = CARD_OVERLAP_OFFSET;
     const totalW = CARD_W + (hand.length - 1) * overlapOffset;
     const startX = (width - totalW) / 2 + CARD_W / 2;
     const offscreenX = width + CARD_W;
@@ -257,7 +257,7 @@ export class CardDisplayManager {
     const hand = this.host.battle.enemy.hand;
     const { width } = this.host.scale;
     const baseY = 220;
-    const overlapOffset = CARD_W * 0.75;
+    const overlapOffset = CARD_OVERLAP_OFFSET;
     const totalW = CARD_W + (hand.length - 1) * overlapOffset;
     const startX = (width - totalW) / 2 + CARD_W / 2;
 
@@ -335,7 +335,7 @@ export class CardDisplayManager {
   }
 
   getCardFanPositions(count: number, centerX: number, centerY: number): Array<{ x: number; y: number }> {
-    const gap = CARD_W * 0.75;
+    const gap = CARD_OVERLAP_OFFSET;
     const totalW = CARD_W + (count - 1) * gap;
     const startX = centerX - totalW / 2 + CARD_W / 2;
     const positions: Array<{ x: number; y: number }> = [];
@@ -481,7 +481,7 @@ export class CardDisplayManager {
           y = this.host.enemyCardObjects[idx]!.y;
         } else {
           const { width } = this.host.scale;
-          const overlapOffset = CARD_W * 0.75;
+          const overlapOffset = CARD_OVERLAP_OFFSET;
           const totalW = CARD_W + (this.host.battle.enemy.hand.length - 1) * overlapOffset;
           const startX = (width - totalW) / 2 + CARD_W / 2;
           x = startX + idx * overlapOffset;

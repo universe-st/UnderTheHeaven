@@ -2,6 +2,7 @@ export const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "
 
 export const CARD_W = 180;
 export const CARD_H = 252;
+export const CARD_OVERLAP_OFFSET = CARD_W * 0.75;
 export const SELECTED_OFFSET = -40;
 
 export const AVATAR_SOURCE_SIZE = 512;

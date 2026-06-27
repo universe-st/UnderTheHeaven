@@ -2,16 +2,14 @@ import type Phaser from 'phaser';
 import type { Card } from '../models/Card';
 import { sortHand, shuffleDeck } from '../models/Card';
 import { waitForTween, waitForDelay } from './AnimationUtils';
-import { CARD_W, CARD_H } from '../constants/Layout';
-
-const OVERLAP_OFFSET = CARD_W * 0.75;
+import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET } from '../constants/Layout';
 
 export interface CardActionResult {
   discarded: Card[];
   drawn: Card[];
 }
 
-interface GameSceneAccess {
+export interface CardActionsHost {
   battle: {
     player: { hand: Card[]; deck: Card[]; discardPile: Card[] };
     enemy: { hand: Card[]; deck: Card[]; discardPile: Card[] };
@@ -24,8 +22,8 @@ interface GameSceneAccess {
   add: Phaser.GameObjects.GameObjectFactory;
 }
 
-function gs(scene: Phaser.Scene): GameSceneAccess {
-  return scene as unknown as GameSceneAccess;
+function asHost(scene: Phaser.Scene): CardActionsHost {
+  return scene as unknown as CardActionsHost;
 }
 
 function getHandContext(
@@ -35,7 +33,7 @@ function getHandContext(
   state: { hand: Card[]; deck: Card[]; discardPile: Card[] };
   containers: Phaser.GameObjects.Container[];
 } {
-  const s = gs(scene);
+  const s = asHost(scene);
   if (target === 'player') {
     return { state: s.battle.player, containers: s.cardObjects };
   }
@@ -92,7 +90,7 @@ export async function discardCardsFromHand(
   layoutExistingHand(scene, target);
 
   if (discardingContainers.length > 0) {
-    const s = gs(scene);
+    const s = asHost(scene);
     const centerX = scene.scale.width / 2;
     const centerY = target === 'player' ? scene.scale.height - 200 : 475;
 
@@ -200,7 +198,7 @@ async function insertCardsWithAnimation(
 ): Promise<void> {
   const { state, containers } = getHandContext(scene, target);
   const hand = state.hand;
-  const s = gs(scene);
+  const s = asHost(scene);
   const { width, height } = scene.scale;
 
   syncContainerCardData(target, hand, containers);
@@ -210,7 +208,7 @@ async function insertCardsWithAnimation(
   const offscreenX = width + CARD_W;
 
   // 计算所有牌的目标位置
-  const totalW = CARD_W + (hand.length - 1) * OVERLAP_OFFSET;
+  const totalW = CARD_W + (hand.length - 1) * CARD_OVERLAP_OFFSET;
   const startX = (width - totalW) / 2 + CARD_W / 2;
 
   // 构建旧容器查找表：card identity → container
@@ -240,7 +238,7 @@ async function insertCardsWithAnimation(
   for (let i = 0; i < hand.length; i++) {
     const card = hand[i]!;
     const key = card.uid;
-    const targetX = startX + i * OVERLAP_OFFSET;
+    const targetX = startX + i * CARD_OVERLAP_OFFSET;
     const isNew = newIdentitySet.has(key);
 
     let foundContainer: Phaser.GameObjects.Container | undefined;
@@ -329,7 +327,7 @@ function createEnemyCardBackContainer(
   x: number,
   y: number,
 ): Phaser.GameObjects.Container {
-  const s = gs(scene);
+  const s = asHost(scene);
   const container = s.add.container(x, y);
   container.setAlpha(0);
 
@@ -387,12 +385,12 @@ function layoutExistingHand(
 
   if (hand.length === 0) return;
 
-  const totalW = CARD_W + (hand.length - 1) * OVERLAP_OFFSET;
+  const totalW = CARD_W + (hand.length - 1) * CARD_OVERLAP_OFFSET;
   const startX = (width - totalW) / 2 + CARD_W / 2;
 
   for (let i = 0; i < containers.length; i++) {
     const container = containers[i]!;
-    const targetX = startX + i * OVERLAP_OFFSET;
+    const targetX = startX + i * CARD_OVERLAP_OFFSET;
     const newDepth = baseDepth + i;
     const card = hand[i]!;
 

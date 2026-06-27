@@ -4,6 +4,8 @@ export function getNextCardId(): string {
   return 'card-' + (nextCardId++);
 }
 
+export const JOKER_MIN_RANK = 25;
+
 export function resetCardIdCounter(value: number = 1): void {
   nextCardId = value;
 }
