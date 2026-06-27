@@ -1,13 +1,18 @@
 import type { SkillVisualManager } from './SkillTypes';
+import type { BattleState } from '../models/BattleTypes';
 import { GameAudioManager } from '../utils/GameAudioManager';
+import { FONT_FAMILY, DEPTH_DAMAGE } from '../constants/Layout';
 
-const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
-const DEPTH_DAMAGE = 450;
+interface SceneHandle {
+  battle: BattleState;
+  updateVitalityBars(): void;
+  cancelDamageSettlement(): void;
+}
 
 export class SkillVisualManagerImpl implements SkillVisualManager {
-  private scene: Phaser.Scene;
+  private scene: Phaser.Scene & SceneHandle;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene & SceneHandle) {
     this.scene = scene;
   }
 
@@ -30,8 +35,7 @@ export class SkillVisualManagerImpl implements SkillVisualManager {
   }
 
   showHeal(target: 'player' | 'enemy', amount: number): void {
-    const gameScene = this.scene as any;
-    const battle = gameScene.battle;
+    const battle = this.scene.battle;
     const battleObj = target === 'player' ? battle.player : battle.enemy;
     battleObj.vitality = Math.min(battleObj.vitalityMax, battleObj.vitality + amount);
 
@@ -63,9 +67,11 @@ export class SkillVisualManagerImpl implements SkillVisualManager {
     });
 
     GameAudioManager.playSfx(this.scene, 'sfx_heal');
-    if (typeof gameScene.updateVitalityBars === 'function') {
-      gameScene.updateVitalityBars();
-    }
+    this.scene.updateVitalityBars();
+  }
+
+  cancelDamageSettlement(): void {
+    this.scene.cancelDamageSettlement();
   }
 
   playSkillTriggerSound(): void {

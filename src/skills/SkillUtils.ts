@@ -1,4 +1,5 @@
-import type { SkillContext, SkillVisualManager } from './SkillTypes';
+import { SkillTiming, type SkillContext, type SkillDefinition, type SkillVisualManager } from './SkillTypes';
+import type { Card } from '../models/Card';
 import { waitForCounterTween } from '../utils/AnimationUtils';
 
 export async function nullifyCardDamage(
@@ -71,4 +72,32 @@ export async function multiplyCardDamage(
       sc.scoreText.setText(`+${Math.round(val)}`);
     },
   });
+}
+
+export function createSuitScoreBonusSkill(config: {
+  id: string;
+  name: string;
+  description: string;
+  suit: NonNullable<Card['suit']>;
+  bonus: number;
+  dialogLines: string[];
+}): SkillDefinition {
+  return {
+    id: config.id,
+    name: config.name,
+    description: config.description,
+    timing: SkillTiming.ON_SINGLE_CARD_SETTLEMENT,
+    priority: 8,
+    dialogLines: config.dialogLines,
+
+    filter: (ctx: SkillContext): boolean => {
+      if (ctx.target !== 'enemy') return false;
+      if (!ctx.singleCard) return false;
+      return (ctx.singleCard.card.getData('suit') as string) === config.suit;
+    },
+
+    execute: async (ctx: SkillContext, visuals: SkillVisualManager): Promise<void> => {
+      await modifyCardDamage(ctx, visuals, config.bonus);
+    },
+  };
 }

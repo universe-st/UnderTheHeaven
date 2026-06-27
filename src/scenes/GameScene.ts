@@ -23,6 +23,8 @@ import {
   DEPTH_PLAYER_HAND, DEPTH_CENTER_BASE, DEPTH_DAMAGE,
   DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT,
 } from '../constants/Layout';
+import { DragInputManager } from './managers/DragInputManager';
+import { HealthBarManager } from './managers/HealthBarManager';
 
 interface TestBattleConfig {
   selectedPlayerCharacterIds?: PlayerCharacterId[];
@@ -61,19 +63,19 @@ function sortPlayedCards(cards: Card[]): Card[] {
 }
 
 export class GameScene extends Phaser.Scene implements CharacterSlotManager {
-  private battle!: BattleState;
-  private phase: GamePhase = 'player_init';
+  battle!: BattleState;
+  phase: GamePhase = 'player_init';
 
-  private selectedIndices: Set<number> = new Set();
-  private cardObjects: Phaser.GameObjects.Container[] = [];
+  selectedIndices: Set<number> = new Set();
+  cardObjects: Phaser.GameObjects.Container[] = [];
   private enemyCardObjects: Phaser.GameObjects.Container[] = [];
 
-  private playerVitalityBar!: Phaser.GameObjects.Graphics;
-  private enemyVitalityBar!: Phaser.GameObjects.Graphics;
-  private playerVitalityText!: Phaser.GameObjects.Text;
-  private enemyVitalityText!: Phaser.GameObjects.Text;
-  private playerDeckText!: Phaser.GameObjects.Text;
-  private enemyDeckText!: Phaser.GameObjects.Text;
+  playerVitalityBar!: Phaser.GameObjects.Graphics;
+  enemyVitalityBar!: Phaser.GameObjects.Graphics;
+  playerVitalityText!: Phaser.GameObjects.Text;
+  enemyVitalityText!: Phaser.GameObjects.Text;
+  playerDeckText!: Phaser.GameObjects.Text;
+  enemyDeckText!: Phaser.GameObjects.Text;
   private patternHintText!: Phaser.GameObjects.Text;
   private turnIndicatorText!: Phaser.GameObjects.Text;
   private thinkingText!: Phaser.GameObjects.Text;
@@ -117,14 +119,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private volumeSettingsModal: Phaser.GameObjects.Container | null = null;
   private returnConfirmModal: Phaser.GameObjects.Container | null = null;
 
-  private dragStartIndex: number | null = null;
-  private dragStartX: number = 0;
-  private dragStartY: number = 0;
-  private dragActive: boolean = false;
-  private dragSelectMode: 'add' | 'remove' | null = null;
-  private dragTouchedIndices: Set<number> = new Set();
-  private dragSnapshot: Set<number> = new Set();
-
   private respondChainDepth: number = 0;
   private damageSettlementCancelled: boolean = false;
 
@@ -153,6 +147,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private skillEventBus!: SkillEventBus;
   private skillRegistry!: SkillRegistry;
   private skillRunner!: SkillRunner;
+
+  private dragInputManager!: DragInputManager;
+  private healthBarManager!: HealthBarManager;
 
   private cachedWidth = 2400;
   private cachedHeight = 1080;
@@ -205,14 +202,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.volumeSettingsModal = null;
     this.returnConfirmModal?.destroy();
     this.returnConfirmModal = null;
-
-    this.dragStartIndex = null;
-    this.dragStartX = 0;
-    this.dragStartY = 0;
-    this.dragActive = false;
-    this.dragSelectMode = null;
-    this.dragTouchedIndices = new Set();
-    this.dragSnapshot = new Set();
 
     this.respondChainDepth = 0;
     this.damageSettlementCancelled = false;
@@ -287,9 +276,12 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       this.enemyAvatarBorder.setVisible(true);
     }
 
+    this.dragInputManager = new DragInputManager(this);
+    this.healthBarManager = new HealthBarManager(this);
+
     this.renderAllCards();
-    this.setupHandInput();
-    this.updateVitalityBars();
+    this.dragInputManager.setup();
+    this.healthBarManager.updateVitalityBars();
     this.updateUIForPhase();
 
     GameAudioManager.init(this);
@@ -1876,7 +1868,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   //  Interaction
   // ═══════════════════════════════════════════════
 
-  private onCardClick(index: number): void {
+  onCardClick(index: number): void {
     if (this.phase === 'animating' || this.phase === 'game_over' || this.phase === 'ai_init' || this.phase === 'ai_respond') {
       return;
     }
@@ -1928,7 +1920,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     return [...this.selectedIndices].sort((a, b) => a - b).map(i => this.battle.player.hand[i]!).filter((c): c is Card => c !== undefined);
   }
 
-  private updatePatternHint(): void {
+  updatePatternHint(): void {
     const selected = this.getSelectedCards();
     if (selected.length === 0) {
       this.patternHintText.setText('');
@@ -2740,63 +2732,8 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     }
   }
 
-  private updateVitalityBars(): void {
-    const { height } = this.scale;
-    const barX = 120;
-    const barW = 420;
-    const barH = 34;
-
-    this.drawVitalityBar(
-      this.enemyVitalityBar,
-      this.enemyVitalityText,
-      this.battle.enemy.vitality,
-      this.battle.enemy.vitalityMax,
-      barX, 56, barW, barH
-    );
-    this.drawVitalityBar(
-      this.playerVitalityBar,
-      this.playerVitalityText,
-      this.battle.player.vitality,
-      this.battle.player.vitalityMax,
-      barX, height - 374, barW, barH
-    );
-    this.enemyDeckText.setText(`牌堆 ${this.battle.enemy.deck.length}`);
-    this.playerDeckText.setText(`牌堆 ${this.battle.player.deck.length}`);
-  }
-
-  private drawVitalityBar(
-    gfx: Phaser.GameObjects.Graphics,
-    text: Phaser.GameObjects.Text,
-    current: number,
-    max: number,
-    barX: number,
-    barY: number,
-    barW: number,
-    barH: number
-  ): void {
-    gfx.clear();
-    const ratio = Math.max(0, current / max);
-
-    // Background
-    gfx.fillStyle(0xe8dcc8, 0.8);
-    gfx.fillRoundedRect(barX, barY, barW, barH, 4);
-
-    // Fill
-    let fillColor = 0x60a030;
-    if (ratio < 0.3) fillColor = 0xa03030;
-    else if (ratio < 0.6) fillColor = 0xc0a030;
-
-    if (ratio > 0) {
-      gfx.fillStyle(fillColor, 0.9);
-      gfx.fillRoundedRect(barX + 1, barY + 1, (barW - 2) * ratio, barH - 2, 3);
-    }
-
-    // Border
-    gfx.lineStyle(1, 0x9a8a6a, 0.6);
-    gfx.strokeRoundedRect(barX, barY, barW, barH, 4);
-
-    text.setText(`${current} / ${max}`);
-    text.setPosition(barX + barW / 2, barY + barH / 2);
+  updateVitalityBars(): void {
+    this.healthBarManager.updateVitalityBars();
   }
 
   private animateHealthBarDepletion(
@@ -2805,25 +2742,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     duration: number,
     onComplete: () => void
   ): void {
-    const battleObj = target === 'enemy' ? this.battle.enemy : this.battle.player;
-    const oldVitality = battleObj.vitality;
-    const vitObj = { value: oldVitality };
-
-    this.tweens.add({
-      targets: vitObj,
-      value: newVitality,
-      duration,
-      ease: 'Sine.easeInOut',
-      onUpdate: () => {
-        battleObj.vitality = Math.round(vitObj.value);
-        this.updateVitalityBars();
-      },
-      onComplete: () => {
-        battleObj.vitality = newVitality;
-        this.updateVitalityBars();
-        onComplete();
-      },
-    });
+    this.healthBarManager.animateHealthBarDepletion(target, newVitality, duration, onComplete);
   }
 
   private async playDamageSettlement(
@@ -3249,9 +3168,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     newVitality: number,
     duration: number,
   ): Promise<void> {
-    return new Promise(resolve => {
-      this.animateHealthBarDepletion(target, newVitality, duration, resolve);
-    });
+    return this.healthBarManager.animateHealthBarDepletionAsync(target, newVitality, duration);
   }
 
   private showFloatingText(value: number, x: number, y: number, color: string): void {
@@ -4242,7 +4159,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     }
   }
 
-  private updateActiveSkillButton(): void {
+  updateActiveSkillButton(): void {
     const { width, height } = this.scale;
 
     if (this.phase !== 'player_init') {
@@ -4491,137 +4408,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   // ═══════════════════════════════════════════════
   //  Drag-to-Select Hand Input
   // ═══════════════════════════════════════════════
-
-  private setupHandInput(): void {
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isPlayerTurn()) return;
-      const idx = this.getCardIndexAtPosition(pointer.x, pointer.y);
-      if (idx === null) return;
-
-      this.dragStartIndex = idx;
-      this.dragStartX = pointer.x;
-      this.dragStartY = pointer.y;
-      this.dragActive = false;
-      this.dragSelectMode = null;
-      this.dragSnapshot = new Set(this.selectedIndices);
-    });
-
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (this.dragStartIndex === null) return;
-      if (!pointer.isDown) {
-        this.resetDragState();
-        return;
-      }
-
-      const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, this.dragStartX, this.dragStartY);
-      if (!this.dragActive && dist < 8) return;
-
-      if (!this.dragActive) {
-        this.dragActive = true;
-        this.dragSelectMode = this.selectedIndices.has(this.dragStartIndex) ? 'remove' : 'add';
-      }
-
-      const currentIdx = this.getCardIndexAtPosition(pointer.x, pointer.y);
-      this.applyDragRange(currentIdx);
-    });
-
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (this.dragStartIndex === null) return;
-
-      if (!this.dragActive) {
-        const idx = this.getCardIndexAtPosition(pointer.x, pointer.y);
-        if (idx !== null && idx === this.dragStartIndex) {
-          this.onCardClick(idx);
-        }
-      }
-
-      this.resetDragState();
-    });
-  }
-
-  private resetDragState(): void {
-    this.dragStartIndex = null;
-    this.dragActive = false;
-    this.dragSelectMode = null;
-    this.dragTouchedIndices.clear();
-    this.dragSnapshot.clear();
-  }
-
-  private applyDragRange(currentIdx: number | null): void {
-    if (this.dragStartIndex === null || this.dragSelectMode === null) return;
-
-    this.selectedIndices = new Set(this.dragSnapshot);
-
-    if (currentIdx !== null) {
-      const minIdx = Math.min(this.dragStartIndex, currentIdx);
-      const maxIdx = Math.max(this.dragStartIndex, currentIdx);
-      for (let i = minIdx; i <= maxIdx; i++) {
-        if (this.dragSelectMode === 'add') {
-          this.selectedIndices.add(i);
-        } else {
-          this.selectedIndices.delete(i);
-        }
-      }
-    }
-
-    const { height } = this.scale;
-    const baseY = height - 90;
-
-    for (let i = 0; i < this.cardObjects.length; i++) {
-      const obj = this.cardObjects[i]!;
-      const isSelected = this.selectedIndices.has(i);
-      const targetY = baseY + (isSelected ? SELECTED_OFFSET : 0);
-      const glowG = obj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
-
-      // 上移+发光动画（与 onCardClick 点按一致）
-      this.tweens.add({
-        targets: obj,
-        y: targetY,
-        duration: 300,
-        ease: 'Sine.easeOut',
-      });
-      if (glowG) {
-        const targetAlpha = isSelected ? 1 : 0;
-        this.tweens.add({
-          targets: glowG,
-          alpha: targetAlpha,
-          duration: 300,
-          ease: 'Sine.easeOut',
-        });
-      }
-    }
-
-    this.updatePatternHint();
-    this.updateActiveSkillButton();
-  }
-
-  private getCardIndexAtPosition(x: number, y: number): number | null {
-    const hand = this.battle.player.hand;
-    if (hand.length === 0) return null;
-
-    const { width, height } = this.scale;
-    const baseY = height - 90;
-    const overlapOffset = CARD_W * 0.75;
-    const totalW = CARD_W + (hand.length - 1) * overlapOffset;
-    const startX = (width - totalW) / 2 + CARD_W / 2;
-
-    if (y < baseY - CARD_H / 2 - 10 || y > baseY + CARD_H / 2 + 10) return null;
-
-    let bestIdx = 0;
-    let bestDist = Infinity;
-    for (let i = 0; i < hand.length; i++) {
-      const cx = startX + i * overlapOffset;
-      const dist = Math.abs(x - cx);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestIdx = i;
-      }
-    }
-
-    if (bestDist > CARD_W / 2) return null;
-
-    return bestIdx;
-  }
 
   private isPlayerTurn(): boolean {
     return this.phase === 'player_init' || this.phase === 'player_respond';

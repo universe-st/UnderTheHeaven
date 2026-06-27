@@ -21,9 +21,8 @@ export const ZhangFeiDuanHe: SkillDefinition = {
   execute: async (ctx: SkillContext, visuals: SkillVisualManager): Promise<void> => {
     visuals.playSkillTriggerSound();
 
-    const scene = visuals.getScene();
-    await waitForDelay(scene, 200);
+    await waitForDelay(ctx.gameScene, 200);
 
-    (scene as any).cancelDamageSettlement();
+    visuals.cancelDamageSettlement();
   },
 };

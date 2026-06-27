@@ -130,6 +130,7 @@ export interface SkillVisualManager {
   playSkillTriggerSound(): void;
   playSfx(key: string): void;
   getScene(): Phaser.Scene;
+  cancelDamageSettlement(): void;
 }
 
 export interface CharacterSlotManager {
