@@ -1,7 +1,7 @@
 import { SkillTiming, type SkillContext, type SkillDefinition, type CharacterSlotManager } from './SkillTypes';
 import type { HandPattern } from '../models/BattleTypes';
-import { SkillRegistry } from './SkillRegistry';
-import { SkillEventBus } from './SkillEventBus';
+import type { SkillRegistry } from './SkillRegistry';
+import type { SkillEventBus } from './SkillEventBus';
 import type { SkillVisualManager } from './SkillTypes';
 
 export class SkillRunner {

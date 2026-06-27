@@ -18,7 +18,7 @@ import { MongolArmyQiangLve } from './MongolArmyQiangLve';
 import { XiliangArmyHanYong } from './XiliangArmyHanYong';
 import { XiongnuArmyLangShou } from './XiongnuArmyLangShou';
 import type { SkillDefinition } from './SkillTypes';
-import { SkillRegistry } from './SkillRegistry';
+import type { SkillRegistry } from './SkillRegistry';
 
 export * from './SkillTypes';
 export { SkillEventBus } from './SkillEventBus';

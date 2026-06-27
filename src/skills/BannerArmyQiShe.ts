@@ -14,7 +14,7 @@ export const BannerArmyQiShe: SkillDefinition = {
     if (ctx.target !== 'player') return false;
     if (ctx.pattern?.type !== HandType.Single) return false;
     const cards = ctx.pattern?.cards;
-    if (!cards || cards.length !== 1) return false;
+    if (cards?.length !== 1) return false;
     return cards[0]!.suit === 'diamond';
   },
 

@@ -1,5 +1,5 @@
-import { Card } from './Card';
-import { PlayerCharacterId, EnemyCharacterId } from './Character';
+import type { Card } from './Card';
+import type { PlayerCharacterId, EnemyCharacterId } from './Character';
 
 export enum HandType {
   Single,

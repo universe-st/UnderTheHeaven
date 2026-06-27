@@ -1,8 +1,9 @@
-import Phaser from 'phaser';
-import { HandType, HandPattern } from '../models/BattleTypes';
+import type Phaser from 'phaser';
+import type { HandPattern } from '../models/BattleTypes';
+import { HandType } from '../models/BattleTypes';
 import { Card } from '../models/Card';
 import { loadAudioSettings } from '../AudioSettings';
-import { AudioManager } from './AudioManager';
+import { GameAudioManager } from './GameAudioManager';
 
 const RANK_VOICE_SUFFIX: Record<number, string> = {
   20: 'er',
@@ -109,7 +110,7 @@ export class VoiceManager {
 
     try {
       const sound = scene.sound.add(key, { volume: settings.voiceVolume });
-      AudioManager.trackVoice(scene, sound);
+      GameAudioManager.trackVoice(scene, sound);
       sound.play();
       VoiceManager.current = sound;
       sound.once('complete', () => {

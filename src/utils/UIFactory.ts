@@ -5,9 +5,7 @@ const DARK_BG_COLOR = 0x1a0f05;
 const BORDER_COLOR = 0x6a4a2a;
 const ACCENT_COLOR = 0xb89040;
 const ACCENT_BRIGHT_COLOR = 0xd4a843;
-const ACCENT_LIGHT_COLOR = 0xe8d5a3;
 const PANEL_BG_COLOR = 0x1a0f05;
-const TEXT_COLOR = '#e8d5a3';
 
 export interface ButtonConfig {
   w?: number;

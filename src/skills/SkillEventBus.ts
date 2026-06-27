@@ -1,4 +1,4 @@
-import { SkillTiming, SkillContext } from './SkillTypes';
+import type { SkillTiming, SkillContext } from './SkillTypes';
 
 type SkillContextHandler = (context: SkillContext) => void | Promise<void>;
 

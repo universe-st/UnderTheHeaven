@@ -1,8 +1,9 @@
-import { Card } from '../models/Card';
-import { BattleState, HandPattern, HandType } from '../models/BattleTypes';
+import type { Card } from '../models/Card';
+import type { BattleState, HandPattern} from '../models/BattleTypes';
+import { HandType } from '../models/BattleTypes';
 import { findAllPlays, findBeatingPlays, canBeat } from './HandRecognizer';
 import { calculateDamage } from './DamageCalculator';
-import { EnemyCharacterId } from '../models/Character';
+import type { EnemyCharacterId } from '../models/Character';
 
 // ========== AI 阈值常量 ==========
 

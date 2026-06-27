@@ -1,6 +1,8 @@
-import { Card } from '../models/Card';
-	import { HandPattern, HandType } from '../models/BattleTypes';
-	import { PlayerCharacterId, EnemyCharacterId, PLAYER_CHARACTERS, ENEMY_CHARACTERS } from '../models/Character';
+import type { Card } from '../models/Card';
+	import type { HandPattern} from '../models/BattleTypes';
+import { HandType } from '../models/BattleTypes';
+	import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
+import { PLAYER_CHARACTERS, ENEMY_CHARACTERS } from '../models/Character';
 
 	export function countSuits(cards: Card[]): number {
 	  const suits = new Set(cards.map(c => c.suit).filter(Boolean));

@@ -1,4 +1,5 @@
-import { HandPattern, HandType } from '../models/BattleTypes';
+import type { HandPattern} from '../models/BattleTypes';
+import { HandType } from '../models/BattleTypes';
 
 const COEFFICIENT_MAP: Record<HandType, (length: number) => number> = {
   [HandType.Single]: () => 1,

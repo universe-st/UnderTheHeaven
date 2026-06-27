@@ -1,6 +1,6 @@
 import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
 import type { Card } from '../models/Card';
-import { AudioManager } from '../utils/AudioManager';
+import { GameAudioManager } from '../utils/GameAudioManager';
 
 interface GameSceneAccess {
   battle: {
@@ -39,6 +39,6 @@ export const ZhugeLiangXianSuan: SkillDefinition = {
     }
 
     visuals.playSkillTriggerSound();
-    AudioManager.playSfx(ctx.gameScene, 'sfx_card_reveal');
+    GameAudioManager.playSfx(ctx.gameScene, 'sfx_card_reveal');
   },
 };

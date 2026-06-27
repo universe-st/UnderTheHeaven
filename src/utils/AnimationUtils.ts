@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 
 export function waitForDelay(scene: Phaser.Scene, ms: number): Promise<void> {
   return new Promise(resolve => {

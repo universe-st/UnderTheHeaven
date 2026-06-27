@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
-import { AudioManager } from '../utils/AudioManager';
+import { GameAudioManager } from '../utils/GameAudioManager';
 import { UIFactory } from '../utils/UIFactory';
 import { FONT_FAMILY } from '../constants/Layout';
 
@@ -73,8 +73,8 @@ export class MenuScene extends Phaser.Scene {
     UIFactory.divider(this, cx, titleY + 82);
 
     UIFactory.button(this, cx, height * 0.57, '▸', '开始游戏', () => {
-      AudioManager.playSfx(this, 'sfx_button');
-      AudioManager.stopBgm(this);
+      GameAudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.stopBgm(this);
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
         this.scene.start('GameScene');
@@ -99,14 +99,14 @@ export class MenuScene extends Phaser.Scene {
     }
 
     UIFactory.button(this, cx, height * 0.75, '⚙', '设  置', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.showSettings();
     }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
 
     if (SHOW_TEST_BUTTON) {
       UIFactory.button(this, cx, height * 0.84, '▶', '测试游戏', () => {
-        AudioManager.playSfx(this, 'sfx_button');
-        AudioManager.stopBgm(this);
+        GameAudioManager.playSfx(this, 'sfx_button');
+        GameAudioManager.stopBgm(this);
         this.cameras.main.fadeOut(400, 0, 0, 0);
         this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
           this.scene.start('TestSelectScene');
@@ -122,8 +122,8 @@ export class MenuScene extends Phaser.Scene {
 
     this.createParticles(width, height);
 
-    AudioManager.init(this);
-    AudioManager.unlock(this);
+    GameAudioManager.init(this);
+    GameAudioManager.unlock(this);
     this.playMenuBgm();
 
     this.input.keyboard!.on('keydown-M', () => this.toggleMute());
@@ -188,7 +188,7 @@ export class MenuScene extends Phaser.Scene {
     this.bgmVolume = settings.bgmVolume;
     this.sfxVolume = settings.sfxVolume;
     this.voiceVolume = settings.voiceVolume;
-    AudioManager.playBgm(this, 'bgm_menu', { loop: true });
+    GameAudioManager.playBgm(this, 'bgm_menu', { loop: true });
   }
 
   private toggleMute(): void {
@@ -281,12 +281,12 @@ export class MenuScene extends Phaser.Scene {
     const sliderX = px + 75;
     this.createSlider(container, sliderX, py + 105, trackW, '背景音乐', this.bgmVolume, (v) => {
       this.bgmVolume = v;
-      AudioManager.setBgmVolume(v);
+      GameAudioManager.setBgmVolume(v);
     });
 
     this.createSlider(container, sliderX, py + 190, trackW, '游戏音效', this.sfxVolume, (v) => {
       this.sfxVolume = v;
-      AudioManager.setSfxVolume(v);
+      GameAudioManager.setSfxVolume(v);
     });
 
     const dividerB = this.add.graphics();

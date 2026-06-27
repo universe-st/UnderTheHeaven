@@ -1,5 +1,6 @@
-import { Card } from '../models/Card';
-import { HandPattern, HandType } from '../models/BattleTypes';
+import type { Card } from '../models/Card';
+import type { HandPattern} from '../models/BattleTypes';
+import { HandType } from '../models/BattleTypes';
 
 export function rankForOrder(r: number): number {
   if (r === 15) return 14; // A = 14 for ordering

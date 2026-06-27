@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { Card, getNextCardId, resetCardIdCounter } from '../../models/Card';
-import { HandType, HandPattern } from '../../models/BattleTypes';
+import type { Card} from '../../models/Card';
+import { getNextCardId, resetCardIdCounter } from '../../models/Card';
+import type { HandPattern } from '../../models/BattleTypes';
+import { HandType } from '../../models/BattleTypes';
 import { calculateDamage, calculateDamageWithEmptyHand, getCoefficient } from '../DamageCalculator';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade'): Card {

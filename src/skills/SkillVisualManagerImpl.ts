@@ -1,5 +1,5 @@
 import type { SkillVisualManager } from './SkillTypes';
-import { AudioManager } from '../utils/AudioManager';
+import { GameAudioManager } from '../utils/GameAudioManager';
 
 const FONT_FAMILY = '"LXGWWenKai", "Noto Serif SC", "STKaiti", "KaiTi", "楷体", serif';
 const DEPTH_DAMAGE = 450;
@@ -62,18 +62,18 @@ export class SkillVisualManagerImpl implements SkillVisualManager {
       },
     });
 
-    AudioManager.playSfx(this.scene, 'sfx_heal');
+    GameAudioManager.playSfx(this.scene, 'sfx_heal');
     if (typeof gameScene.updateVitalityBars === 'function') {
       gameScene.updateVitalityBars();
     }
   }
 
   playSkillTriggerSound(): void {
-    AudioManager.playSfx(this.scene, 'sfx_skill_trigger');
+    GameAudioManager.playSfx(this.scene, 'sfx_skill_trigger');
   }
 
   playSfx(key: string): void {
-    AudioManager.playSfx(this.scene, key);
+    GameAudioManager.playSfx(this.scene, key);
   }
 
   getScene(): Phaser.Scene {

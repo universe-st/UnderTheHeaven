@@ -1,13 +1,16 @@
 import Phaser from 'phaser';
-import { Card, createDeck, shuffleDeck, cardDisplayName, sortHand, resetCardIdCounter } from '../models/Card';
-import { BattleState, HandPattern, HandType, HAND_TYPE_LABELS } from '../models/BattleTypes';
+import type { Card} from '../models/Card';
+import { createDeck, shuffleDeck, cardDisplayName, sortHand, resetCardIdCounter } from '../models/Card';
+import type { BattleState, HandPattern} from '../models/BattleTypes';
+import { HandType, HAND_TYPE_LABELS } from '../models/BattleTypes';
 import { identifyHand, canBeat, findAllPlays, findBeatingPlays } from '../engine/HandRecognizer';
 import { calculateDamage, calculateDamageWithEmptyHand, getCoefficient } from '../engine/DamageCalculator';
 import { decidePlay } from '../engine/AIBrain';
 import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
-import { AudioManager } from '../utils/AudioManager';
+import { GameAudioManager } from '../utils/GameAudioManager';
 import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../utils/VoiceManager';
-import { PlayerCharacterId, EnemyCharacterId, PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayerCharacter } from '../models/Character';
+import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
+import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayerCharacter } from '../models/Character';
 import { canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, LiuBoWenChouCe, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
 import { getBlockedResponseTypes } from '../skills/PassiveSkillUtils';
@@ -289,11 +292,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.updateVitalityBars();
     this.updateUIForPhase();
 
-    AudioManager.init(this);
-    AudioManager.unlock(this);
+    GameAudioManager.init(this);
+    GameAudioManager.unlock(this);
 
     this.time.delayedCall(200, () => {
-      AudioManager.playSfx(this, 'sfx_gong');
+      GameAudioManager.playSfx(this, 'sfx_gong');
       this.time.delayedCall(800, () => {
         this.initBattleBgm();
       });
@@ -456,7 +459,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     this.enemyAvatarImage.setInteractive({ cursor: 'pointer' });
     this.enemyAvatarImage.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.showEnemyInfoWindow();
     });
 
@@ -539,7 +542,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const playZone = this.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: 'pointer' });
     playZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.onPlayClick();
     });
     this.btnPlay.add(playZone);
@@ -564,7 +567,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const passZone = this.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: 'pointer' });
     passZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.onPassClick();
     });
     this.btnPass.add(passZone);
@@ -748,7 +751,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       if (!zoneCharId) return;
       const idx = this.playerCharacterIds.indexOf(zoneCharId);
       if (idx < 0 || !this.isSlotVisible(idx)) return;
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.showCharacterTooltip(idx);
     });
   }
@@ -1186,7 +1189,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
     closeZone.on('pointerout', () => closeText.setColor('#7a5a3a'));
     closeZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.closeCharacterTooltip();
     });
     container.add([closeText, closeZone]);
@@ -1330,7 +1333,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
     closeZone.on('pointerout', () => closeText.setColor('#7a5a3a'));
     closeZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.closeEnemyInfoWindow();
     });
     container.add([closeText, closeZone]);
@@ -2029,9 +2032,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       if (!canBeatPlay) return;
     }
 
-    AudioManager.playSfx(this, 'sfx_play_card');
+    GameAudioManager.playSfx(this, 'sfx_play_card');
     if (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) {
-      AudioManager.playSfx(this, 'sfx_bomb');
+      GameAudioManager.playSfx(this, 'sfx_bomb');
     }
     await this.executePlay(selected, pattern);
   }
@@ -2397,9 +2400,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     }
 
     const pattern = identifyHand(cards)!;
-    AudioManager.playSfx(this, 'sfx_play_card');
+    GameAudioManager.playSfx(this, 'sfx_play_card');
     if (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) {
-      AudioManager.playSfx(this, 'sfx_bomb');
+      GameAudioManager.playSfx(this, 'sfx_bomb');
     }
 
     const isBombOnNonBomb = this.respondChainDepth > 0 &&
@@ -2546,9 +2549,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     }
 
     const pattern = identifyHand(cards)!;
-    AudioManager.playSfx(this, 'sfx_play_card');
+    GameAudioManager.playSfx(this, 'sfx_play_card');
     if (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) {
-      AudioManager.playSfx(this, 'sfx_bomb');
+      GameAudioManager.playSfx(this, 'sfx_bomb');
     }
 
     const voiceKey = getVoiceKeyForPlay(pattern, true, false);
@@ -2888,7 +2891,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       const consideredAsRank = card.getData('consideredAsRank') as number | undefined;
       const rank = consideredAsRank ?? (card.getData('rank') as number ?? 0);
 
-      AudioManager.playSfx(this, 'sfx_card_reveal');
+      GameAudioManager.playSfx(this, 'sfx_card_reveal');
 
       const floatText = this.add.text(card.x, card.y, `+${rank}`, {
         fontSize: '36px',
@@ -3111,7 +3114,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       return;
     }
 
-    AudioManager.playSfx(this, 'sfx_hurt');
+    GameAudioManager.playSfx(this, 'sfx_hurt');
 
     const barX = 120;
     const barW = 420;
@@ -3279,10 +3282,10 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     if (playerWin) {
       const settings = loadAudioSettings();
       const victory = this.sound.add('victory_jingle', { volume: settings.sfxVolume });
-      AudioManager.track(this, victory);
+      GameAudioManager.track(this, victory);
       victory.play();
     } else {
-      AudioManager.playBgm(this, 'bgm_failure', { loop: false });
+      GameAudioManager.playBgm(this, 'bgm_failure', { loop: false });
     }
 
     const { width, height } = this.scale;
@@ -3405,7 +3408,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       drawNormal();
     });
     zone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       drawPressed();
       this.time.delayedCall(80, () => {
         drawNormal();
@@ -3469,7 +3472,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
     closeZone.on('pointerout', () => closeText.setColor('#7a5a3a'));
     closeZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.closeHandPatternModal();
     });
     container.add([closeText, closeZone]);
@@ -3594,7 +3597,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.currentBattleBgmIndex = index;
     const settings = loadAudioSettings();
     this.battleBgm = this.sound.add(this.battleBgmKeys[index]!, { loop: false, volume: settings.bgmVolume });
-    AudioManager.track(this, this.battleBgm);
+    GameAudioManager.track(this, this.battleBgm);
     this.battleBgm.on('complete', () => this.onBattleBgmComplete());
     this.battleBgm.play();
   }
@@ -3731,7 +3734,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       });
     });
     zone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       if (this.settingsPanel) {
         this.closeSettingsPanel();
       } else {
@@ -3794,7 +3797,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     volZone.on('pointerover', () => volumeText.setColor('#6a4020'));
     volZone.on('pointerout', () => volumeText.setColor('#2a1008'));
     volZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.closeSettingsPanel();
       this.showVolumeSettings();
     });
@@ -3810,7 +3813,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     menuZone.on('pointerover', () => menuText.setColor('#6a4020'));
     menuZone.on('pointerout', () => menuText.setColor('#2a1008'));
     menuZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.showReturnConfirmModal();
     });
     container.add(menuZone);
@@ -3921,7 +3924,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       closeText.setColor('#7a5a3a');
     });
     closeZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.closeVolumeSettings();
     });
     container.add([closeText, closeZone]);
@@ -3942,7 +3945,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         const newSettings = loadAudioSettings();
         newSettings.bgmVolume = value;
         saveAudioSettings(newSettings);
-        AudioManager.setBgmVolume(value);
+        GameAudioManager.setBgmVolume(value);
       }
     );
 
@@ -3953,7 +3956,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         const newSettings = loadAudioSettings();
         newSettings.sfxVolume = value;
         saveAudioSettings(newSettings);
-        AudioManager.setSfxVolume(value);
+        GameAudioManager.setSfxVolume(value);
       }
     );
 
@@ -3964,7 +3967,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         const newSettings = loadAudioSettings();
         newSettings.voiceVolume = value;
         saveAudioSettings(newSettings);
-        AudioManager.setVoiceVolume(value);
+        GameAudioManager.setVoiceVolume(value);
       }
     );
 
@@ -4160,7 +4163,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const cancelZone = this.add.zone(cancelBtnX, btnY, btnW, btnH)
       .setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
     cancelZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.closeReturnConfirmModal();
     });
     container.add(cancelZone);
@@ -4183,7 +4186,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     const confirmZone = this.add.zone(confirmBtnX, btnY, btnW, btnH)
       .setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
     confirmZone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.closeReturnConfirmModal();
       this.closeSettingsPanel();
       this.cameras.main.fadeOut(400, 0, 0, 0);
@@ -4409,7 +4412,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       }
     }
 
-    AudioManager.playSfx(this, 'sfx_skill_trigger');
+    GameAudioManager.playSfx(this, 'sfx_skill_trigger');
     await this.glowOn('liubowen');
     await this.moveToFront('liubowen');
     await this.shakeAndPulse('liubowen');

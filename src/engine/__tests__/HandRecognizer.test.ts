@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { Card, createDeck, getNextCardId, resetCardIdCounter } from '../../models/Card';
-import { HandType, HandPattern, HAND_TYPE_LABELS } from '../../models/BattleTypes';
+import type { Card} from '../../models/Card';
+import { createDeck, getNextCardId, resetCardIdCounter } from '../../models/Card';
+import type { HandPattern} from '../../models/BattleTypes';
+import { HandType, HAND_TYPE_LABELS } from '../../models/BattleTypes';
 import { identifyHand, findAllPlays, canBeat, findBeatingPlays, rankForOrder } from '../HandRecognizer';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade'): Card {

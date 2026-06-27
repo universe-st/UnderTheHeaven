@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { PlayerCharacterId, EnemyCharacterId, PLAYER_CHARACTERS, PLAYER_CHARACTER_LIST, ENEMY_CHARACTER_LIST } from '../models/Character';
-import { AudioManager } from '../utils/AudioManager';
+import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
+import { PLAYER_CHARACTERS, PLAYER_CHARACTER_LIST, ENEMY_CHARACTER_LIST } from '../models/Character';
+import { GameAudioManager } from '../utils/GameAudioManager';
 import { UIFactory } from '../utils/UIFactory';
 import { FONT_FAMILY } from '../constants/Layout';
 
@@ -93,8 +94,8 @@ export class TestSelectScene extends Phaser.Scene {
     this.createHealthSection(width, height);
     this.createStartButton(width, height);
 
-    AudioManager.init(this);
-    AudioManager.unlock(this);
+    GameAudioManager.init(this);
+    GameAudioManager.unlock(this);
   }
 
   private initDefaults(): void {
@@ -212,7 +213,7 @@ export class TestSelectScene extends Phaser.Scene {
       zone.on('pointerover', () => draw(true));
       zone.on('pointerout', () => draw(false));
       zone.on('pointerdown', () => {
-        AudioManager.playSfx(this, 'sfx_button');
+        GameAudioManager.playSfx(this, 'sfx_button');
         this.maxPlayerCharacterCount = Phaser.Math.Clamp(this.maxPlayerCharacterCount + delta, 1, 10);
         while (this.selectedPlayerIds.size > this.maxPlayerCharacterCount) {
           const arr = [...this.selectedPlayerIds];
@@ -322,14 +323,14 @@ export class TestSelectScene extends Phaser.Scene {
     zone.on('pointerout', () => draw(isSelected, false));
     zone.on('pointerdown', () => {
       if (this.selectedPlayerIds.has(id)) {
-        AudioManager.playSfx(this, 'sfx_button');
+        GameAudioManager.playSfx(this, 'sfx_button');
         this.selectedPlayerIds.delete(id);
       } else {
         if (this.selectedPlayerIds.size >= this.maxPlayerCharacterCount) {
           this.flashMaxCountReached();
           return;
         }
-        AudioManager.playSfx(this, 'sfx_button');
+        GameAudioManager.playSfx(this, 'sfx_button');
         this.selectedPlayerIds.add(id);
       }
       this.updatePlayerCountText();
@@ -373,7 +374,7 @@ export class TestSelectScene extends Phaser.Scene {
       zone.on('pointerover', () => drawBg(true));
       zone.on('pointerout', () => drawBg(false));
       zone.on('pointerdown', () => {
-        AudioManager.playSfx(this, 'sfx_button');
+        GameAudioManager.playSfx(this, 'sfx_button');
         const scrollAmt = direction === 'up' ? -rowHeight : rowHeight;
         this.playerCardScrollOffset = Phaser.Math.Clamp(
           this.playerCardScrollOffset + scrollAmt, 0, maxScroll
@@ -491,7 +492,7 @@ export class TestSelectScene extends Phaser.Scene {
       zone.on('pointerover', () => drawBg(true));
       zone.on('pointerout', () => drawBg(false));
       zone.on('pointerdown', () => {
-        AudioManager.playSfx(this, 'sfx_button');
+        GameAudioManager.playSfx(this, 'sfx_button');
         const scrollAmt = direction === 'up' ? -rowHeight : rowHeight;
         this.enemyCardScrollOffset = Phaser.Math.Clamp(
           this.enemyCardScrollOffset + scrollAmt, 0, maxScroll
@@ -670,7 +671,7 @@ export class TestSelectScene extends Phaser.Scene {
     zone.on('pointerover', () => draw(isSelected, true));
     zone.on('pointerout', () => draw(isSelected, false));
     zone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       if (this.selectedEnemyId !== id) {
         this.selectedEnemyId = id;
         if (this.enemyCardContainer) {
@@ -799,7 +800,7 @@ export class TestSelectScene extends Phaser.Scene {
 
     const configHoldButton = (zone: Phaser.GameObjects.Zone, delta: number) => {
       zone.on('pointerdown', () => {
-        AudioManager.playSfx(this, 'sfx_button');
+        GameAudioManager.playSfx(this, 'sfx_button');
         const newVal = Phaser.Math.Clamp(getCurrentValue() + delta, MIN_HP, MAX_HP);
         onChange(newVal);
 
@@ -866,7 +867,7 @@ export class TestSelectScene extends Phaser.Scene {
     zone.on('pointerover', () => drawHover());
     zone.on('pointerout', () => drawNormal());
     zone.on('pointerdown', () => {
-      AudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.playSfx(this, 'sfx_button');
       this.startTestBattle();
     });
   }

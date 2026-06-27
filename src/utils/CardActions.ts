@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import type { Card } from '../models/Card';
 import { sortHand, shuffleDeck } from '../models/Card';
 import { waitForTween, waitForDelay } from './AnimationUtils';

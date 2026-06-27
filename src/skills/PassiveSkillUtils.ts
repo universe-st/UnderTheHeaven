@@ -1,4 +1,4 @@
-import { HandType, HandPattern } from '../models/BattleTypes';
+import type { HandType, HandPattern } from '../models/BattleTypes';
 
 export interface ResponseBlockContext {
   lastPlay: HandPattern;

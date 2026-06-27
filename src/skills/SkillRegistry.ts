@@ -1,4 +1,4 @@
-import { SkillTiming, SkillDefinition } from './SkillTypes';
+import type { SkillTiming, SkillDefinition } from './SkillTypes';
 
 export class SkillRegistry {
   private skills: SkillDefinition[] = [];

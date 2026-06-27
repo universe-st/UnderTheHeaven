@@ -1,7 +1,7 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import { loadAudioSettings } from '../AudioSettings';
 
-export class AudioManager {
+export class GameAudioManager {
   private static sceneSounds = new Map<string, Set<Phaser.Sound.BaseSound>>();
   private static bgmSounds = new Map<string, Phaser.Sound.BaseSound>();
   private static sfxSounds = new Map<string, Set<Phaser.Sound.BaseSound>>();
@@ -9,53 +9,53 @@ export class AudioManager {
 
   static init(scene: Phaser.Scene): void {
     const key = scene.scene.key;
-    scene.events.on('shutdown', () => AudioManager.stopAll(key));
+    scene.events.on('shutdown', () => GameAudioManager.stopAll(key));
   }
 
   static track(scene: Phaser.Scene, sound: Phaser.Sound.BaseSound): void {
     const key = scene.scene.key;
-    let sounds = AudioManager.sceneSounds.get(key);
+    let sounds = GameAudioManager.sceneSounds.get(key);
     if (!sounds) {
       sounds = new Set();
-      AudioManager.sceneSounds.set(key, sounds);
+      GameAudioManager.sceneSounds.set(key, sounds);
     }
     sounds.add(sound);
     sound.once('destroy', () => sounds?.delete(sound));
   }
 
   static playBgm(scene: Phaser.Scene, key: string, config?: Phaser.Types.Sound.SoundConfig): Phaser.Sound.BaseSound {
-    AudioManager.stopBgm(scene);
+    GameAudioManager.stopBgm(scene);
 
     const settings = loadAudioSettings();
     const sound = scene.sound.add(key, { ...config, volume: settings.bgmVolume });
     sound.play();
 
-    AudioManager.bgmSounds.set(scene.scene.key, sound);
-    AudioManager.track(scene, sound);
+    GameAudioManager.bgmSounds.set(scene.scene.key, sound);
+    GameAudioManager.track(scene, sound);
 
     return sound;
   }
 
   static stopBgm(scene: Phaser.Scene): void {
-    const bgm = AudioManager.bgmSounds.get(scene.scene.key);
+    const bgm = GameAudioManager.bgmSounds.get(scene.scene.key);
     if (bgm) {
       bgm.stop();
       bgm.destroy();
-      AudioManager.bgmSounds.delete(scene.scene.key);
+      GameAudioManager.bgmSounds.delete(scene.scene.key);
     }
   }
 
   static stopAll(sceneKey: string): void {
-    AudioManager.stopBgmByKey(sceneKey);
+    GameAudioManager.stopBgmByKey(sceneKey);
 
-    const sounds = AudioManager.sceneSounds.get(sceneKey);
+    const sounds = GameAudioManager.sceneSounds.get(sceneKey);
     if (sounds) {
       for (const s of sounds) {
         if (s.isPlaying) s.stop();
         s.destroy();
       }
       sounds.clear();
-      AudioManager.sceneSounds.delete(sceneKey);
+      GameAudioManager.sceneSounds.delete(sceneKey);
     }
   }
 
@@ -63,13 +63,13 @@ export class AudioManager {
     const settings = loadAudioSettings();
     const sound = scene.sound.add(key, { ...config, volume: settings.sfxVolume });
     sound.play();
-    AudioManager.track(scene, sound);
+    GameAudioManager.track(scene, sound);
 
     const sceneKey = scene.scene.key;
-    let sfxSet = AudioManager.sfxSounds.get(sceneKey);
+    let sfxSet = GameAudioManager.sfxSounds.get(sceneKey);
     if (!sfxSet) {
       sfxSet = new Set();
-      AudioManager.sfxSounds.set(sceneKey, sfxSet);
+      GameAudioManager.sfxSounds.set(sceneKey, sfxSet);
     }
     sfxSet.add(sound);
     sound.once('destroy', () => sfxSet?.delete(sound));
@@ -78,13 +78,13 @@ export class AudioManager {
   }
 
   static setBgmVolume(volume: number): void {
-    for (const bgm of AudioManager.bgmSounds.values()) {
+    for (const bgm of GameAudioManager.bgmSounds.values()) {
       (bgm as any).volume = volume;
     }
   }
 
   static setSfxVolume(volume: number): void {
-    for (const sounds of AudioManager.sfxSounds.values()) {
+    for (const sounds of GameAudioManager.sfxSounds.values()) {
       for (const sound of sounds) {
         (sound as any).volume = volume;
       }
@@ -93,17 +93,17 @@ export class AudioManager {
 
   static trackVoice(scene: Phaser.Scene, sound: Phaser.Sound.BaseSound): void {
     const sceneKey = scene.scene.key;
-    let vSet = AudioManager.voiceSounds.get(sceneKey);
+    let vSet = GameAudioManager.voiceSounds.get(sceneKey);
     if (!vSet) {
       vSet = new Set();
-      AudioManager.voiceSounds.set(sceneKey, vSet);
+      GameAudioManager.voiceSounds.set(sceneKey, vSet);
     }
     vSet.add(sound);
     sound.once('destroy', () => vSet?.delete(sound));
   }
 
   static setVoiceVolume(volume: number): void {
-    for (const sounds of AudioManager.voiceSounds.values()) {
+    for (const sounds of GameAudioManager.voiceSounds.values()) {
       for (const sound of sounds) {
         (sound as any).volume = volume;
       }
@@ -125,7 +125,7 @@ export class AudioManager {
       ctx = sm.context;
     }
 
-    if (ctx && ctx.state === 'suspended') {
+    if (ctx?.state === 'suspended') {
       ctx.resume();
     }
 
@@ -138,18 +138,18 @@ export class AudioManager {
   /** Call this on first user interaction to ensure audio is unlocked */
   static resumeOnInteraction(scene: Phaser.Scene): void {
     const handler = () => {
-      AudioManager.unlock(scene);
+      GameAudioManager.unlock(scene);
       scene.input.off('pointerdown', handler);
     };
     scene.input.on('pointerdown', handler);
   }
 
   private static stopBgmByKey(sceneKey: string): void {
-    const bgm = AudioManager.bgmSounds.get(sceneKey);
+    const bgm = GameAudioManager.bgmSounds.get(sceneKey);
     if (bgm) {
       bgm.stop();
       bgm.destroy();
-      AudioManager.bgmSounds.delete(sceneKey);
+      GameAudioManager.bgmSounds.delete(sceneKey);
     }
   }
 }

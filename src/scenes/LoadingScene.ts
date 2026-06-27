@@ -69,7 +69,7 @@ export class LoadingScene extends Phaser.Scene {
     this.loadAssets();
     this.load.start();
 
-    const fontLoaded = await this.loadFontWithRetry('LXGWWenKai', 72, 3);
+    await this.loadFontWithRetry('LXGWWenKai', 72, 3);
 
     this.add.text(cx, height * 0.38, '天 下 牌', {
       fontSize: '90px',
