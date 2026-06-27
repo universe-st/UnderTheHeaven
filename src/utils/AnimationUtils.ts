@@ -12,13 +12,13 @@ export function waitForTween(
 ): Promise<void> {
   return new Promise(resolve => {
     const onComplete = config.onComplete as (() => void) | undefined;
-    (scene.tweens as any).add({
+    scene.tweens.add(({
       ...config,
       onComplete: () => {
         onComplete?.();
         resolve();
       },
-    });
+    } as unknown) as Phaser.Types.Tweens.TweenBuilderConfig);
   });
 }
 

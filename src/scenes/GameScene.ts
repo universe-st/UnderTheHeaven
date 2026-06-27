@@ -13,7 +13,7 @@ import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
 import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayerCharacter } from '../models/Character';
 import { canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, LiuBoWenChouCe, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
-import { getBlockedResponseTypes } from '../skills/PassiveSkillUtils';
+import { getBlockedResponseTypes, clearPassiveSkills } from '../skills/PassiveSkillUtils';
 import { waitForDelay, waitForTween, waitForCounterTween, fadeOutAndDestroy } from '../utils/AnimationUtils';
 import {
   FONT_FAMILY, CARD_W, CARD_H, SELECTED_OFFSET,
@@ -232,6 +232,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     this.skillEventBus?.clear();
     this.skillRegistry?.clear();
+    clearPassiveSkills();
 
     this.revealedEnemyCards = new Set();
 
@@ -321,9 +322,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
         playerCharacterIds: this.playerCharacterIds,
         enemyCharacterId: this.battle.enemyCharacterId,
       };
-      this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, initCtx).then(() => {
-        this.renderEnemyHand();
-      });
+      this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, initCtx)
+        .then(() => { this.renderEnemyHand(); })
+        .catch(() => {});
     }
   }
 

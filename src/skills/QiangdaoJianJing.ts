@@ -7,6 +7,7 @@ export const QiangdaoJianJing: SkillDefinition = {
   description: '造成伤害后，随机获得你的一张牌',
   timing: SkillTiming.AFTER_DAMAGE,
   priority: 100,
+  dialogLines: ['此路是我开，此树是我栽！', '留下买路财！'],
 
   filter: (ctx: SkillContext): boolean => {
     if (ctx.target !== 'player') return false;

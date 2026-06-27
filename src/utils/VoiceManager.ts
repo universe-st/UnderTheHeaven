@@ -117,7 +117,8 @@ export class VoiceManager {
         VoiceManager.current = null;
         VoiceManager.flush(scene);
       });
-    } catch {
+    } catch (err) {
+      console.warn('VoiceManager: failed to play voice', key, err);
       VoiceManager.current = null;
       VoiceManager.flush(scene);
     }

@@ -1,8 +1,9 @@
 import type { Card } from '../models/Card';
-	import type { HandPattern} from '../models/BattleTypes';
+import type { HandPattern} from '../models/BattleTypes';
 import { HandType } from '../models/BattleTypes';
-	import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
+import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
 import { PLAYER_CHARACTERS, ENEMY_CHARACTERS } from '../models/Character';
+import { canBeat } from './HandRecognizer';
 
 	export function countSuits(cards: Card[]): number {
 	  const suits = new Set(cards.map(c => c.suit).filter(Boolean));
@@ -33,29 +34,10 @@ import { PLAYER_CHARACTERS, ENEMY_CHARACTERS } from '../models/Character';
 	  return true;
 	}
 
-	export function canBeatOrEqual(newPlay: HandPattern, lastPlay: HandPattern): boolean {
-	  if (newPlay.type === HandType.Rocket) {
-	    if (lastPlay.type === HandType.Rocket) return false;
-	    return true;
-	  }
-
-	  if (newPlay.type === HandType.Bomb) {
-	    if (lastPlay.type === HandType.Rocket) return false;
-	    if (lastPlay.type === HandType.Bomb) {
-	      return newPlay.mainValue >= lastPlay.mainValue;
-	    }
-	    return true;
-	  }
-
-	  if (lastPlay.type === HandType.Bomb || lastPlay.type === HandType.Rocket) {
-	    return false;
-	  }
-
-	  if (newPlay.type !== lastPlay.type) return false;
-	  if (newPlay.length !== lastPlay.length) return false;
-
-	  return newPlay.mainValue >= lastPlay.mainValue;
-	}
+export function canBeatOrEqual(newPlay: HandPattern, lastPlay: HandPattern): boolean {
+  if (lastPlay.type === HandType.Rocket) return false;
+  return canBeat(newPlay, lastPlay) || isSamePattern(newPlay, lastPlay);
+}
 
 	export function getCharacterEnemyName(enemyId: EnemyCharacterId): string {
 	  return ENEMY_CHARACTERS[enemyId]?.name ?? '未知敌人';

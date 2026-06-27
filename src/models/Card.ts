@@ -62,7 +62,7 @@ export function shuffleDeck(deck: Card[]): Card[] {
 }
 
 /**
- * 对手牌按大小排序：rank 从小到大（3<4<...<K<A<2<小王<大王），同 rank 按花色（♠<♣<♥<♦）
+ * 对手牌按大小排序：rank 从大到小（大王>小王>2>A>K>...>3），同 rank 按花色（♠<♣<♥<♦）
  */
 export function sortHand(hand: Card[]): void {
   const suitOrder: Record<string, number> = {

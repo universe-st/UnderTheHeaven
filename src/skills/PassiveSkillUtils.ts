@@ -1,13 +1,7 @@
 import type { HandType, HandPattern } from '../models/BattleTypes';
+import type { ResponseBlockModifier } from './SkillTypes';
 
-export interface ResponseBlockContext {
-  lastPlay: HandPattern;
-}
-
-export interface ResponseBlockModifier {
-  type: 'response_block';
-  getBlockedTypes: (ctx: ResponseBlockContext) => HandType[];
-}
+export type { ResponseBlockModifier };
 
 const PASSIVE_SKILLS = new Map<string, ResponseBlockModifier[]>();
 

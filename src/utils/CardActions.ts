@@ -2,9 +2,8 @@ import type Phaser from 'phaser';
 import type { Card } from '../models/Card';
 import { sortHand, shuffleDeck } from '../models/Card';
 import { waitForTween, waitForDelay } from './AnimationUtils';
+import { CARD_W, CARD_H } from '../constants/Layout';
 
-const CARD_W = 180;
-const CARD_H = 252;
 const OVERLAP_OFFSET = CARD_W * 0.75;
 
 export interface CardActionResult {

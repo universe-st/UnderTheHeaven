@@ -7,6 +7,7 @@ export const HuangjinJunHuangTian: SkillDefinition = {
   description: '获得牌权时，随机弃置一张点数最小的牌并摸一张',
   timing: SkillTiming.ON_TURN_START,
   priority: 100,
+  dialogLines: ['苍天已死，黄天当立！', '岁在甲子，天下大吉！'],
 
   filter: (ctx: SkillContext): boolean => {
     return ctx.battle.enemy.hand.length > 0;

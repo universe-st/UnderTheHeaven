@@ -1,4 +1,4 @@
-import type { BattleState, HandPattern } from '../models/BattleTypes';
+import type { BattleState, HandPattern, HandType } from '../models/BattleTypes';
 import type { Card } from '../models/Card';
 
 export enum SkillTiming {
@@ -90,7 +90,17 @@ export interface PassiveSkill {
 
 export type PassiveModifier =
   | DamageModifier
-  | HandRuleModifier;
+  | HandRuleModifier
+  | ResponseBlockModifier;
+
+export interface ResponseBlockModifier {
+  type: 'response_block';
+  getBlockedTypes: (ctx: ResponseBlockContext) => HandType[];
+}
+
+export interface ResponseBlockContext {
+  lastPlay: HandPattern;
+}
 
 export interface DamageModifier {
   type: 'damage';

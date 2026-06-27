@@ -79,14 +79,14 @@ export class GameAudioManager {
 
   static setBgmVolume(volume: number): void {
     for (const bgm of GameAudioManager.bgmSounds.values()) {
-      (bgm as any).volume = volume;
+      (bgm as unknown as { volume: number }).volume = volume;
     }
   }
 
   static setSfxVolume(volume: number): void {
     for (const sounds of GameAudioManager.sfxSounds.values()) {
       for (const sound of sounds) {
-        (sound as any).volume = volume;
+        (sound as unknown as { volume: number }).volume = volume;
       }
     }
   }
@@ -105,7 +105,7 @@ export class GameAudioManager {
   static setVoiceVolume(volume: number): void {
     for (const sounds of GameAudioManager.voiceSounds.values()) {
       for (const sound of sounds) {
-        (sound as any).volume = volume;
+        (sound as unknown as { volume: number }).volume = volume;
       }
     }
   }
