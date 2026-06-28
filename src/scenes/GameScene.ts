@@ -227,8 +227,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.createButtons(width, height);
     this.createPatternHint(width, height);
     this.createTurnIndicator(width, height);
-    this.createHandPatternButton(width, height);
-    this.createSettingsButton(width, height);
 
     this.battle = this.initBattle();
 
@@ -252,6 +250,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.battleFlowManager = new BattleFlowManager(this);
     this.activeSkillManager = new ActiveSkillManager(this);
     this.bgmManager = new BgmManager(this);
+
+    this.createHandPatternButton(width, height);
+    this.createSettingsButton(width, height);
 
     this.renderAllCards();
     this.dragInputManager.setup();
