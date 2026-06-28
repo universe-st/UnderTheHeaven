@@ -5,11 +5,12 @@ import type { PlayerCharacterId } from '../../models/Character';
 import type { ActiveSkillDefinition, CharacterSlotManager } from '../../skills';
 import { LiuBoWenChouCe } from '../../skills';
 import { GameAudioManager } from '../../utils/GameAudioManager';
+import type { CardDisplayManager } from './CardDisplayManager';
 import { FONT_FAMILY, DEPTH_UI } from '../../constants/Layout';
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
-interface ActiveSkillHost extends CharacterSlotManager {
+interface ActiveSkillHost {
   readonly scale: Phaser.Scale.ScaleManager;
   readonly add: Phaser.GameObjects.GameObjectFactory;
   readonly tweens: Phaser.Tweens.TweenManager;
@@ -33,20 +34,30 @@ interface ActiveSkillHost extends CharacterSlotManager {
 
   getSelectedCards(): Card[];
   updateUIForPhase(): void;
-  renderPlayerHand(animateEntry?: boolean): void;
-  fadeOutCenterCardsAsync(): Promise<void>;
-  aiInitiatePlay(): Promise<void>;
-  refillPlayerHand(): void;
   updatePatternHint(): void;
 }
 
 export class ActiveSkillManager {
   private host: ActiveSkillHost;
   private scene: Phaser.Scene;
+  private slotManager: CharacterSlotManager;
+  private cardDisplay: CardDisplayManager;
+  private onAiInitiatePlay: () => Promise<void>;
+  private onRefillPlayerHand: () => void;
 
-  constructor(host: ActiveSkillHost & Phaser.Scene) {
+  constructor(
+    host: ActiveSkillHost & Phaser.Scene,
+    slotManager: CharacterSlotManager,
+    cardDisplay: CardDisplayManager,
+    onAiInitiatePlay: () => Promise<void>,
+    onRefillPlayerHand: () => void,
+  ) {
     this.host = host;
     this.scene = host;
+    this.slotManager = slotManager;
+    this.cardDisplay = cardDisplay;
+    this.onAiInitiatePlay = onAiInitiatePlay;
+    this.onRefillPlayerHand = onRefillPlayerHand;
   }
 
   getBattle(): BattleState {
@@ -55,7 +66,7 @@ export class ActiveSkillManager {
 
   renderPlayerHandAfterSkill(): void {
     this.host.selectedIndices.clear();
-    this.host.renderPlayerHand(false);
+    this.cardDisplay.renderPlayerHand(false);
     this.host.updatePatternHint();
     this.host.updateUIForPhase();
   }
@@ -239,31 +250,31 @@ export class ActiveSkillManager {
     }
 
     GameAudioManager.playSfx(this.scene, 'sfx_skill_trigger');
-    await this.host.glowOn('liubowen');
-    await this.host.moveToFront('liubowen');
-    await this.host.shakeAndPulse('liubowen');
-    this.host.showDialog('liubowen', '人算不如天算，天算不如我算！');
+    await this.slotManager.glowOn('liubowen');
+    await this.slotManager.moveToFront('liubowen');
+    await this.slotManager.shakeAndPulse('liubowen');
+    this.slotManager.showDialog('liubowen', '人算不如天算，天算不如我算！');
 
     await skill.execute(this.scene, selected);
 
     const used = this.host.activeSkillUseCounts.get(skill.id) ?? 0;
     this.host.activeSkillUseCounts.set(skill.id, used + 1);
 
-    await this.host.glowOff('liubowen');
-    await this.host.restoreSlot('liubowen');
+    await this.slotManager.glowOff('liubowen');
+    await this.slotManager.restoreSlot('liubowen');
 
     const playerHand = this.host.battle.player.hand;
 
     if (playerHand.length === 0) {
       this.host.battle.lastPlay = null;
-      this.host.refillPlayerHand();
-      this.host.renderPlayerHand(true);
-      await this.host.fadeOutCenterCardsAsync();
+      this.onRefillPlayerHand();
+      this.cardDisplay.renderPlayerHand(true);
+      await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.battle.turnHolder = 'enemy';
       this.host.phase = 'ai_init';
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
-      await this.host.aiInitiatePlay();
+      await this.onAiInitiatePlay();
       return;
     }
 
@@ -277,7 +288,7 @@ export class ActiveSkillManager {
       this.host.phase = 'ai_init';
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
-      await this.host.aiInitiatePlay();
+      await this.onAiInitiatePlay();
       return;
     }
 

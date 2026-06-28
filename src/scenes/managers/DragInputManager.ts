@@ -12,7 +12,6 @@ interface DragInputHost {
   cardObjects: Phaser.GameObjects.Container[];
   selectedIndices: Set<number>;
   phase: GamePhase;
-  onCardClick(index: number): void;
   updatePatternHint(): void;
   updateActiveSkillButton(): void;
 }
@@ -73,7 +72,7 @@ export class DragInputManager {
       if (!this.dragActive) {
         const idx = this.getCardIndexAtPosition(pointer.x, pointer.y);
         if (idx !== null && idx === this.dragStartIndex) {
-          this.host.onCardClick(idx);
+          this.onCardClick(idx);
         }
       }
 
@@ -167,5 +166,54 @@ export class DragInputManager {
   private isPlayerTurn(): boolean {
     const phase = this.host.phase;
     return phase === 'player_init' || phase === 'player_respond';
+  }
+
+  onCardClick(index: number): void {
+    const phase = this.host.phase;
+    if (phase === 'animating' || phase === 'game_over' || phase === 'ai_init' || phase === 'ai_respond') {
+      return;
+    }
+
+    const selected = this.host.selectedIndices;
+    if (selected.has(index)) {
+      selected.delete(index);
+    } else {
+      selected.add(index);
+    }
+
+    const { height } = this.host.scale;
+    const baseY = height - 90;
+
+    const cards = this.host.cardObjects;
+    for (let i = 0; i < cards.length; i++) {
+      const obj = cards[i]!;
+      const isSelected = selected.has(i);
+      const targetY = baseY + (isSelected ? SELECTED_OFFSET : 0);
+      const glowG = obj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
+
+      if (obj.y !== targetY) {
+        this.host.tweens.add({
+          targets: obj,
+          y: targetY,
+          duration: 300,
+          ease: 'Sine.easeOut',
+        });
+      }
+
+      if (glowG) {
+        const targetAlpha = isSelected ? 1 : 0;
+        if (glowG.alpha !== targetAlpha) {
+          this.host.tweens.add({
+            targets: glowG,
+            alpha: targetAlpha,
+            duration: 300,
+            ease: 'Sine.easeOut',
+          });
+        }
+      }
+    }
+
+    this.host.updatePatternHint();
+    this.host.updateActiveSkillButton();
   }
 }

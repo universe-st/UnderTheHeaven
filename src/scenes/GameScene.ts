@@ -1,24 +1,19 @@
 import Phaser from 'phaser';
 import type { Card} from '../models/Card';
-import { createDeck, shuffleDeck, cardDisplayName, sortHand, resetCardIdCounter, sortPlayedCards } from '../models/Card';
+import { createDeck, shuffleDeck, sortHand, resetCardIdCounter, sortPlayedCards } from '../models/Card';
 import type { BattleState, HandPattern} from '../models/BattleTypes';
-import { HandType, HAND_TYPE_LABELS } from '../models/BattleTypes';
-import { identifyHand, canBeat, findAllPlays, findBeatingPlays } from '../engine/HandRecognizer';
 import { decidePlay } from '../engine/AIBrain';
-import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
 import { GameAudioManager } from '../utils/GameAudioManager';
 import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../utils/VoiceManager';
 import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
 import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayerCharacter } from '../models/Character';
-import { canBeatOrEqual, getCharacterEnemyName } from '../engine/CharacterAbilities';
-import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, type SkillContext, type CharacterSlotManager, type ActiveSkillDefinition } from '../skills';
-import { getBlockedResponseTypes, clearPassiveSkills } from '../skills/PassiveSkillUtils';
+import { getCharacterEnemyName } from '../engine/CharacterAbilities';
+import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, type SkillContext, type ActiveSkillDefinition } from '../skills';
+import { clearPassiveSkills } from '../skills/PassiveSkillUtils';
 import {
-  FONT_FAMILY, SELECTED_OFFSET,
-  AVATAR_SOURCE_SIZE,
+  FONT_FAMILY,
   DEPTH_BG, DEPTH_BG_BORDER, DEPTH_UI,
   DEPTH_CENTER_BASE, DEPTH_DAMAGE,
-  DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT,
 } from '../constants/Layout';
 import { DragInputManager } from './managers/DragInputManager';
 import { HealthBarManager } from './managers/HealthBarManager';
@@ -28,6 +23,9 @@ import { CardDisplayManager } from './managers/CardDisplayManager';
 import { BattleFlowManager } from './managers/BattleFlowManager';
 import { CharacterBarManager } from './managers/CharacterBarManager';
 import { ActiveSkillManager } from './managers/ActiveSkillManager';
+import { InfoBarManager } from './managers/InfoBarManager';
+import { PatternHintManager } from './managers/PatternHintManager';
+import { ButtonManager } from './managers/ButtonManager';
 import { BgmManager } from './managers/BgmManager';
 
 interface TestBattleConfig {
@@ -39,7 +37,7 @@ interface TestBattleConfig {
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
-export class GameScene extends Phaser.Scene implements CharacterSlotManager {
+export class GameScene extends Phaser.Scene {
   battle!: BattleState;
   phase: GamePhase = 'player_init';
 
@@ -53,13 +51,13 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   enemyVitalityText!: Phaser.GameObjects.Text;
   playerDeckText!: Phaser.GameObjects.Text;
   enemyDeckText!: Phaser.GameObjects.Text;
-  private patternHintText!: Phaser.GameObjects.Text;
+  patternHintText!: Phaser.GameObjects.Text;
   private turnIndicatorText!: Phaser.GameObjects.Text;
   private thinkingText!: Phaser.GameObjects.Text;
   btnPlay!: Phaser.GameObjects.Container;
   btnPass!: Phaser.GameObjects.Container;
-  private btnPlayText!: Phaser.GameObjects.Text;
-  private btnPassText!: Phaser.GameObjects.Text;
+  btnPlayText!: Phaser.GameObjects.Text;
+  btnPassText!: Phaser.GameObjects.Text;
 
   btnSkill: Phaser.GameObjects.Container | null = null;
   btnSkillText: Phaser.GameObjects.Text | null = null;
@@ -69,11 +67,11 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   activeSkillEligibleIds: string[] = [];
   currentActiveSkillId: string | null = null;
 
-  private enemyNameText!: Phaser.GameObjects.Text;
-  private enemyNameFrame!: Phaser.GameObjects.Graphics;
-  private playerNameText!: Phaser.GameObjects.Text;
+  enemyNameText!: Phaser.GameObjects.Text;
+  enemyNameFrame!: Phaser.GameObjects.Graphics;
+  playerNameText!: Phaser.GameObjects.Text;
   enemyAvatarImage!: Phaser.GameObjects.Image;
-  private enemyAvatarBorder!: Phaser.GameObjects.Graphics;
+  enemyAvatarBorder!: Phaser.GameObjects.Graphics;
 
   private cardHandGroup!: Phaser.GameObjects.Container;
   private aiHandGroup!: Phaser.GameObjects.Container;
@@ -131,6 +129,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   private battleFlowManager!: BattleFlowManager;
   private characterBarManager!: CharacterBarManager;
   private activeSkillManager!: ActiveSkillManager;
+  private infoBarManager!: InfoBarManager;
+  private patternHintManager!: PatternHintManager;
+  private buttonManager!: ButtonManager;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -223,14 +224,14 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.cameras.main.fadeIn(400);
 
     this.drawBackground(width, height);
-    this.createInfoBars(width, height);
-    this.createButtons(width, height);
     this.createPatternHint(width, height);
     this.createTurnIndicator(width, height);
 
     this.battle = this.initBattle();
 
     this.characterBarManager = new CharacterBarManager(this);
+    this.infoBarManager = new InfoBarManager(this, this.characterBarManager);
+    this.infoBarManager.createInfoBars(width, height);
     this.createCharacterSlots(width, height);
 
     this.enemyNameText.setText(this.battle.enemy.name);
@@ -247,9 +248,27 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.damageSettlementManager = new DamageSettlementManager(this);
     this.modalManager = new ModalManager(this);
     this.cardDisplayManager = new CardDisplayManager(this);
-    this.battleFlowManager = new BattleFlowManager(this);
-    this.activeSkillManager = new ActiveSkillManager(this);
+    this.battleFlowManager = new BattleFlowManager(
+      this,
+      this.cardDisplayManager,
+      this.damageSettlementManager,
+      () => this.bgmManager.stopBattleBgm(),
+    );
+    this.activeSkillManager = new ActiveSkillManager(
+      this,
+      this.characterBarManager,
+      this.cardDisplayManager,
+      () => this.battleFlowManager.aiInitiatePlay(),
+      () => this.battleFlowManager.refillPlayerHand(),
+    );
     this.bgmManager = new BgmManager(this);
+
+    this.buttonManager = new ButtonManager(
+      this,
+      () => this.battleFlowManager.onPlayClick(),
+      () => this.battleFlowManager.onPassClick(),
+    );
+    this.buttonManager.createButtons(width, height);
 
     this.createHandPatternButton(width, height);
     this.createSettingsButton(width, height);
@@ -284,7 +303,9 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
     const visualManager = new SkillVisualManagerImpl(this);
 
-    this.skillRunner = new SkillRunner(this.skillRegistry, this.skillEventBus, visualManager, this);
+    this.skillRunner = new SkillRunner(this.skillRegistry, this.skillEventBus, visualManager, this.characterBarManager);
+
+    this.patternHintManager = new PatternHintManager(this, this.skillRunner);
 
     this.initActiveSkills();
 
@@ -381,165 +402,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     border.strokeRect(8, 8, w - 16, h - 16);
   }
 
-  private createInfoBars(w: number, _h: number): void {
-    // Enemy info bar (top)
-    const enemyBarY = 50;
-    const enemyBarX = 120;
-    const barW = 420;
-    const barH = 34;
-
-    this.enemyNameText = this.add.text(enemyBarX, enemyBarY - 22, '山贼头目', {
-      fontSize: '26px',
-      fontFamily: FONT_FAMILY,
-      color: '#c8a050',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0, 0.5).setShadow(0, 2, '#1a0800', 4, true, true).setDepth(DEPTH_UI);
-
-    // 敌方名字线框（金色边框背景）
-    this.enemyNameFrame = this.add.graphics();
-    this.enemyNameFrame.setDepth(DEPTH_UI - 1);
-    const namePad = 8;
-    const nameH = 32;
-    this.enemyNameFrame.fillStyle(0x2a1a0f, 0.6);
-    this.enemyNameFrame.fillRoundedRect(enemyBarX - namePad, enemyBarY - 22 - nameH / 2 - namePad, barW + namePad * 2 - 8, nameH + namePad * 2, 4);
-    this.enemyNameFrame.lineStyle(1.5, 0xb89040, 0.5);
-    this.enemyNameFrame.strokeRoundedRect(enemyBarX - namePad, enemyBarY - 22 - nameH / 2 - namePad, barW + namePad * 2 - 8, nameH + namePad * 2, 4);
-
-    // 敌人头像（敌人名字左侧，战斗开始后根据 enemyCharacterId 设置纹理）
-    const avatarSize = 80;
-    const avatarDisplaySize = 68;
-    const avatarX = enemyBarX - 66;
-    const avatarY = enemyBarY - 2;
-    this.enemyAvatarBorder = this.add.graphics();
-    this.enemyAvatarBorder.setDepth(DEPTH_UI);
-    this.enemyAvatarBorder.fillStyle(0x2a1a0f, 0.85);
-    this.enemyAvatarBorder.fillRoundedRect(avatarX - avatarSize / 2, avatarY - avatarSize / 2, avatarSize, avatarSize, 6);
-    this.enemyAvatarBorder.lineStyle(2, 0xb89040, 0.7);
-    this.enemyAvatarBorder.strokeRoundedRect(avatarX - avatarSize / 2, avatarY - avatarSize / 2, avatarSize, avatarSize, 6);
-    this.enemyAvatarBorder.setVisible(false);
-
-    this.enemyAvatarImage = this.add.image(avatarX, avatarY, 'char_huangjinjun')
-      .setScale(avatarDisplaySize / AVATAR_SOURCE_SIZE)
-      .setDepth(DEPTH_UI)
-      .setVisible(false);
-
-    this.enemyAvatarImage.setInteractive({ cursor: 'pointer' });
-    this.enemyAvatarImage.on('pointerdown', () => {
-      GameAudioManager.playSfx(this, 'sfx_button');
-      this.showEnemyInfoWindow();
-    });
-
-    const enemyBg = this.add.graphics();
-    enemyBg.setDepth(DEPTH_UI);
-    enemyBg.fillStyle(0xf0ebe0, 0.85);
-    enemyBg.fillRoundedRect(enemyBarX, enemyBarY + 6, barW, barH, 4);
-    enemyBg.lineStyle(1, 0x9a8a6a, 0.6);
-    enemyBg.strokeRoundedRect(enemyBarX, enemyBarY + 6, barW, barH, 4);
-
-    this.enemyVitalityBar = this.add.graphics();
-    this.enemyVitalityBar.setDepth(DEPTH_UI);
-    this.enemyVitalityText = this.add.text(enemyBarX + barW / 2, enemyBarY + 6 + barH / 2, '', {
-      fontSize: '16px',
-      fontFamily: FONT_FAMILY,
-      color: '#2a1008',
-    }).setOrigin(0.5).setDepth(DEPTH_UI);
-
-    // 玩家信息栏（中下方，高于按钮和手牌）
-    const playerBarY = _h - 380;
-
-    this.playerNameText = this.add.text(enemyBarX, playerBarY - 16, '玩家', {
-      fontSize: '24px',
-      fontFamily: FONT_FAMILY,
-      color: '#4a2a10',
-    }).setDepth(DEPTH_UI).setVisible(false);
-
-    const playerBg = this.add.graphics();
-    playerBg.setDepth(DEPTH_UI);
-    playerBg.fillStyle(0xf0ebe0, 0.85);
-    playerBg.fillRoundedRect(enemyBarX, playerBarY + 6, barW, barH, 4);
-    playerBg.lineStyle(1, 0x9a8a6a, 0.6);
-    playerBg.strokeRoundedRect(enemyBarX, playerBarY + 6, barW, barH, 4);
-
-    this.playerVitalityBar = this.add.graphics();
-    this.playerVitalityBar.setDepth(DEPTH_UI);
-    this.playerVitalityText = this.add.text(enemyBarX + barW / 2, playerBarY + 6 + barH / 2, '', {
-      fontSize: '16px',
-      fontFamily: FONT_FAMILY,
-      color: '#2a1008',
-    }).setOrigin(0.5).setDepth(DEPTH_UI);
-
-    const deckTextX = enemyBarX + barW + 24;
-    this.enemyDeckText = this.add.text(deckTextX, enemyBarY + 6 + barH / 2, '', {
-      fontSize: '16px',
-      fontFamily: FONT_FAMILY,
-      color: '#5a3a20',
-    }).setOrigin(0, 0.5).setDepth(DEPTH_UI);
-
-    this.playerDeckText = this.add.text(deckTextX, playerBarY + 6 + barH / 2, '', {
-      fontSize: '16px',
-      fontFamily: FONT_FAMILY,
-      color: '#5a3a20',
-    }).setOrigin(0, 0.5).setDepth(DEPTH_UI);
-
-  }
-
-  private createButtons(w: number, h: number): void {
-    const btnY = h - 320;
-    const btnW = 250;
-    const btnH = 80;
-
-    // Play button
-    this.btnPlay = this.add.container(w / 2 - 160, btnY).setDepth(DEPTH_UI);
-    const playBg = this.add.graphics();
-    playBg.fillStyle(0xc8a878, 1);
-    playBg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-    playBg.lineStyle(1.5, 0x8a6030, 0.85);
-    playBg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-    this.btnPlay.add(playBg);
-
-    this.btnPlayText = this.add.text(0, 0, '出  牌', {
-      fontSize: '28px',
-      fontFamily: FONT_FAMILY,
-      color: '#1a0a04',
-      stroke: '#e8dcc8',
-      strokeThickness: 2,
-    }).setOrigin(0.5);
-    this.btnPlay.add(this.btnPlayText);
-
-    const playZone = this.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: 'pointer' });
-    playZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this, 'sfx_button');
-      this.onPlayClick();
-    });
-    this.btnPlay.add(playZone);
-
-    // Pass button
-    this.btnPass = this.add.container(w / 2 + 160, btnY).setDepth(DEPTH_UI);
-    const passBg = this.add.graphics();
-    passBg.fillStyle(0xe8dcc8, 1);
-    passBg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-    passBg.lineStyle(1, 0xb8a888, 0.6);
-    passBg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-    this.btnPass.add(passBg);
-
-    this.btnPassText = this.add.text(0, 0, '不  出', {
-      fontSize: '28px',
-      fontFamily: FONT_FAMILY,
-      color: '#7a6a50',
-      stroke: '#e8dcc8',
-      strokeThickness: 2,
-    }).setOrigin(0.5);
-    this.btnPass.add(this.btnPassText);
-
-    const passZone = this.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: 'pointer' });
-    passZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this, 'sfx_button');
-      this.onPassClick();
-    });
-    this.btnPass.add(passZone);
-  }
-
   private createPatternHint(w: number, h: number): void {
     this.patternHintText = this.add.text(w / 2, h - 370, '', {
       fontSize: '22px',
@@ -568,54 +430,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
 
   private createCharacterSlots(w: number, h: number): void {
     this.characterBarManager.createCharacterSlots(w, h);
-  }
-
-  // ═══════════════════════════════════════════════
-  //  CharacterSlotManager implementation
-  // ═══════════════════════════════════════════════
-
-  isPlayerCharacter(characterId: string): boolean {
-    return this.characterBarManager.isPlayerCharacter(characterId);
-  }
-
-  getCharacterOrder(characterId: string): number {
-    return this.characterBarManager.getCharacterOrder(characterId);
-  }
-
-  showDialog(characterId: string, text: string): void {
-    this.characterBarManager.showDialog(characterId, text);
-  }
-
-  async glowOn(characterId: string): Promise<void> {
-    return this.characterBarManager.glowOn(characterId);
-  }
-
-  /**
-   * 技能触发强调动效：左右晃动（加速）的同时放大，晃动结束后缩小回原尺寸。
-   * 在 moveToFront 之后调用。晃动与放大并行以缩短总时长。
-   */
-  async shakeAndPulse(characterId: string): Promise<void> {
-    return this.characterBarManager.shakeAndPulse(characterId);
-  }
-
-  async glowOff(characterId: string): Promise<void> {
-    return this.characterBarManager.glowOff(characterId);
-  }
-
-  async moveToFront(characterId: string): Promise<void> {
-    return this.characterBarManager.moveToFront(characterId);
-  }
-
-  async restoreSlot(_characterId: string): Promise<void> {
-    return this.characterBarManager.restoreSlot(_characterId);
-  }
-
-  private showEnemyInfoWindow(): void {
-    this.characterBarManager.showEnemyInfoWindow();
-  }
-
-  private closeEnemyInfoWindow(): void {
-    this.characterBarManager.closeEnemyInfoWindow();
   }
 
   // ═══════════════════════════════════════════════
@@ -688,173 +502,21 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
   //  Interaction
   // ═══════════════════════════════════════════════
 
-  onCardClick(index: number): void {
-    if (this.phase === 'animating' || this.phase === 'game_over' || this.phase === 'ai_init' || this.phase === 'ai_respond') {
-      return;
-    }
-
-    if (this.selectedIndices.has(index)) {
-      this.selectedIndices.delete(index);
-    } else {
-      this.selectedIndices.add(index);
-    }
-
-    const { height } = this.scale;
-    const baseY = height - 90;
-
-    for (let i = 0; i < this.cardObjects.length; i++) {
-      const obj = this.cardObjects[i]!;
-      const isSelected = this.selectedIndices.has(i);
-      const targetY = baseY + (isSelected ? SELECTED_OFFSET : 0);
-      const glowG = obj.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
-
-      if (obj.y !== targetY) {
-        this.tweens.add({
-          targets: obj,
-          y: targetY,
-          duration: 300,
-          ease: 'Sine.easeOut',
-        });
-      }
-
-      if (glowG) {
-        const targetAlpha = isSelected ? 1 : 0;
-        if (glowG.alpha !== targetAlpha) {
-          this.tweens.add({
-            targets: glowG,
-            alpha: targetAlpha,
-            duration: 300,
-            ease: 'Sine.easeOut',
-          });
-        }
-      }
-
-
-    }
-
-    this.updatePatternHint();
-    this.updateActiveSkillButton();
-  }
-
   getSelectedCards(): Card[] {
     return [...this.selectedIndices].sort((a, b) => a - b).map(i => this.battle.player.hand[i]!).filter((c): c is Card => c !== undefined);
   }
 
   updatePatternHint(): void {
-    const selected = this.getSelectedCards();
-    if (selected.length === 0) {
-      this.patternHintText.setText('');
-      return;
-    }
-
-    const pattern = identifyHand(selected);
-    if (pattern) {
-      this.showPatternHint(pattern, selected, false);
-    } else {
-      this.patternHintText.setText('无效牌型');
-      this.patternHintText.setColor('#a04040');
-      this.checkHandValidationHint(selected);
-    }
+    this.patternHintManager.updatePatternHint();
   }
 
-  private showPatternHint(pattern: HandPattern, selected: Card[], isChouSuan: boolean): void {
-    const label = isChouSuan ? '顺子（筹算）' : HAND_TYPE_LABELS[pattern.type];
-    const cardsStr = selected.map(c => cardDisplayName(c)).join('');
-
-    if (this.battle.lastPlay && this.phase === 'player_respond') {
-      const playerChar = this.battle.player.characterId;
-      const canBeatPlay = playerChar === 'zhugeliang'
-        ? canBeatOrEqual(pattern, this.battle.lastPlay)
-        : canBeat(pattern, this.battle.lastPlay);
-      if (!canBeatPlay) {
-        this.patternHintText.setText(`${label} ${cardsStr}（打不过上家）`);
-        this.patternHintText.setColor('#a08040');
-        return;
-      }
-    }
-
-    this.patternHintText.setText(`${label}: ${cardsStr}`);
-    this.patternHintText.setColor('#b89050');
-  }
-
-  private async checkHandValidationHint(selected: Card[]): Promise<void> {
-    const playerChar = this.battle.player.characterId;
-    if (!playerChar) return;
-
-    const ctx: SkillContext = {
-      gameScene: this,
-      battle: this.battle,
-      sourceCharacterId: playerChar,
-      playerCharacterIds: this.playerCharacterIds,
-      enemyCharacterId: this.battle.enemyCharacterId,
-      handValidation: {
-        hand: this.battle.player.hand,
-        candidateCards: selected,
-        basePattern: null,
-        additionalPatterns: [],
-      },
-    };
-    const additionalPatterns = await this.skillRunner.modifyHandValidation(ctx);
-    if (additionalPatterns.length > 0) {
-      this.showPatternHint(additionalPatterns[0]!, selected, true);
-    }
-  }
-
-  private async onPlayClick(): Promise<void> {
-    await this.battleFlowManager.onPlayClick();
-  }
-
-  private async onPassClick(): Promise<void> {
-    await this.battleFlowManager.onPassClick();
+  private playerHasPlayablePattern(): boolean {
+    return this.patternHintManager.playerHasPlayablePattern();
   }
 
   // ═══════════════════════════════════════════════
   //  Battle Logic
   // ═══════════════════════════════════════════════
-
-  private async executePlay(cards: Card[], pattern: HandPattern): Promise<void> {
-    await this.battleFlowManager.executePlay(cards, pattern);
-  }
-
-  private async handlePostPlayEmptyHandCheck(hand: Card[], pattern: HandPattern): Promise<void> {
-    await this.battleFlowManager.handlePostPlayEmptyHandCheck(hand, pattern);
-  }
-
-  private async executePass(who: 'player' | 'enemy'): Promise<void> {
-    await this.battleFlowManager.executePass(who);
-  }
-
-  private showPassAnimation(who: 'player' | 'enemy'): Promise<void> {
-    return this.battleFlowManager.showPassAnimation(who);
-  }
-
-  refillPlayerHand(): void {
-    this.battleFlowManager.refillPlayerHand();
-  }
-
-  private refillEnemyHand(): void {
-    this.battleFlowManager.refillEnemyHand();
-  }
-
-  /**
-   * 获得牌权时的安全网：若该方手牌为空（例如被弃置技能清空），
-   * 立即摸满 17 张并刷新显示。手牌非空时为无操作。
-   */
-  private async refillIfEmpty(who: 'player' | 'enemy'): Promise<void> {
-    await this.battleFlowManager.refillIfEmpty(who);
-  }
-
-  private async aiRespond(): Promise<void> {
-    await this.battleFlowManager.aiRespond();
-  }
-
-  async aiInitiatePlay(): Promise<void> {
-    await this.battleFlowManager.aiInitiatePlay();
-  }
-
-  private findCardIndices(hand: Card[], cards: Card[]): number[] {
-    return this.battleFlowManager.findCardIndices(hand, cards);
-  }
 
   // ═══════════════════════════════════════════════
   //  UI Updates
@@ -1025,77 +687,6 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
       ease: 'Sine.easeOut',
       onComplete: () => text.destroy(),
     });
-  }
-
-  showGameOver(playerWin: boolean): void {
-    this.phase = 'game_over';
-    this.bgmManager.stopBattleBgm();
-
-    if (playerWin) {
-      const settings = loadAudioSettings();
-      const victory = this.sound.add('victory_jingle', { volume: settings.sfxVolume });
-      GameAudioManager.track(this, victory);
-      victory.play();
-    } else {
-      GameAudioManager.playBgm(this, 'bgm_failure', { loop: false });
-    }
-
-    const { width, height } = this.scale;
-    const overlay = this.add.graphics();
-    overlay.setDepth(DEPTH_OVERLAY);
-    overlay.fillStyle(0x000000, 0.7);
-    overlay.fillRect(0, 0, width, height);
-
-    const resultText = playerWin ? '胜利' : '败北';
-    const resultColor = playerWin ? '#6a4a20' : '#802020';
-
-    const title = this.add.text(width / 2, height / 2 - 50, resultText, {
-      fontSize: '80px',
-      fontFamily: FONT_FAMILY,
-      color: resultColor,
-      stroke: '#f0ebe0',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
-
-    const hint = this.add.text(width / 2, height / 2 + 30, '点击返回主菜单', {
-      fontSize: '24px',
-      fontFamily: FONT_FAMILY,
-      color: '#8a7a60',
-    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
-
-    this.tweens.add({
-      targets: title,
-      scaleX: { from: 0.5, to: 1 },
-      scaleY: { from: 0.5, to: 1 },
-      duration: 400,
-      ease: 'Back.easeOut',
-    });
-
-    this.time.delayedCall(500, () => {
-      this.input.once('pointerdown', () => {
-        this.cameras.main.fadeOut(400, 0, 0, 0);
-        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-          this.scene.start('MenuScene');
-        });
-      });
-    });
-  }
-
-  private playerHasPlayablePattern(): boolean {
-    const hand = this.battle.player.hand;
-    if (this.phase === 'player_init') {
-      const allPlays = findAllPlays(hand);
-      return allPlays.length > 0;
-    }
-    if (this.phase === 'player_respond' && this.battle.lastPlay) {
-      let beatingPlays = findBeatingPlays(hand, this.battle.lastPlay);
-      const blockedTypes = getBlockedResponseTypes(this.battle.enemyCharacterId, this.battle.lastPlay);
-      if (blockedTypes.length > 0) {
-        beatingPlays = beatingPlays.filter(p => !blockedTypes.includes(p.type));
-      }
-      return beatingPlays.length > 0;
-    }
-    return false;
   }
 
   // ═══════════════════════════════════════════════

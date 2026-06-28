@@ -1,4 +1,4 @@
-import type Phaser from 'phaser';
+import Phaser from 'phaser';
 import type { Card } from '../../models/Card';
 import { createDeck, shuffleDeck, sortHand, sortPlayedCards } from '../../models/Card';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
@@ -14,10 +14,13 @@ import { SkillEventBus, SkillRunner, SkillTiming } from '../../skills';
 import type { SkillContext } from '../../skills';
 import { getBlockedResponseTypes } from '../../skills/PassiveSkillUtils';
 import { waitForDelay, waitForTween } from '../../utils/AnimationUtils';
+import type { CardDisplayManager } from './CardDisplayManager';
+import type { DamageSettlementManager } from './DamageSettlementManager';
 import {
   FONT_FAMILY, CARD_W, CARD_H,
-  DEPTH_CENTER_BASE, DEPTH_OVERLAY_TEXT,
+  DEPTH_CENTER_BASE, DEPTH_OVERLAY_TEXT, DEPTH_OVERLAY,
 } from '../../constants/Layout';
+import { loadAudioSettings } from '../../AudioSettings';
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
@@ -38,47 +41,30 @@ export interface BattleFlowHost {
   skillRunner: SkillRunner;
 
   getSelectedCards(): Card[];
-  renderPlayerHand(animateEntry?: boolean): void;
-  renderEnemyHand(animateEntry?: boolean, baseDelay?: number, onComplete?: () => void): void;
-  renderEnemyHandAsync(delay: number): Promise<void>;
-  clearCenterCards(): void;
-  fadeOutCenterCardsAsync(): Promise<void>;
-  animateCardsToPositionsAsync(
-    cards: Phaser.GameObjects.Container[],
-    positions: Array<{ x: number; y: number }>,
-    duration: number,
-  ): Promise<void>;
-  animateShiftAndReplaceAsync(
-    oldCards: Phaser.GameObjects.Container[],
-    newCards: Phaser.GameObjects.Container[],
-    duration: number,
-  ): Promise<void>;
-  getCardFanPositions(
-    count: number,
-    centerX: number,
-    centerY: number,
-  ): Array<{ x: number; y: number }>;
-  createEnemyDisplayCards(indices: number[]): Phaser.GameObjects.Container[];
   updateUIForPhase(): void;
   updateTurnIndicator(who: 'player' | 'enemy'): void;
-  playDamageSettlement(
-    pattern: HandPattern,
-    target: 'enemy' | 'player',
-    isEmptyHand: boolean,
-  ): Promise<void>;
-  showGameOver(playerWin: boolean): void;
   initActiveSkills(): void;
-  updateCardShadowGlow(container: Phaser.GameObjects.Container, isGlow: boolean): void;
   updatePatternHint(): void;
 }
 
 export class BattleFlowManager {
   private host: BattleFlowHost;
   private scene: Phaser.Scene;
+  private cardDisplay: CardDisplayManager;
+  private damageSettlement: DamageSettlementManager;
+  private stopBattleBgm: () => void;
 
-  constructor(host: BattleFlowHost & Phaser.Scene) {
+  constructor(
+    host: BattleFlowHost & Phaser.Scene,
+    cardDisplay: CardDisplayManager,
+    damageSettlement: DamageSettlementManager,
+    stopBattleBgm: () => void,
+  ) {
     this.host = host;
     this.scene = host;
+    this.cardDisplay = cardDisplay;
+    this.damageSettlement = damageSettlement;
+    this.stopBattleBgm = stopBattleBgm;
   }
 
   async onPlayClick(): Promise<void> {
@@ -220,15 +206,15 @@ export class BattleFlowManager {
     }
 
     for (const card of animatedCards) {
-      this.host.updateCardShadowGlow(card, false);
+      this.cardDisplay.updateCardShadowGlow(card, false);
     }
 
     this.host.battle.lastPlay = pattern;
     this.host.battle.turnHolder = 'player';
 
-    this.host.clearCenterCards();
+    this.cardDisplay.clearCenterCards();
     sortHand(playerHand);
-    this.host.renderPlayerHand();
+    this.cardDisplay.renderPlayerHand();
     this.host.updatePatternHint();
 
     const onPlayCtx: SkillContext = {
@@ -249,8 +235,8 @@ export class BattleFlowManager {
       return;
     }
 
-    const positions = this.host.getCardFanPositions(animatedCards.length, 1200, 475);
-    await this.host.animateCardsToPositionsAsync(animatedCards, positions, 120);
+    const positions = this.cardDisplay.getCardFanPositions(animatedCards.length, 1200, 475);
+    await this.cardDisplay.animateCardsToPositionsAsync(animatedCards, positions, 120);
 
     for (const card of animatedCards) {
       const labelText = card.getData('consideredAsLabel') as string | undefined;
@@ -285,14 +271,14 @@ export class BattleFlowManager {
     await this.host.skillEventBus.emit(SkillTiming.ON_PLAY, onPlayCtx);
 
     if (playerHand.length === 0) {
-      await this.host.playDamageSettlement(pattern, 'enemy', true);
+      await this.damageSettlement.playDamageSettlement(pattern, 'enemy', true);
       if (this.host.battle.enemy.vitality <= 0) {
-        this.host.showGameOver(true);
+        this.showGameOver(true);
         return;
       }
       this.host.battle.lastPlay = null;
       await this.refillIfEmpty('player');
-      await this.host.fadeOutCenterCardsAsync();
+      await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.battle.turnHolder = 'enemy';
       this.host.phase = 'ai_init';
       this.host.updateUIForPhase();
@@ -310,14 +296,14 @@ export class BattleFlowManager {
 
   async handlePostPlayEmptyHandCheck(hand: Card[], pattern: HandPattern): Promise<void> {
     if (hand.length === 0) {
-      await this.host.playDamageSettlement(pattern, 'enemy', true);
+      await this.damageSettlement.playDamageSettlement(pattern, 'enemy', true);
       if (this.host.battle.enemy.vitality <= 0) {
-        this.host.showGameOver(true);
+        this.showGameOver(true);
         return;
       }
       this.host.battle.lastPlay = null;
       await this.refillIfEmpty('player');
-      await this.host.fadeOutCenterCardsAsync();
+      await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.battle.turnHolder = 'enemy';
       this.host.phase = 'ai_init';
       this.host.updateUIForPhase();
@@ -361,17 +347,17 @@ export class BattleFlowManager {
 
     if (who === 'player') {
       this.host.battle.turnHolder = 'enemy';
-      this.host.renderPlayerHand();
+      this.cardDisplay.renderPlayerHand();
       this.host.updatePatternHint();
 
-      await this.host.playDamageSettlement(lastPlay, 'player', false);
+      await this.damageSettlement.playDamageSettlement(lastPlay, 'player', false);
       if (this.host.damageSettlementCancelled) return;
       if (this.host.battle.player.vitality <= 0) {
-        this.host.showGameOver(false);
+        this.showGameOver(false);
         return;
       }
       this.host.battle.lastPlay = null;
-      await this.host.fadeOutCenterCardsAsync();
+      await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.phase = 'ai_init';
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
@@ -379,13 +365,13 @@ export class BattleFlowManager {
     } else {
       this.host.battle.turnHolder = 'player';
 
-      await this.host.playDamageSettlement(lastPlay, 'enemy', false);
+      await this.damageSettlement.playDamageSettlement(lastPlay, 'enemy', false);
       if (this.host.battle.enemy.vitality <= 0) {
-        this.host.showGameOver(true);
+        this.showGameOver(true);
         return;
       }
       this.host.battle.lastPlay = null;
-      await this.host.fadeOutCenterCardsAsync();
+      await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.phase = 'player_init';
       this.host.initActiveSkills();
       await this.refillIfEmpty('player');
@@ -465,13 +451,13 @@ export class BattleFlowManager {
     if (who === 'player') {
       if (this.host.battle.player.hand.length === 0) {
         this.refillPlayerHand();
-        this.host.renderPlayerHand(true);
+        this.cardDisplay.renderPlayerHand(true);
       }
       return;
     }
     if (this.host.battle.enemy.hand.length === 0) {
       this.refillEnemyHand();
-      await this.host.renderEnemyHandAsync(300);
+      await this.cardDisplay.renderEnemyHandAsync(300);
     }
   }
 
@@ -501,7 +487,7 @@ export class BattleFlowManager {
     const enemyHand = this.host.battle.enemy.hand;
     const indicesToRemove = this.findCardIndices(enemyHand, cards);
 
-    const displayCards = this.host.createEnemyDisplayCards(indicesToRemove);
+    const displayCards = this.cardDisplay.createEnemyDisplayCards(indicesToRemove);
 
     const playedCards: Card[] = [];
     for (const i of indicesToRemove) {
@@ -516,13 +502,13 @@ export class BattleFlowManager {
     this.host.battle.lastPlay = pattern;
     this.host.battle.turnHolder = 'enemy';
 
-    this.host.renderEnemyHand();
+    this.cardDisplay.renderEnemyHand();
     this.host.updateTurnIndicator('enemy');
 
     const playerCenterCards = [...this.host.centerCards];
 
-    const pos = this.host.getCardFanPositions(displayCards.length, 1380, 475);
-    await this.host.animateCardsToPositionsAsync(displayCards, pos, 120);
+    const pos = this.cardDisplay.getCardFanPositions(displayCards.length, 1380, 475);
+    await this.cardDisplay.animateCardsToPositionsAsync(displayCards, pos, 120);
 
     if (enemyHand.length === 0) {
       this.host.centerCards = [...displayCards];
@@ -541,10 +527,10 @@ export class BattleFlowManager {
       };
       await this.host.skillEventBus.emit(SkillTiming.ON_PLAY, aiOnPlayCtx);
 
-      await this.host.playDamageSettlement(pattern, 'player', true);
+      await this.damageSettlement.playDamageSettlement(pattern, 'player', true);
       if (this.host.damageSettlementCancelled) return;
       if (this.host.battle.player.vitality <= 0) {
-        this.host.showGameOver(false);
+        this.showGameOver(false);
         return;
       }
       this.host.battle.lastPlay = null;
@@ -559,12 +545,12 @@ export class BattleFlowManager {
       };
       await this.host.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, gainTurnCtx);
 
-      await this.host.renderEnemyHandAsync(300);
-      await this.host.animateShiftAndReplaceAsync(playerCenterCards, displayCards, 150);
+      await this.cardDisplay.renderEnemyHandAsync(300);
+      await this.cardDisplay.animateShiftAndReplaceAsync(playerCenterCards, displayCards, 150);
       this.host.centerCards = displayCards;
       this.host.centerCardsOwner = 'enemy';
       await waitForDelay(this.scene, 100);
-      await this.host.fadeOutCenterCardsAsync();
+      await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.battle.turnHolder = 'player';
       this.host.phase = 'player_init';
       this.host.initActiveSkills();
@@ -575,7 +561,7 @@ export class BattleFlowManager {
     }
 
     await waitForDelay(this.scene, 600);
-    await this.host.animateShiftAndReplaceAsync(playerCenterCards, displayCards, 150);
+    await this.cardDisplay.animateShiftAndReplaceAsync(playerCenterCards, displayCards, 150);
     this.host.centerCards = displayCards;
     this.host.centerCardsOwner = 'enemy';
 
@@ -645,7 +631,7 @@ export class BattleFlowManager {
     const enemyHand = this.host.battle.enemy.hand;
     const indicesToRemove = this.findCardIndices(enemyHand, cards);
 
-    const displayCards = this.host.createEnemyDisplayCards(indicesToRemove);
+    const displayCards = this.cardDisplay.createEnemyDisplayCards(indicesToRemove);
 
     const playedCards: Card[] = [];
     for (const i of indicesToRemove) {
@@ -660,12 +646,12 @@ export class BattleFlowManager {
     this.host.battle.lastPlay = pattern;
     this.host.battle.turnHolder = 'enemy';
 
-    this.host.clearCenterCards();
-    this.host.renderEnemyHand();
+    this.cardDisplay.clearCenterCards();
+    this.cardDisplay.renderEnemyHand();
     this.host.updateTurnIndicator('enemy');
 
-    const pos = this.host.getCardFanPositions(displayCards.length, 1200, 475);
-    await this.host.animateCardsToPositionsAsync(displayCards, pos, 120);
+    const pos = this.cardDisplay.getCardFanPositions(displayCards.length, 1200, 475);
+    await this.cardDisplay.animateCardsToPositionsAsync(displayCards, pos, 120);
     this.host.centerCards = displayCards;
     this.host.centerCardsOwner = 'enemy';
 
@@ -683,10 +669,10 @@ export class BattleFlowManager {
     await this.host.skillEventBus.emit(SkillTiming.ON_PLAY, aiOnPlayCtx);
 
     if (enemyHand.length === 0) {
-      await this.host.playDamageSettlement(pattern, 'player', true);
+      await this.damageSettlement.playDamageSettlement(pattern, 'player', true);
       if (this.host.damageSettlementCancelled) return;
       if (this.host.battle.player.vitality <= 0) {
-        this.host.showGameOver(false);
+        this.showGameOver(false);
         return;
       }
       this.host.battle.lastPlay = null;
@@ -701,8 +687,8 @@ export class BattleFlowManager {
       };
       await this.host.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, gainTurnCtx);
 
-      await this.host.renderEnemyHandAsync(300);
-      await this.host.fadeOutCenterCardsAsync();
+      await this.cardDisplay.renderEnemyHandAsync(300);
+      await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.battle.turnHolder = 'player';
       this.host.phase = 'player_init';
       this.host.initActiveSkills();
@@ -730,5 +716,59 @@ export class BattleFlowManager {
       }
     }
     return result.sort((a, b) => b - a);
+  }
+
+  showGameOver(playerWin: boolean): void {
+    this.host.phase = 'game_over';
+    this.stopBattleBgm();
+
+    if (playerWin) {
+      const settings = loadAudioSettings();
+      const victory = this.scene.sound.add('victory_jingle', { volume: settings.sfxVolume });
+      GameAudioManager.track(this.scene, victory);
+      victory.play();
+    } else {
+      GameAudioManager.playBgm(this.scene, 'bgm_failure', { loop: false });
+    }
+
+    const { width, height } = this.scene.scale;
+    const overlay = this.scene.add.graphics();
+    overlay.setDepth(DEPTH_OVERLAY);
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, width, height);
+
+    const resultText = playerWin ? '胜利' : '败北';
+    const resultColor = playerWin ? '#6a4a20' : '#802020';
+
+    const title = this.scene.add.text(width / 2, height / 2 - 50, resultText, {
+      fontSize: '80px',
+      fontFamily: FONT_FAMILY,
+      color: resultColor,
+      stroke: '#f0ebe0',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+
+    this.scene.add.text(width / 2, height / 2 + 30, '点击返回主菜单', {
+      fontSize: '24px',
+      fontFamily: FONT_FAMILY,
+      color: '#8a7a60',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+
+    this.scene.tweens.add({
+      targets: title,
+      scaleX: { from: 0.5, to: 1 },
+      scaleY: { from: 0.5, to: 1 },
+      duration: 400,
+      ease: 'Back.easeOut',
+    });
+
+    this.scene.time.delayedCall(500, () => {
+      this.scene.input.once('pointerdown', () => {
+        this.scene.cameras.main.fadeOut(400, 0, 0, 0);
+        this.scene.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+          this.scene.scene.start('MenuScene');
+        });
+      });
+    });
   }
 }
