@@ -135,15 +135,17 @@ function scorePlay(
   isFollow: boolean,
   lastPlay: HandPattern | null,
   enemyCharacterId?: EnemyCharacterId,
+  profile?: BotProfile,
 ): number {
+  const w = profile?.weights ?? DEFAULT_WEIGHTS;
   let score = 0;
 
   // ① 伤害贡献：系数越高的牌型伤害越大，主动出牌时偏好多打伤害
   const damage = calculateDamage(play);
-  score += damage * 0.05;
+  score += damage * w.damageWeight;
 
   // ② 手牌清空倾向：一次出牌越多，剩余手牌越少，越接近胜利
-  score += play.cards.length * 3;
+  score += play.cards.length * w.clearingWeight;
 
   // ③ 组合完整性保护：出牌后剩余手牌中保留的复合牌型越多越好
   const remaining = getRemainingHand(hand, play.cards);
@@ -152,23 +154,34 @@ function scorePlay(
     const goodComboCount = remainingPlays.filter(p =>
       COMPLEX_COMBO_TYPES.has(p.type),
     ).length;
-    score += goodComboCount * 2;
+    score += goodComboCount * w.comboPreserveWeight;
   }
 
   // ④ 接牌节省性：用刚好管上的牌接，避免浪费大牌
   if (isFollow && lastPlay) {
     const margin = play.mainValue - lastPlay.mainValue;
-    score -= margin * 3;          // 牌值差距越大扣分越多
-    if (margin <= 2) score += 4;  // 刚好管上的小加分
+    score -= margin * w.savingMaterialWeight;  // 牌值差距越大扣分越多
+    if (margin <= 2) score += w.closeMarginBonus;  // 刚好管上的小加分
   }
 
   // ⑤ 主动出牌时偏好复合牌型（顺子 > 飞机 > 连对 > ... > 单张）
   if (!isFollow) {
     const priority = patternPriority(play.type);
-    score += (11 - priority) * 4;
+    const pref = profile?.comboPreference ?? 0.5;
+    score += (11 - priority) * w.complexityWeight * pref;
   }
 
-  // ⑥ 南蛮军藤甲：偏好打出黑桃牌（敌方黑色牌不计算伤害），避免打出红桃牌
+  // ⑥ 最少浪费：顺子/连对/飞机应从最小点数开出，保护大牌
+  if (play.type === HandType.Straight || play.type === HandType.ConsecutivePairs ||
+      play.type === HandType.Airplane || play.type === HandType.AirplaneSingle ||
+      play.type === HandType.AirplanePair) {
+    const minCard = [...play.cards].sort((a, b) => a.rank - b.rank)[0]!;
+    if (minCard.rank === play.mainValue) {
+      score += 5;
+    }
+  }
+
+  // ⑦ 南蛮军藤甲：偏好打出黑桃牌（敌方黑色牌不计算伤害），避免打出红桃牌
   if (enemyCharacterId === 'nanmanjun') {
     for (const card of play.cards) {
       if (card.suit === 'spade' || card.suit === 'club') score += 5;
@@ -195,21 +208,23 @@ function selectPlay(
   isFollow: boolean,
   lastPlay: HandPattern | null,
   enemyCharacterId?: EnemyCharacterId,
+  profile?: BotProfile,
 ): HandPattern {
   if (plays.length === 1) return plays[0]!;
 
   const scored = plays.map(p => ({
     play: p,
-    score: scorePlay(p, hand, isFollow, lastPlay, enemyCharacterId),
+    score: scorePlay(p, hand, isFollow, lastPlay, enemyCharacterId, profile),
   }));
   scored.sort((a, b) => b.score - a.score);
 
-  const topN = scored.slice(0, Math.min(RANDOM_CANDIDATE_COUNT, scored.length));
+  const sel = profile?.selection ?? { candidateCount: 3, randomThreshold: 0.10 };
+  const topN = scored.slice(0, Math.min(sel.candidateCount, scored.length));
   const bestScore = topN[0]!.score;
 
   const closeCandidates = topN.filter(s => {
     if (bestScore <= 0) return true;
-    return (bestScore - s.score) / bestScore < RANDOM_THRESHOLD;
+    return (bestScore - s.score) / bestScore < sel.randomThreshold;
   });
 
   // 多个候选分数接近时随机选择
