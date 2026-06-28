@@ -3,7 +3,7 @@ import type { Card } from '../../models/Card';
 import { getNextCardId, resetCardIdCounter } from '../../models/Card';
 import type { BattleState } from '../../models/BattleTypes';
 import { HandType, type HandPattern } from '../../models/BattleTypes';
-import { decidePlay, DEFAULT_WEIGHTS } from '../AIBrain';
+import { decidePlay } from '../AIBrain';
 import type { EnemyCharacterId } from '../../models/Character';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade', uid?: string): Card {

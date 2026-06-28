@@ -45,6 +45,7 @@ export const NanmanJunTengJiaHeart: SkillDefinition = {
   timing: SkillTiming.ON_SINGLE_CARD_SETTLEMENT,
   priority: 10,
   dialogLines: ['藤甲护体，烈火反噬！'],
+  // AI onAIDecision 在 NanmanJunTengJiaBlack 上定义，此处无需重复
 
   filter: (ctx: SkillContext): boolean => {
     if (ctx.target !== 'enemy') return false;

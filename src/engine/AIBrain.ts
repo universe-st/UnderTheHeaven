@@ -145,7 +145,9 @@ function scorePlay(
   score += damage * w.damageWeight;
 
   // ② 手牌清空倾向：一次出牌越多，剩余手牌越少，越接近胜利
-  score += play.cards.length * w.clearingWeight;
+  // handClearingTendency 调制：0.3→0.6x, 0.6→1.2x
+  const clearingMod = (profile?.handClearingTendency ?? 0.5) * 2;
+  score += play.cards.length * w.clearingWeight * clearingMod;
 
   // ③ 组合完整性保护：出牌后剩余手牌中保留的复合牌型越多越好
   const remaining = getRemainingHand(hand, play.cards);
@@ -184,49 +186,8 @@ function scorePlay(
   return score;
 }
 
-// ========== 随机选择机制 ==========
-
-/**
- * 带随机性的出牌选择：
- * 1. 对所有候选牌型评分，按分数降序排列
- * 2. 取前 RANDOM_CANDIDATE_COUNT 个候选
- * 3. 若其中有多于一个候选的分数与最高分差距 < RANDOM_THRESHOLD，
- *    从中随机选择一个（增加不可预测性）
- * 4. 否则选分数最高的（保持确定性最佳选择）
- */
-function selectPlay(
-  plays: HandPattern[],
-  hand: Card[],
-  isFollow: boolean,
-  lastPlay: HandPattern | null,
-  enemyCharacterId?: EnemyCharacterId,
-  profile?: BotProfile,
-): HandPattern {
-  if (plays.length === 1) return plays[0]!;
-
-  const scored = plays.map(p => ({
-    play: p,
-    score: scorePlay(p, hand, isFollow, lastPlay, enemyCharacterId, profile),
-  }));
-  scored.sort((a, b) => b.score - a.score);
-
-  const sel = profile?.selection ?? { candidateCount: 3, randomThreshold: 0.10 };
-  const topN = scored.slice(0, Math.min(sel.candidateCount, scored.length));
-  const bestScore = topN[0]!.score;
-
-  const closeCandidates = topN.filter(s => {
-    if (bestScore <= 0) return true;
-    return (bestScore - s.score) / bestScore < sel.randomThreshold;
-  });
-
-  // 多个候选分数接近时随机选择
-  if (closeCandidates.length > 1) {
-    return closeCandidates[Math.floor(Math.random() * closeCandidates.length)]!.play;
-  }
-
-  // 差距过大则取最高分
-  return topN[0]!.play;
-}
+// passThreshold(0~1) 映射到分数空间：典型分数范围 0~200，50 为中间阈值
+const PASS_THRESHOLD_SCALE = 50;
 
 // ========== AI 个性档案 ==========
 
@@ -322,17 +283,25 @@ function scorePlayCandidates(
     score: scorePlay(p, hand, isFollow, lastPlay, enemyCharacterId, profile),
   }));
 
-  // 血量压力修正
+  // 血量压力修正 + 保留炸弹惩罚
   if (profile && battleState) {
     const opponentVitality = isFollow
       ? battleState.player.vitality
       : battleState.enemy.vitality;
     for (const s of scored) {
       const damage = calculateDamage(s.play);
+
+      // 血量压力：能击杀对方时高奖励，接近击杀时中奖励
       if (damage >= opponentVitality) {
         s.score += 30 * profile.aggression;
       } else if (opponentVitality - damage < opponentVitality * 0.3) {
         s.score += 15 * profile.aggression;
+      }
+
+      // 保留炸弹惩罚：非致命时刻不舍得用炸弹
+      if ((s.play.type === HandType.Bomb || s.play.type === HandType.Rocket) &&
+          damage < opponentVitality) {
+        s.score -= 20 * (1 - profile.aggression);
       }
     }
   }
@@ -435,7 +404,7 @@ export function decidePlay(
     // 战略放弃：passThreshold 高于最高评分时放弃接牌
     if (profile && profile.passThreshold > 0) {
       const topScored = scorePlayCandidates(beating, aiHand, true, battleState.lastPlay, enemyCharId, profile, adjustPlayScores, battleState);
-      if (topScored.length > 0 && topScored[0]!.score < profile.passThreshold * 50) {
+      if (topScored.length > 0 && topScored[0]!.score < profile.passThreshold * PASS_THRESHOLD_SCALE) {
         // 战略放弃，不退出 — 继续到炸弹接管检查
       } else {
         // 正常接牌流程
