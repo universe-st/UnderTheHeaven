@@ -3,7 +3,6 @@ import { SkillRunner } from '../SkillRunner';
 import { SkillRegistry } from '../SkillRegistry';
 import { SkillEventBus } from '../SkillEventBus';
 import { SkillTiming, type SkillDefinition, type SkillVisualManager, type CharacterSlotManager } from '../SkillTypes';
-import type { HandPattern } from '../../models/BattleTypes';
 
 function makeSkill(id: string, timing: SkillTiming, execute?: SkillDefinition['execute']): SkillDefinition {
   return {

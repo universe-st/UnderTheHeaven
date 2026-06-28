@@ -1,6 +1,5 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import type { BattleState } from '../../models/BattleTypes';
-import { FONT_FAMILY, DEPTH_DAMAGE, DEPTH_CENTER_BASE } from '../../constants/Layout';
 import { loadAudioSettings } from '../../AudioSettings';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 

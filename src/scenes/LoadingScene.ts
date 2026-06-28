@@ -91,6 +91,7 @@ export class LoadingScene extends Phaser.Scene {
   }
 
   private loadAssets(): void {
+    this.load.audio('bgm_menu', 'bgm_menu_44100.mp3');
     this.load.audio('bgm_battle_1', '普通战斗背景1_44100.mp3');
     this.load.audio('bgm_battle_2', '普通战斗背景2_44100.mp3');
     this.load.audio('bgm_battle_3', '普通战斗背景3_44100.mp3');
@@ -107,6 +108,7 @@ export class LoadingScene extends Phaser.Scene {
     this.load.audio('sfx_card_reveal', 'sfx_card_reveal.mp3');
     this.load.audio('sfx_skill_trigger', 'sfx_skill_trigger.mp3');
     this.load.audio('sfx_heal', 'sfx_heal.mp3');
+    this.load.image('game_background', 'background_under_the_heaven.jpg');
     this.load.image('battle_bg', 'battle_bg.png');
     this.load.image('card_back', 'card_back.png');
     this.load.image('card_pattern_dragon', 'card_pattern_dragon.png');

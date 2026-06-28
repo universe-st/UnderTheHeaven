@@ -32,7 +32,7 @@ function groupByOrderRank(cards: Card[]): Map<number, Card[]> {
   return map;
 }
 
-function findConsecutiveRuns(ranks: number[], minLen: number, countFn: (r: number) => number): { start: number; end: number }[] {
+function findConsecutiveRuns(ranks: number[], minLen: number): { start: number; end: number }[] {
   const sorted = [...ranks].sort((a, b) => a - b);
   const runs: { start: number; end: number }[] = [];
   if (sorted.length === 0) return runs;
@@ -151,7 +151,7 @@ export function identifyHand(cards: Card[]): HandPattern | null {
     if (triples.length >= 2) {
       const tripRanks = triples.map(([r]) => r).filter(r => canBeInConsecutive(r)).sort((a, b) => a - b);
       const orderTripRanks = tripRanks.map(r => rankForOrder(r));
-      const runs = findConsecutiveRuns(orderTripRanks, 2, () => 1);
+      const runs = findConsecutiveRuns(orderTripRanks, 2);
       for (const run of runs) {
         const runLen = run.end - run.start + 1;
         const totalCardsInTriples = runLen * 3;
@@ -159,7 +159,6 @@ export function identifyHand(cards: Card[]): HandPattern | null {
 
         // Pure airplane
         if (remaining === 0) {
-          const mainCards = getCardsByRanks(sorted, run.start, run.end, 3);
           return { type: HandType.Airplane, cards: sorted, mainValue: rankFromOrder(run.start), length: runLen };
         }
 
@@ -236,7 +235,6 @@ export function findAllPlays(hand: Card[]): HandPattern[] {
   const results: HandPattern[] = [];
   const grouped = groupByOrderRank(hand);
   const allOrderRanks = [...grouped.keys()].sort((a, b) => a - b);
-  const n = hand.length;
 
   // Singles
   for (const card of hand) {
@@ -300,7 +298,7 @@ export function findAllPlays(hand: Card[]): HandPattern[] {
   });
 
   // Standard straights (no A-as-1)
-  const runs = findConsecutiveRuns(singleRanks, 5, () => 1);
+  const runs = findConsecutiveRuns(singleRanks, 5);
   for (const run of runs) {
     for (let len = 5; len <= run.end - run.start + 1; len++) {
       for (let s = run.start; s + len - 1 <= run.end; s++) {
@@ -323,7 +321,7 @@ export function findAllPlays(hand: Card[]): HandPattern[] {
     const realRank = rankFromOrder(r);
     return canBeInConsecutive(realRank) && grouped.get(r)!.length >= 2;
   });
-  const pairRuns = findConsecutiveRuns(pairRanks, 3, () => 1);
+  const pairRuns = findConsecutiveRuns(pairRanks, 3);
   for (const run of pairRuns) {
     for (let len = 3; len <= run.end - run.start + 1; len++) {
       for (let s = run.start; s + len - 1 <= run.end; s++) {
@@ -346,7 +344,7 @@ export function findAllPlays(hand: Card[]): HandPattern[] {
     const realRank = rankFromOrder(r);
     return canBeInConsecutive(realRank) && grouped.get(r)!.length >= 3;
   });
-  const tripRuns = findConsecutiveRuns(tripRanks, 2, () => 1);
+  const tripRuns = findConsecutiveRuns(tripRanks, 2);
   for (const run of tripRuns) {
     for (let len = 2; len <= run.end - run.start + 1; len++) {
       for (let s = run.start; s + len - 1 <= run.end; s++) {

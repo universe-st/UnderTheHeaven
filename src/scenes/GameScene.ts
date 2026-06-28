@@ -1,10 +1,8 @@
 import Phaser from 'phaser';
 import type { Card} from '../models/Card';
-import { createDeck, shuffleDeck, sortHand, resetCardIdCounter, sortPlayedCards } from '../models/Card';
+import { createDeck, shuffleDeck, sortHand, resetCardIdCounter } from '../models/Card';
 import type { BattleState, HandPattern} from '../models/BattleTypes';
-import { decidePlay } from '../engine/AIBrain';
 import { GameAudioManager } from '../utils/GameAudioManager';
-import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../utils/VoiceManager';
 import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
 import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayerCharacter } from '../models/Character';
 import { getCharacterEnemyName } from '../engine/CharacterAbilities';

@@ -1,7 +1,7 @@
 import type { Card } from '../models/Card';
 import type { BattleState, HandPattern} from '../models/BattleTypes';
 import { HandType } from '../models/BattleTypes';
-import { findAllPlays, findBeatingPlays, canBeat } from './HandRecognizer';
+import { findAllPlays, findBeatingPlays } from './HandRecognizer';
 import { calculateDamage } from './DamageCalculator';
 import type { EnemyCharacterId } from '../models/Character';
 

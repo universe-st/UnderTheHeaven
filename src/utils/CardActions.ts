@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import type { Card } from '../models/Card';
 import { sortHand, shuffleDeck } from '../models/Card';
-import { waitForTween, waitForDelay } from './AnimationUtils';
+import { waitForTween } from './AnimationUtils';
 import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET } from '../constants/Layout';
 
 export interface CardActionResult {
@@ -378,9 +378,8 @@ function layoutExistingHand(
 ): void {
   const { state, containers } = getHandContext(scene, target);
   const hand = state.hand;
-  const { width, height } = scene.scale;
+  const { width } = scene.scale;
 
-  const baseY = target === 'player' ? height - 90 : 220;
   const baseDepth = target === 'player' ? 30 : 1;
 
   if (hand.length === 0) return;

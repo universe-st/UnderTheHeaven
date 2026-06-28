@@ -36,11 +36,6 @@ export class MenuScene extends Phaser.Scene {
     this.tweens.killAll();
   }
 
-  preload(): void {
-    this.load.image('game_background', 'background_under_the_heaven.jpg');
-    this.load.audio('bgm_menu', 'bgm_menu_44100.mp3');
-  }
-
   create(): void {
     this.resetSceneState();
 
@@ -237,11 +232,7 @@ export class MenuScene extends Phaser.Scene {
     const container = this.add.container(0, 0).setDepth(200);
     this.settingsContainer = container;
 
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.55);
-    overlay.fillRect(0, 0, sw, sh);
-    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, sw, sh), Phaser.Geom.Rectangle.Contains);
-    overlay.on('pointerdown', () => this.hideSettings());
+    const overlay = UIFactory.modalOverlay(this, sw, sh, () => this.hideSettings());
     container.add(overlay);
 
     const panel = this.add.graphics();

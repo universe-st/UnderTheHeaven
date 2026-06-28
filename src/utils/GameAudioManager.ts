@@ -136,7 +136,7 @@ export class GameAudioManager {
 
   /** Clear all static maps. Call on scene restart to prevent leaks. */
   static reset(): void {
-    for (const [key, sounds] of GameAudioManager.sceneSounds) {
+    for (const [, sounds] of GameAudioManager.sceneSounds) {
       for (const s of sounds) {
         if (s.isPlaying) s.stop();
         s.destroy();

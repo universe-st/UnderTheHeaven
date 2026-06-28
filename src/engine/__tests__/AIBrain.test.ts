@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Card } from '../../models/Card';
 import { getNextCardId, resetCardIdCounter } from '../../models/Card';
-import type { BattleState, HandPattern } from '../../models/BattleTypes';
+import type { BattleState } from '../../models/BattleTypes';
 import { HandType } from '../../models/BattleTypes';
 import { decidePlay } from '../AIBrain';
 

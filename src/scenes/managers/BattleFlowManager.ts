@@ -1,17 +1,17 @@
 import Phaser from 'phaser';
 import type { Card } from '../../models/Card';
-import { createDeck, shuffleDeck, sortHand, sortPlayedCards } from '../../models/Card';
+import { shuffleDeck, sortHand, sortPlayedCards } from '../../models/Card';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
 import { HandType } from '../../models/BattleTypes';
-import { identifyHand, canBeat, findAllPlays, findBeatingPlays } from '../../engine/HandRecognizer';
+import { identifyHand, canBeat } from '../../engine/HandRecognizer';
 import { decidePlay } from '../../engine/AIBrain';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../../utils/VoiceManager';
 import type { PlayerCharacterId } from '../../models/Character';
-import { PLAYER_CHARACTERS, ENEMY_CHARACTERS } from '../../models/Character';
+
 import { canBeatOrEqual } from '../../engine/CharacterAbilities';
-import { SkillEventBus, SkillRunner, SkillTiming } from '../../skills';
-import type { SkillContext } from '../../skills';
+import { SkillTiming } from '../../skills';
+import type { SkillContext, SkillEventBus, SkillRunner } from '../../skills';
 import { getBlockedResponseTypes } from '../../skills/PassiveSkillUtils';
 import { waitForDelay, waitForTween } from '../../utils/AnimationUtils';
 import type { CardDisplayManager } from './CardDisplayManager';
@@ -411,40 +411,29 @@ export class BattleFlowManager {
     );
   }
 
-  refillPlayerHand(): void {
-    const player = this.host.battle.player;
-    const needed = 17 - player.hand.length;
-
+  private refillHand(target: 'player' | 'enemy'): void {
+    const state = target === 'player' ? this.host.battle.player : this.host.battle.enemy;
+    const needed = 17 - state.hand.length;
     if (needed <= 0) return;
 
-    if (player.deck.length < needed) {
-      const remaining = player.deck.splice(0);
-      player.deck = shuffleDeck(player.discardPile);
-      player.discardPile = [];
-      player.deck.push(...remaining);
+    if (state.deck.length < needed) {
+      const remaining = state.deck.splice(0);
+      state.deck = shuffleDeck(state.discardPile);
+      state.discardPile = [];
+      state.deck.push(...remaining);
     }
 
-    const drawn = player.deck.splice(0, needed);
-    player.hand.push(...drawn);
-    sortHand(player.hand);
+    const drawn = state.deck.splice(0, needed);
+    state.hand.push(...drawn);
+    sortHand(state.hand);
+  }
+
+  refillPlayerHand(): void {
+    this.refillHand('player');
   }
 
   refillEnemyHand(): void {
-    const enemy = this.host.battle.enemy;
-    const needed = 17 - enemy.hand.length;
-
-    if (needed <= 0) return;
-
-    if (enemy.deck.length < needed) {
-      const remaining = enemy.deck.splice(0);
-      enemy.deck = shuffleDeck(enemy.discardPile);
-      enemy.discardPile = [];
-      enemy.deck.push(...remaining);
-    }
-
-    const drawn = enemy.deck.splice(0, needed);
-    enemy.hand.push(...drawn);
-    sortHand(enemy.hand);
+    this.refillHand('enemy');
   }
 
   async refillIfEmpty(who: 'player' | 'enemy'): Promise<void> {

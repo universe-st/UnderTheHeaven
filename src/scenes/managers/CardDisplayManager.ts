@@ -600,6 +600,7 @@ export class CardDisplayManager {
   updateCardShadowGlow(container: Phaser.GameObjects.Container, isGlow: boolean): void {
     const glowG = container.getData('_glowG') as Phaser.GameObjects.Graphics | undefined;
     if (!glowG) return;
+    this.scene.tweens.killTweensOf(glowG);
     glowG.setAlpha(isGlow ? 1 : 0);
   }
 }

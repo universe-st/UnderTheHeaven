@@ -1,7 +1,6 @@
 import type Phaser from 'phaser';
 import type { HandPattern } from '../models/BattleTypes';
 import { HandType } from '../models/BattleTypes';
-import { Card } from '../models/Card';
 import { loadAudioSettings } from '../AudioSettings';
 import { GameAudioManager } from './GameAudioManager';
 
@@ -93,10 +92,8 @@ export function getRandomPassVoice(): string {
 export class VoiceManager {
   private static queue: string[] = [];
   private static current: Phaser.Sound.BaseSound | null = null;
-  private static cachedSettings: ReturnType<typeof loadAudioSettings> | null = null;
-
   static reloadSettings(): void {
-    VoiceManager.cachedSettings = null;
+    // settings are read fresh each call; no caching needed
   }
 
   static play(scene: Phaser.Scene, key: string, side: 'player' | 'enemy' = 'player'): void {
@@ -111,10 +108,7 @@ export class VoiceManager {
     if (VoiceManager.queue.length === 0) return;
 
     const key = VoiceManager.queue.shift()!;
-    if (!VoiceManager.cachedSettings) {
-      VoiceManager.cachedSettings = loadAudioSettings();
-    }
-    const settings = VoiceManager.cachedSettings;
+    const settings = loadAudioSettings();
 
     try {
       const sound = scene.sound.add(key, { volume: settings.voiceVolume });

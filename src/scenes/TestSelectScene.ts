@@ -114,7 +114,7 @@ export class TestSelectScene extends Phaser.Scene {
     UIFactory.panel(this, px, py, pw, ph, title);
   }
 
-  private createPlayerSection(w: number, h: number): void {
+  private createPlayerSection(w: number, _h: number): void {
     const px = 80;
     const py = 180;
     const pw = w - 160;
@@ -412,7 +412,7 @@ export class TestSelectScene extends Phaser.Scene {
   }
 
   private applyPlayerCardScroll(cardContainer: Phaser.GameObjects.Container): void {
-    const { width, height } = this.scale;
+    const { width } = this.scale;
     const px = 80;
     const py = 180;
     const pw = width - 160;
@@ -545,7 +545,7 @@ export class TestSelectScene extends Phaser.Scene {
     }
   }
 
-  private createEnemySection(w: number, h: number): void {
+  private createEnemySection(w: number, _h: number): void {
     const px = 80;
     const py = 420;
     const pw = w - 160;
@@ -683,7 +683,7 @@ export class TestSelectScene extends Phaser.Scene {
     this.createEnemySection(width, height);
   }
 
-  private createHealthSection(w: number, h: number): void {
+  private createHealthSection(w: number, _h: number): void {
     const px = 80;
     const py = 630;
     const pw = w - 160;
@@ -712,8 +712,6 @@ export class TestSelectScene extends Phaser.Scene {
   ): void {
     const labelX = panelX + 40;
     const centerX = panelX + panelW / 2;
-    const valueX = labelX + 320;
-
     this.add.text(labelX, rowY, label, {
       fontSize: '28px',
       fontFamily: FONT_FAMILY,
@@ -721,7 +719,6 @@ export class TestSelectScene extends Phaser.Scene {
     }).setOrigin(0, 0.5);
 
     const btnSize = 48;
-    const btnGap = 20;
     const valueOffset = 120;
 
     const minusBtnX = centerX - valueOffset;
@@ -813,7 +810,7 @@ export class TestSelectScene extends Phaser.Scene {
     configHoldButton(plus.zone, STEP);
   }
 
-  private createStartButton(w: number, h: number): void {
+  private createStartButton(w: number, _h: number): void {
     const btnW = 340;
     const btnH = 72;
     const btnX = w / 2;

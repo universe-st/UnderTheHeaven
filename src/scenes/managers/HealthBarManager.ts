@@ -1,6 +1,5 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import type { BattleState } from '../../models/BattleTypes';
-import { FONT_FAMILY } from '../../constants/Layout';
 
 interface HealthBarHost {
   readonly scale: Phaser.Scale.ScaleManager;
