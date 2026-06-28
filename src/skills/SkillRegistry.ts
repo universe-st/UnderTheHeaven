@@ -43,6 +43,14 @@ export class SkillRegistry {
     return this.skills.filter(s => s.timing === timing);
   }
 
+  getSkillsByCharacter(characterId: string): SkillDefinition[] {
+    const skillIds: string[] = [];
+    for (const [skillId, owner] of this.skillOwnerMap) {
+      if (owner === characterId) skillIds.push(skillId);
+    }
+    return this.skills.filter(s => skillIds.includes(s.id));
+  }
+
   clear(): void {
     this.skills = [];
     this.skillOwnerMap.clear();
