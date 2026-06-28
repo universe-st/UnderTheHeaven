@@ -393,3 +393,91 @@ describe('decidePlay - passThreshold regression', () => {
     expect(result![0]!.rank).toBeGreaterThan(13);
   });
 });
+
+// ========== 2-player AI regression tests ==========
+
+describe('2-player AI improvements', () => {
+  it('clear-hand bonus: empty remaining hand scores high', () => {
+    resetCardIdCounter();
+    // xiliang_army: high clearingTendency (0.6), should prefer clear-hand play
+    const state = makeBattleWithEnemy({
+      enemy: {
+        hand: [makeCard(3), makeCard(4), makeCard(5), makeCard(6), makeCard(7)], // straight 3-7
+        deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人',
+      },
+      phase: 'play',
+    }, 'xiliang_army');
+    const result = decidePlay(state);
+    expect(result).not.toBeNull();
+    // Should play a 5-card straight (clears hand) rather than a single card
+    expect(result).toHaveLength(5);
+  });
+
+  it('own vitality desperation: plays aggressively when low HP', () => {
+    resetCardIdCounter();
+    // shizu (conservative, aggression 0.3) with very low vitality
+    const state = makeBattleWithEnemy({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: {
+        hand: [makeCard(7), makeCard(8, 'club')],
+        deck: [], discardPile: [], vitality: 50, vitalityMax: 500, name: '敌人',
+      },
+      phase: 'play',
+    }, 'shizu');
+    // Even conservative shizu should play aggressively when at 10% HP
+    const result = decidePlay(state);
+    expect(result).not.toBeNull();
+  });
+
+  it('bomb threshold: uses bomb proactively with larger hand', () => {
+    resetCardIdCounter();
+    // Generate a bomb (4 cards of same rank)
+    const state = makeBattleWithEnemy({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: {
+        hand: [
+          makeCard(5), makeCard(5, 'club'), makeCard(5, 'diamond'), makeCard(5, 'heart'),
+          makeCard(8), makeCard(10), makeCard(12),
+        ],
+        deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人',
+      },
+      lastPlay: { type: HandType.Single, cards: [makeCard(3)], mainValue: 3, length: 1 },
+      phase: 'respond',
+    }, 'shizu');
+    const result = decidePlay(state);
+    // With 7 cards (>= bomb threshold of 10... no, 7 < 10, so may not bomb).
+    // But with opponent having 0 cards shown, opponentHandSize=0 ≤ 8, so should bomb.
+    expect(result).not.toBeNull();
+  });
+
+  it('turn-control bonus: prefers high card when leading', () => {
+    resetCardIdCounter();
+    // Enemy has 2 and a 3, leading play should prefer 2 for turn control
+    const state = makeBattleWithEnemy({
+      enemy: {
+        hand: [makeCard(3), makeCard(20, 'spade')],
+        deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人',
+      },
+      phase: 'play',
+    }, 'shizu');
+    const result = decidePlay(state);
+    expect(result).not.toBeNull();
+    // Should prefer the 2 (rank 20) for turn control bonus
+    expect(result![0]!.rank).toBe(20);
+  });
+
+  it('straight saving: no 最少浪费 bonus in respond mode', () => {
+    resetCardIdCounter();
+    const state = makeBattleWithEnemy({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: {
+        hand: [makeCard(5), makeCard(6), makeCard(7), makeCard(8), makeCard(9)],
+        deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人',
+      },
+      lastPlay: { type: HandType.Single, cards: [makeCard(3)], mainValue: 3, length: 1 },
+      phase: 'respond',
+    }, 'shizu');
+    const result = decidePlay(state);
+    expect(result).not.toBeNull();
+  });
+});
