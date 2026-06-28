@@ -20,6 +20,7 @@ import { ModalManager } from './managers/ModalManager';
 import { CardDisplayManager } from './managers/CardDisplayManager';
 import { BattleFlowManager } from './managers/BattleFlowManager';
 import { CharacterBarManager } from './managers/CharacterBarManager';
+import { CharacterInfoManager } from './managers/CharacterInfoManager';
 import { ActiveSkillManager } from './managers/ActiveSkillManager';
 import { InfoBarManager } from './managers/InfoBarManager';
 import { PatternHintManager } from './managers/PatternHintManager';
@@ -98,8 +99,6 @@ export class GameScene extends Phaser.Scene {
 
   characterSlotContainers: Phaser.GameObjects.Container[] = [];
   characterSlotTexts: Phaser.GameObjects.Text[] = [];
-  characterTooltip: Phaser.GameObjects.Container | null = null;
-  enemyInfoWindow: Phaser.GameObjects.Container | null = null;
 
   characterBarContainer: Phaser.GameObjects.Container | null = null;
   characterBarMaskShape: Phaser.GameObjects.Graphics | null = null;
@@ -126,6 +125,7 @@ export class GameScene extends Phaser.Scene {
   private cardDisplayManager!: CardDisplayManager;
   private battleFlowManager!: BattleFlowManager;
   private characterBarManager!: CharacterBarManager;
+  private characterInfoManager!: CharacterInfoManager;
   private activeSkillManager!: ActiveSkillManager;
   private infoBarManager!: InfoBarManager;
   private patternHintManager!: PatternHintManager;
@@ -176,10 +176,7 @@ export class GameScene extends Phaser.Scene {
 
     this.characterSlotContainers = [];
     this.characterSlotTexts = [];
-    this.characterTooltip?.destroy();
-    this.characterTooltip = null;
-    this.enemyInfoWindow?.destroy();
-    this.enemyInfoWindow = null;
+    this.characterInfoManager?.destroy();
     this.skillTriggeredCharacters = new Set();
     this.characterSlotGlows = [];
     for (const [, tweens] of this.characterSlotGlowTweens) {
@@ -227,8 +224,9 @@ export class GameScene extends Phaser.Scene {
 
     this.battle = this.initBattle();
 
-    this.characterBarManager = new CharacterBarManager(this);
-    this.infoBarManager = new InfoBarManager(this, this.characterBarManager);
+    this.characterInfoManager = new CharacterInfoManager(this);
+    this.characterBarManager = new CharacterBarManager(this, this.characterInfoManager);
+    this.infoBarManager = new InfoBarManager(this, this.characterInfoManager);
     this.infoBarManager.createInfoBars(width, height);
     this.createCharacterSlots(width, height);
 

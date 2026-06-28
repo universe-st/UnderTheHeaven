@@ -113,9 +113,8 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
     return diff > 1;
   },
 
-  execute: async (scene: Phaser.Scene, selectedCards: Card[]): Promise<void> => {
-    const gs = scene as unknown as ActiveSkillSceneAccess & Phaser.Scene;
-    const hand = gs.getBattle().player.hand;
+  execute: async (scene, selectedCards) => {
+    const hand = scene.getBattle().player.hand;
 
     const [a, b] = selectedCards as [Card, Card];
     const rankA = Math.min(a.rank, b.rank);
@@ -147,11 +146,11 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
 
     if (idxA === -1 || idxB === -1) return;
 
-    await createTempCardToHand(gs, tempCard);
+    await createTempCardToHand(scene, tempCard);
 
     hand.push(tempCard);
     sortHand(hand);
 
-    gs.renderPlayerHandAfterSkill();
+    scene.renderPlayerHandAfterSkill();
   },
 };

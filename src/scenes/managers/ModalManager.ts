@@ -3,6 +3,7 @@ import { FONT_FAMILY, DEPTH_UI, DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT } from '../../
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import { VoiceManager } from '../../utils/VoiceManager';
 import { loadAudioSettings, saveAudioSettings } from '../../AudioSettings';
+import { createVolumeSlider } from './VolumeSlider';
 
 interface ModalHost {
   readonly scale: Phaser.Scale.ScaleManager;
@@ -541,8 +542,8 @@ export class ModalManager {
     const sfxSliderY = bgmSliderY + 64;
     const voiceSliderY = sfxSliderY + 64;
 
-    this.createVolumeSlider(
-      container, labelX, bgmSliderY, sliderX, trackW,
+    createVolumeSlider(
+      this.scene, container, labelX, bgmSliderY, sliderX, trackW,
       '音乐音量', settings.bgmVolume,
       (value) => {
         const newSettings = loadAudioSettings();
@@ -552,8 +553,8 @@ export class ModalManager {
       }
     );
 
-    this.createVolumeSlider(
-      container, labelX, sfxSliderY, sliderX, trackW,
+    createVolumeSlider(
+      this.scene, container, labelX, sfxSliderY, sliderX, trackW,
       '音效音量', settings.sfxVolume,
       (value) => {
         const newSettings = loadAudioSettings();
@@ -563,8 +564,8 @@ export class ModalManager {
       }
     );
 
-    this.createVolumeSlider(
-      container, labelX, voiceSliderY, sliderX, trackW,
+    createVolumeSlider(
+      this.scene, container, labelX, voiceSliderY, sliderX, trackW,
       '配音音量', settings.voiceVolume,
       (value) => {
         const newSettings = loadAudioSettings();
@@ -581,112 +582,6 @@ export class ModalManager {
       alpha: 1,
       duration: 200,
       ease: 'Sine.easeOut',
-    });
-  }
-
-  private createVolumeSlider(
-    parent: Phaser.GameObjects.Container,
-    labelX: number, y: number,
-    trackX: number, trackW: number,
-    label: string,
-    initialValue: number,
-    onChange: (value: number) => void
-  ): void {
-    const trackH = 10;
-    const handleR = 16;
-    const trackColor = 0xd8d0c0;
-    const fillColor1 = 0xc8a040;
-    const fillColor2 = 0x8a6830;
-
-    const labelText = this.host.add.text(labelX, y - 18, label, {
-      fontSize: '24px',
-      fontFamily: FONT_FAMILY,
-      color: '#4a2a10',
-    }).setOrigin(0, 0.5).setDepth(DEPTH_OVERLAY_TEXT);
-    parent.add(labelText);
-
-    const trackY = y + 18;
-    const trackRectX = trackX;
-
-    const trackGfx = this.host.add.graphics();
-    trackGfx.setDepth(DEPTH_OVERLAY_TEXT);
-    trackGfx.fillStyle(trackColor, 0.5);
-    trackGfx.fillRoundedRect(trackRectX, trackY - trackH / 2, trackW, trackH, trackH / 2);
-    trackGfx.lineStyle(1, 0xb8a898, 0.4);
-    trackGfx.strokeRoundedRect(trackRectX, trackY - trackH / 2, trackW, trackH, trackH / 2);
-    parent.add(trackGfx);
-
-    const fillGfx = this.host.add.graphics();
-    fillGfx.setDepth(DEPTH_OVERLAY_TEXT);
-    parent.add(fillGfx);
-
-    const valueText = this.host.add.text(trackX + trackW, y - 18, `${Math.round(initialValue * 100)}%`, {
-      fontSize: '20px',
-      fontFamily: FONT_FAMILY,
-      color: '#4a2a10',
-    }).setOrigin(1, 0.5).setDepth(DEPTH_OVERLAY_TEXT);
-    parent.add(valueText);
-
-    const handleGfx = this.host.add.graphics();
-    handleGfx.setDepth(DEPTH_OVERLAY_TEXT);
-    parent.add(handleGfx);
-
-    const handleZone = this.host.add.zone(trackRectX + trackW / 2, trackY, trackW + handleR * 4, handleR * 6)
-      .setInteractive({ cursor: 'pointer' })
-      .setDepth(DEPTH_OVERLAY_TEXT);
-    parent.add(handleZone);
-
-    let currentValue = initialValue;
-    const updateUI = (value: number) => {
-      currentValue = Phaser.Math.Clamp(value, 0, 1);
-      const fillWidth = trackW * currentValue;
-      const handleX = trackRectX + fillWidth;
-
-      fillGfx.clear();
-      if (fillWidth > 0) {
-        fillGfx.fillStyle(fillColor1, 0.9);
-        fillGfx.fillRoundedRect(trackRectX, trackY - trackH / 2, fillWidth, trackH, trackH / 2);
-        if (fillWidth > trackH) {
-          fillGfx.fillStyle(fillColor2, 0.6);
-          fillGfx.fillRoundedRect(trackRectX + fillWidth / 2, trackY - trackH / 2, fillWidth / 2, trackH, trackH / 2);
-        }
-      }
-
-      handleGfx.clear();
-      handleGfx.fillStyle(0xf8f4ec, 0.4);
-      handleGfx.fillCircle(handleX, trackY, handleR + 3);
-      handleGfx.fillStyle(0xf5f0e5, 1);
-      handleGfx.fillCircle(handleX, trackY, handleR);
-      handleGfx.lineStyle(2, fillColor2, 0.9);
-      handleGfx.strokeCircle(handleX, trackY, handleR);
-
-      valueText.setText(`${Math.round(currentValue * 100)}%`);
-
-      onChange(currentValue);
-    };
-
-    updateUI(initialValue);
-
-    let dragging = false;
-
-    handleZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      dragging = true;
-      const ratio = (pointer.x - trackRectX) / trackW;
-      updateUI(ratio);
-    });
-
-    handleZone.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!dragging) return;
-      const ratio = (pointer.x - trackRectX) / trackW;
-      updateUI(ratio);
-    });
-
-    handleZone.on('pointerup', () => {
-      dragging = false;
-    });
-
-    this.host.input.on('pointerup', () => {
-      dragging = false;
     });
   }
 

@@ -3,13 +3,13 @@ import type { Card } from '../../models/Card';
 import { shuffleDeck, sortHand, sortPlayedCards } from '../../models/Card';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
 import { HandType } from '../../models/BattleTypes';
-import { identifyHand, canBeat } from '../../engine/HandRecognizer';
+import { identifyHand } from '../../engine/HandRecognizer';
 import { decidePlay } from '../../engine/AIBrain';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../../utils/VoiceManager';
 import type { PlayerCharacterId } from '../../models/Character';
 
-import { canBeatOrEqual } from '../../engine/CharacterAbilities';
+import { canPlayerBeat } from '../../engine/CharacterAbilities';
 import { SkillTiming } from '../../skills';
 import type { SkillContext, SkillEventBus, SkillRunner } from '../../skills';
 import { getBlockedResponseTypes } from '../../skills/PassiveSkillUtils';
@@ -107,10 +107,11 @@ export class BattleFlowManager {
         this.host.battle.lastPlay,
       );
       if (blockedTypes.includes(pattern.type)) return;
-      const playerChar = this.host.battle.player.characterId;
-      const canBeatPlay = playerChar === 'zhugeliang'
-        ? canBeatOrEqual(pattern, this.host.battle.lastPlay)
-        : canBeat(pattern, this.host.battle.lastPlay);
+      const canBeatPlay = canPlayerBeat(
+        this.host.battle.player.characterId,
+        pattern,
+        this.host.battle.lastPlay,
+      );
       if (!canBeatPlay) return;
     }
 
@@ -270,28 +271,7 @@ export class BattleFlowManager {
     onPlayCtx.centerCardContainers = this.host.centerCards;
     await this.host.skillEventBus.emit(SkillTiming.ON_PLAY, onPlayCtx);
 
-    if (playerHand.length === 0) {
-      await this.damageSettlement.playDamageSettlement(pattern, 'enemy', true);
-      if (this.host.battle.enemy.vitality <= 0) {
-        this.showGameOver(true);
-        return;
-      }
-      this.host.battle.lastPlay = null;
-      await this.refillIfEmpty('player');
-      await this.cardDisplay.fadeOutCenterCardsAsync();
-      this.host.battle.turnHolder = 'enemy';
-      this.host.phase = 'ai_init';
-      this.host.updateUIForPhase();
-      this.host.respondChainDepth = 0;
-      await this.aiInitiatePlay();
-      return;
-    }
-
-    await waitForDelay(this.scene, 300);
-    this.host.phase = 'ai_respond';
-    this.host.updateUIForPhase();
-    this.host.respondChainDepth = this.host.respondChainDepth + 1;
-    await this.aiRespond();
+    await this.handlePostPlayEmptyHandCheck(playerHand, pattern);
   }
 
   async handlePostPlayEmptyHandCheck(hand: Card[], pattern: HandPattern): Promise<void> {

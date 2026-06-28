@@ -10,23 +10,6 @@ export function countSuits(cards: Card[]): number {
   return suits.size;
 }
 
-export function countHearts(cards: Card[]): number {
-  return cards.filter(c => c.suit === 'heart').length;
-}
-
-export function sumClubRanks(cards: Card[]): number {
-  return cards.filter(c => c.suit === 'club').reduce((s, c) => s + c.rank, 0);
-}
-
-export function applyNanmanTengjia(cards: Card[]): { effectiveSumRanks: number } {
-  const effective = cards.map(c => {
-    if (c.suit === 'spade' || c.suit === 'club') return 0;
-    if (c.suit === 'heart') return c.rank * 3;
-    return c.rank;
-  });
-  return { effectiveSumRanks: effective.reduce((s, r) => s + r, 0) };
-}
-
 export function isSamePattern(a: HandPattern, b: HandPattern): boolean {
   if (a.type !== b.type) return false;
   if (a.length !== b.length) return false;
@@ -37,6 +20,25 @@ export function isSamePattern(a: HandPattern, b: HandPattern): boolean {
 export function canBeatOrEqual(newPlay: HandPattern, lastPlay: HandPattern): boolean {
   if (lastPlay.type === HandType.Rocket) return false;
   return canBeat(newPlay, lastPlay) || isSamePattern(newPlay, lastPlay);
+}
+
+/**
+ * 玩家接牌判定，按角色配置的 beatRule 选择规则：
+ * - 'strict'（默认）必须严格大于上家才能接牌
+ * - 'equal' 允许同型等值接牌
+ *
+ * 新增接牌规则只需在 PlayerCharacter.beatRule 中声明，
+ * 无需修改此处或调用方（OCP）。
+ */
+export function canPlayerBeat(
+  playerCharId: PlayerCharacterId | undefined,
+  newPlay: HandPattern,
+  lastPlay: HandPattern,
+): boolean {
+  const rule = (playerCharId && PLAYER_CHARACTERS[playerCharId]?.beatRule) ?? 'strict';
+  return rule === 'equal'
+    ? canBeatOrEqual(newPlay, lastPlay)
+    : canBeat(newPlay, lastPlay);
 }
 
 export function getCharacterEnemyName(enemyId: EnemyCharacterId): string {

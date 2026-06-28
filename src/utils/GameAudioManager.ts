@@ -116,15 +116,6 @@ export class GameAudioManager {
     }
   }
 
-  /** Call this on first user interaction to ensure audio is unlocked */
-  static resumeOnInteraction(scene: Phaser.Scene): void {
-    const handler = () => {
-      GameAudioManager.unlock(scene);
-      scene.input.off('pointerdown', handler);
-    };
-    scene.input.on('pointerdown', handler);
-  }
-
   private static stopBgmByKey(sceneKey: string): void {
     const bgm = GameAudioManager.bgmSounds.get(sceneKey);
     if (bgm) {
@@ -132,35 +123,5 @@ export class GameAudioManager {
       bgm.destroy();
       GameAudioManager.bgmSounds.delete(sceneKey);
     }
-  }
-
-  /** Clear all static maps. Call on scene restart to prevent leaks. */
-  static reset(): void {
-    for (const [, sounds] of GameAudioManager.sceneSounds) {
-      for (const s of sounds) {
-        if (s.isPlaying) s.stop();
-        s.destroy();
-      }
-    }
-    for (const bgm of GameAudioManager.bgmSounds.values()) {
-      bgm.stop();
-      bgm.destroy();
-    }
-    for (const sounds of GameAudioManager.sfxSounds.values()) {
-      for (const s of sounds) {
-        if (s.isPlaying) s.stop();
-        s.destroy();
-      }
-    }
-    for (const sounds of GameAudioManager.voiceSounds.values()) {
-      for (const s of sounds) {
-        if (s.isPlaying) s.stop();
-        s.destroy();
-      }
-    }
-    GameAudioManager.sceneSounds.clear();
-    GameAudioManager.bgmSounds.clear();
-    GameAudioManager.sfxSounds.clear();
-    GameAudioManager.voiceSounds.clear();
   }
 }

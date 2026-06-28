@@ -12,6 +12,11 @@ export interface PlayerCharacter {
   name: string;
   cost: number;
   abilities: CharacterAbility[];
+  /**
+   * 接牌规则：'strict' 必须严格大于上家才能接牌（默认）；
+   * 'equal' 允许同型等值接牌（如诸葛亮"先算"配合）。
+   */
+  beatRule?: 'strict' | 'equal';
 }
 
 export interface EnemyCharacter {
@@ -49,6 +54,7 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     id: 'zhugeliang',
     name: '诸葛亮',
     cost: 8,
+    beatRule: 'equal',
     abilities: [
       { skillId: 'zhugeliang_xiansuan', name: '先算', description: '对方摸满手牌后，你随机令对方七张牌变成【明置】状态' },
       { skillId: 'zhugeliang_liaoji', name: '料机', description: '单牌伤害结算时，【明置】状态的牌不计算分数' },

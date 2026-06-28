@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import type { BattleState } from '../../models/BattleTypes';
 import { GameAudioManager } from '../../utils/GameAudioManager';
-import type { CharacterBarManager } from './CharacterBarManager';
+import type { CharacterInfoManager } from './CharacterInfoManager';
 import { FONT_FAMILY, AVATAR_SOURCE_SIZE, DEPTH_UI } from '../../constants/Layout';
 
 export interface InfoBarHost {
@@ -25,12 +25,12 @@ export interface InfoBarHost {
 export class InfoBarManager {
   private host: InfoBarHost;
   private scene: Phaser.Scene;
-  private characterBarManager: CharacterBarManager;
+  private characterInfo: CharacterInfoManager;
 
-  constructor(host: InfoBarHost & Phaser.Scene, characterBarManager: CharacterBarManager) {
+  constructor(host: InfoBarHost & Phaser.Scene, characterInfo: CharacterInfoManager) {
     this.host = host;
     this.scene = host;
-    this.characterBarManager = characterBarManager;
+    this.characterInfo = characterInfo;
   }
 
   createInfoBars(w: number, h: number): void {
@@ -78,7 +78,7 @@ export class InfoBarManager {
     this.host.enemyAvatarImage.setInteractive({ cursor: 'pointer' });
     this.host.enemyAvatarImage.on('pointerdown', () => {
       GameAudioManager.playSfx(this.scene, 'sfx_button');
-      this.characterBarManager.showEnemyInfoWindow();
+      this.characterInfo.showEnemyInfoWindow();
     });
 
     const enemyBg = this.host.add.graphics();

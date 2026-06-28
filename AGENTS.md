@@ -136,13 +136,25 @@ src/
 │   ├── index.ts             # 技能系统统一导出
 │   └── *.ts                 # 各角色技能实现（一个角色一个文件）
 ├── scenes/                  # Phaser 场景
-│   ├── LoadingScene.ts      # 加载场景
-│   ├── MenuScene.ts         # 主菜单
+│   ├── LoadingScene.ts      # 加载场景（入口，显示加载画面）
+│   ├── MenuScene.ts         # 主菜单（标题、按钮、BGM、浮动粒子）
 │   ├── GameScene.ts         # 对战场景（核心）
 │   ├── TestSelectScene.ts   # 测试角色选择场景
 │   └── managers/            # GameScene 拆分的管理模块
 │       ├── DragInputManager.ts   # 拖拽选择输入逻辑
-│       └── HealthBarManager.ts   # 气血条渲染与动画
+│       ├── HealthBarManager.ts   # 气血条渲染与动画
+│       ├── DamageSettlementManager.ts # 三阶段伤害结算动画
+│       ├── CardDisplayManager.ts # 卡牌渲染、动画、选择交互
+│       ├── BattleFlowManager.ts  # 战斗阶段编排
+│       ├── CharacterBarManager.ts # 角色条、光效、对话框
+│       ├── CharacterInfoManager.ts # 角色 tooltip、敌方信息窗口
+│       ├── InfoBarManager.ts     # 信息栏（气数条、牌堆数、名字/头像）
+│       ├── ActiveSkillManager.ts # 主动技能按钮及执行
+│       ├── ButtonManager.ts      # 出牌/不出按钮
+│       ├── BgmManager.ts         # 战斗 BGM 轮播
+│       ├── ModalManager.ts       # 设置、音量、弹窗
+│       ├── PatternHintManager.ts # 选中牌型提示
+│       └── VolumeSlider.ts       # 通用音量滑块组件
 └── utils/                   # 工具类
     ├── UIFactory.ts         # 共享 UI 绘制工具（背景、分割线、面板、按钮、弹窗）
     ├── GameAudioManager.ts  # 音频管理器
@@ -168,8 +180,9 @@ src/
 |------|------|----------|
 | UI 绘制 | `src/utils/UIFactory.ts` | `UIFactory.darkBg`, `UIFactory.darkBgWithBorder`, `UIFactory.darkBgWithCenteredLines`, `UIFactory.imageBg`, `UIFactory.divider`, `UIFactory.panel`, `UIFactory.titleFrame`, `UIFactory.button`, `UIFactory.closeButton`, `UIFactory.modalOverlay`, `UIFactory.modalPanel` |
 | 布局常量 | `src/constants/Layout.ts` | `FONT_FAMILY`, `CARD_W`, `CARD_H`, `SLOT_SIZE`, `SLOT_STRIDE`, `AVATAR_SOURCE_SIZE`, `DEPTH_*`, `CANVAS_WIDTH`, `CANVAS_HEIGHT` |
-| 角色数据 | `src/models/Character.ts` | `PLAYER_CHARACTERS`, `ENEMY_CHARACTERS`, `randomPlayerCharacter()`, `PlayerCharacterId`, `EnemyCharacterId` |
+| 角色数据 | `src/models/Character.ts` | `PLAYER_CHARACTERS`, `ENEMY_CHARACTERS`, `randomPlayerCharacter()`, `PlayerCharacterId`, `EnemyCharacterId`, `PlayerCharacter.beatRule`（接牌规则：`'strict'`/`'equal'`） |
 | 角色名称 | `src/engine/CharacterAbilities.ts` | `getCharacterEnemyName()`, `getCharacterPlayerName()` —— 直接从 `PLAYER_CHARACTERS`/`ENEMY_CHARACTERS` 数据记录中读取，禁止写 switch 语句 |
+| 接牌判定 | `src/engine/CharacterAbilities.ts` | `canPlayerBeat(playerCharId, newPlay, lastPlay)` —— 按角色 `beatRule` 统一判定；新增接牌规则只需声明 `beatRule`，无需修改调用方 |
 | 字体栈 | `src/constants/Layout.ts` | `FONT_FAMILY`（替代各场景中分散定义的字体字符串） |
 
 ### 禁止的做法
@@ -179,6 +192,7 @@ src/
 - ❌ 用 switch 语句映射角色名称 —— 从 `PLAYER_CHARACTERS[id].name` 直接获取
 - ❌ 在 engine/models/utils 模块中引入 Phaser 依赖
 - ❌ GameScene 超过 500 行 —— 新功能应提取为独立 Manager 类放入 `src/scenes/managers/`
+- ❌ 在 BattleFlowManager/PatternHintManager 中硬编码角色接牌逻辑 —— 统一使用 `canPlayerBeat()` 按 `beatRule` 判定
 
 ---
 
@@ -190,22 +204,30 @@ LoadingScene -> MenuScene -> GameScene / TestSelectScene
 
 - `LoadingScene` — 入口场景，显示加载画面和资源加载进度，加载完成后跳转至 MenuScene
 - `MenuScene` — 主菜单，包含标题、按钮（开始/继续/设置/测试）、背景音乐、浮动粒子特效
-- `GameScene` — 核心对战场景（4415 行，持续拆解中：见 `src/scenes/managers/` 目录）
+- `GameScene` — 核心对战场景（761 行，持续拆解中：见 `src/scenes/managers/` 目录）
 - `TestSelectScene` — 测试用角色选择场景，可选择多角色 + 敌人 + 血量进入 GameScene
 
 ### GameScene 模块拆解计划
 
 ```text
 src/scenes/managers/
-├── DragInputManager.ts   ✅ 已提取 — 拖拽选择输入逻辑（~170 行）
-├── HealthBarManager.ts   ✅ 已提取 — 气血条渲染与动画（~115 行）
-├── DamageSettlementManager.ts  □ 待提取 — 三阶段伤害结算动画
-├── ModalManager.ts             □ 待提取 — 设置/音量/返回确认/牌型系数弹窗
-├── CardDisplayManager.ts       □ 待提取 — 卡牌渲染/动画/选择交互
-└── BattleFlowManager.ts        □ 待提取 — 战斗阶段编排
+├── DragInputManager.ts        ✅ 已提取 — 拖拽选择输入逻辑（~170 行）
+├── HealthBarManager.ts        ✅ 已提取 — 气血条渲染与动画（~115 行）
+├── DamageSettlementManager.ts ✅ 已提取 — 三阶段伤害结算动画（~421 行）
+├── ModalManager.ts             ☐ 待拆分 — 设置/音量/返回确认/牌型系数弹窗（~720 行）
+├── CardDisplayManager.ts      ✅ 已提取 — 卡牌渲染/动画/选择交互（~606 行）
+├── BattleFlowManager.ts       ✅ 已提取 — 战斗阶段编排（~763 行）
+├── CharacterBarManager.ts     ✅ 已提取 — 角色条/光效/对话框（~552 行）
+├── CharacterInfoManager.ts    ✅ 已提取 — 角色 tooltip / 敌方信息窗口（~322 行）
+├── InfoBarManager.ts          ✅ 已提取 — 信息栏（气数条、牌堆数、名字/头像）
+├── ActiveSkillManager.ts      ✅ 已提取 — 主动技能按钮及执行
+├── PatternHintManager.ts      ✅ 已提取 — 选中牌型提示
+├── ButtonManager.ts           ✅ 已提取 — 出牌/不出按钮
+├── BgmManager.ts              ✅ 已提取 — 战斗 BGM 轮播
+└── VolumeSlider.ts            ✅ 已提取 — 通用音量滑块组件（~117 行）
 ```
 
-当前 GameScene 职责过多（UI、输入、结算、技能编排、弹窗、BGM），后续功能应作为独立 Manager 添加至此目录。
+当前 GameScene 已大规模拆解为专注的管理器，后续大型功能应继续添加至 `src/scenes/managers/` 目录。
 
 ---
 

@@ -17,7 +17,7 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'warn',
       '@typescript-eslint/prefer-optional-chain': 'warn',
       '@typescript-eslint/no-floating-promises': 'error',
-      'no-console': 'warn',
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       semi: ['warn', 'always'],
     },

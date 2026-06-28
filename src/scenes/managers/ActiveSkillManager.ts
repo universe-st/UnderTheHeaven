@@ -35,10 +35,13 @@ interface ActiveSkillHost {
   getSelectedCards(): Card[];
   updateUIForPhase(): void;
   updatePatternHint(): void;
+
+  getBattle(): BattleState;
+  renderPlayerHandAfterSkill(): void;
 }
 
 export class ActiveSkillManager {
-  private host: ActiveSkillHost;
+  private host: ActiveSkillHost & Phaser.Scene;
   private scene: Phaser.Scene;
   private slotManager: CharacterSlotManager;
   private cardDisplay: CardDisplayManager;
@@ -255,7 +258,7 @@ export class ActiveSkillManager {
     await this.slotManager.shakeAndPulse('liubowen');
     this.slotManager.showDialog('liubowen', '人算不如天算，天算不如我算！');
 
-    await skill.execute(this.scene, selected);
+    await skill.execute(this.host, selected);
 
     const used = this.host.activeSkillUseCounts.get(skill.id) ?? 0;
     this.host.activeSkillUseCounts.set(skill.id, used + 1);

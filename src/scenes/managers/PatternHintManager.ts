@@ -3,8 +3,8 @@ import type { Card } from '../../models/Card';
 import { cardDisplayName } from '../../models/Card';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
 import { HAND_TYPE_LABELS } from '../../models/BattleTypes';
-import { identifyHand, canBeat, findAllPlays, findBeatingPlays } from '../../engine/HandRecognizer';
-import { canBeatOrEqual } from '../../engine/CharacterAbilities';
+import { identifyHand, findAllPlays, findBeatingPlays } from '../../engine/HandRecognizer';
+import { canPlayerBeat } from '../../engine/CharacterAbilities';
 import { getBlockedResponseTypes } from '../../skills/PassiveSkillUtils';
 import type { SkillRunner } from '../../skills/SkillRunner';
 import type { SkillContext } from '../../skills/SkillTypes';
@@ -70,10 +70,11 @@ export class PatternHintManager {
     const cardsStr = selected.map(c => cardDisplayName(c)).join('');
 
     if (this.host.battle.lastPlay && this.host.phase === 'player_respond') {
-      const playerChar = this.host.battle.player.characterId;
-      const canBeatPlay = playerChar === 'zhugeliang'
-        ? canBeatOrEqual(pattern, this.host.battle.lastPlay)
-        : canBeat(pattern, this.host.battle.lastPlay);
+      const canBeatPlay = canPlayerBeat(
+        this.host.battle.player.characterId,
+        pattern,
+        this.host.battle.lastPlay,
+      );
       if (!canBeatPlay) {
         this.host.patternHintText.setText(`${label} ${cardsStr}（打不过上家）`);
         this.host.patternHintText.setColor('#a08040');

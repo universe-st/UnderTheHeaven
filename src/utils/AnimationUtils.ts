@@ -22,42 +22,6 @@ export function waitForTween(
   });
 }
 
-export async function sequentialTweens(
-  scene: Phaser.Scene,
-  configs: (Phaser.Types.Tweens.TweenBuilderConfig & { onComplete?: () => void })[],
-): Promise<void> {
-  for (const config of configs) {
-    await waitForTween(scene, config);
-  }
-}
-
-export function animateCardsToPositions(
-  cards: Phaser.GameObjects.Container[],
-  positions: Array<{ x: number; y: number }>,
-  duration: number,
-  scene: Phaser.Scene,
-  offset?: { baseDepth: number },
-): Promise<void> {
-  if (cards.length === 0) return Promise.resolve();
-
-  if (offset) {
-    offset.baseDepth += cards.length;
-  }
-
-  return Promise.all(
-    cards.map((card, i) => {
-      card.setDepth((offset?.baseDepth ?? 100) - cards.length + i);
-      return waitForTween(scene, {
-        targets: card,
-        x: positions[i]!.x,
-        y: positions[i]!.y,
-        duration,
-        ease: 'Sine.easeOut',
-      });
-    }),
-  ).then(() => {});
-}
-
 export function fadeOutAndDestroy(
   cards: Phaser.GameObjects.Container[],
   duration: number,

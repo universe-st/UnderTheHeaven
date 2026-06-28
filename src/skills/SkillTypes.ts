@@ -10,7 +10,6 @@ export enum SkillTiming {
   AFTER_DAMAGE = 'after_damage',
   ON_GAIN_TURN = 'on_gain_turn',
   ON_TURN_START = 'on_turn_start',
-  ON_AI_SCORE = 'on_ai_score',
   PASSIVE_MODIFIER = 'passive_modifier',
   HAND_VALIDATION = 'hand_validation',
   AFTER_HEALTH_DECREASE = 'after_health_decrease',
@@ -167,6 +166,6 @@ export interface ActiveSkillDefinition {
   description: string;
   maxUses: number;
   cardFilter: (selectedCards: Card[]) => boolean;
-  execute: (scene: Phaser.Scene, selectedCards: Card[]) => Promise<void>;
+  execute: (scene: Phaser.Scene & ActiveSkillSceneAccess, selectedCards: Card[]) => Promise<void>;
   ownerCharacterId: string;
 }
