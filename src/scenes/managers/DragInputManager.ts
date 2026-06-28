@@ -7,7 +7,7 @@ type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | '
 interface DragInputHost {
   readonly scale: Phaser.Scale.ScaleManager;
   readonly tweens: Phaser.Tweens.TweenManager;
-  readonly input: { on: Phaser.Input.InputPlugin['on'] };
+  readonly input: Phaser.Input.InputPlugin;
   battle: BattleState;
   cardObjects: Phaser.GameObjects.Container[];
   selectedIndices: Set<number>;
@@ -32,7 +32,7 @@ export class DragInputManager {
   }
 
   setup(): void {
-    const input = this.host.input as Phaser.Input.InputPlugin;
+    const input = this.host.input;
 
     input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.isPlayerTurn()) return;

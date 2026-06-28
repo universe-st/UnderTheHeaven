@@ -55,20 +55,8 @@ function shouldUseBomb(handSize: number, opponentHandSize: number): boolean {
  * 逐张匹配（suit + rank），正确处理多张相同牌。
  */
 function getRemainingHand(hand: Card[], played: Card[]): Card[] {
-  const used = new Set<number>();
-  const result: Card[] = [];
-  for (const c of hand) {
-    let consumed = false;
-    for (let i = 0; i < played.length; i++) {
-      if (!used.has(i) && played[i]!.suit === c.suit && played[i]!.rank === c.rank) {
-        used.add(i);
-        consumed = true;
-        break;
-      }
-    }
-    if (!consumed) result.push(c);
-  }
-  return result;
+  const playedUids = new Set(played.map(c => c.uid));
+  return hand.filter(c => !playedUids.has(c.uid));
 }
 
 /** 复合牌型集合（Straight / 连对 / 飞机 / 炸弹 / 王炸） */

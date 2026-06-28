@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { Card } from '../../models/Card';
 import { sortPlayedCards, JOKER_MIN_RANK } from '../../models/Card';
 import { waitForTween, fadeOutAndDestroy } from '../../utils/AnimationUtils';
+import { UIFactory } from '../../utils/UIFactory';
 import {
   FONT_FAMILY, CARD_W, CARD_H, SELECTED_OFFSET, CARD_OVERLAP_OFFSET,
   DEPTH_PLAYER_HAND, DEPTH_ENEMY_HAND, DEPTH_CENTER_BASE,
@@ -185,26 +186,7 @@ export class CardDisplayManager {
 
     if (card.isTemp) {
       const spiderGfx = this.host.add.graphics();
-      const hw = halfW;
-      const hh = halfH;
-      spiderGfx.lineStyle(1, 0x88aacc, 0.6);
-      spiderGfx.lineBetween(0, 0, -hw, -hh);
-      spiderGfx.lineBetween(0, 0, hw, -hh * 0.7);
-      spiderGfx.lineBetween(0, 0, -hw * 0.6, hh);
-      spiderGfx.lineBetween(0, 0, hw * 0.8, hh * 0.3);
-      spiderGfx.lineBetween(0, 0, 0, -hh);
-      spiderGfx.lineBetween(0, 0, -hw * 0.3, hh * 0.5);
-      spiderGfx.lineBetween(0, 0, hw * 0.4, -hh * 0.3);
-      spiderGfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.7, -hh * 0.1);
-      spiderGfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.15, -hh * 0.7);
-      spiderGfx.lineBetween(hw * 0.5, -hh * 0.2, hw * 0.3, -hh * 0.6);
-      spiderGfx.lineBetween(0, -hh * 0.5, hw * 0.25, -hh * 0.8);
-      spiderGfx.lineStyle(0.8, 0x88aacc, 0.35);
-      spiderGfx.lineBetween(-hw * 0.15, -hh * 0.7, -hw * 0.45, -hh * 0.55);
-      spiderGfx.lineBetween(-hw * 0.7, -hh * 0.1, -hw * 0.5, hh * 0.2);
-      spiderGfx.lineBetween(hw * 0.3, -hh * 0.6, hw * 0.6, -hh * 0.4);
-      spiderGfx.lineBetween(0, hh, -hw * 0.4, hh * 0.35);
-      spiderGfx.lineBetween(-hw * 0.3, hh * 0.5, -hw * 0.6, hh * 0.1);
+      UIFactory.drawSpiderWeb(spiderGfx, CARD_W, CARD_H);
       spiderGfx.setAlpha(0.4);
       container.add(spiderGfx);
     }

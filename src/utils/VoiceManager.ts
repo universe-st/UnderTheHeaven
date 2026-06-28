@@ -93,6 +93,11 @@ export function getRandomPassVoice(): string {
 export class VoiceManager {
   private static queue: string[] = [];
   private static current: Phaser.Sound.BaseSound | null = null;
+  private static cachedSettings: ReturnType<typeof loadAudioSettings> | null = null;
+
+  static reloadSettings(): void {
+    VoiceManager.cachedSettings = null;
+  }
 
   static play(scene: Phaser.Scene, key: string, side: 'player' | 'enemy' = 'player'): void {
     if (!key) return;
@@ -106,7 +111,10 @@ export class VoiceManager {
     if (VoiceManager.queue.length === 0) return;
 
     const key = VoiceManager.queue.shift()!;
-    const settings = loadAudioSettings();
+    if (!VoiceManager.cachedSettings) {
+      VoiceManager.cachedSettings = loadAudioSettings();
+    }
+    const settings = VoiceManager.cachedSettings;
 
     try {
       const sound = scene.sound.add(key, { volume: settings.voiceVolume });

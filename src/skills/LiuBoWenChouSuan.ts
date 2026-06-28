@@ -2,41 +2,8 @@ import type { ActiveSkillDefinition, ActiveSkillSceneAccess } from './SkillTypes
 import type { Card } from '../models/Card';
 import { rankToLabel, sortHand, getNextCardId } from '../models/Card';
 import { waitForTween, waitForDelay } from '../utils/AnimationUtils';
-import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET } from '../constants/Layout';
-
-function createSpiderWebGfx(
-  gfx: Phaser.GameObjects.Graphics,
-  cardW: number,
-  cardH: number,
-): void {
-  const hw = cardW / 2;
-  const hh = cardH / 2;
-  const cx = 0;
-  const cy = 0;
-
-  gfx.lineStyle(1, 0x88aacc, 0.6);
-
-  gfx.lineBetween(cx, cy, -hw, -hh);
-  gfx.lineBetween(cx, cy, hw, -hh * 0.7);
-  gfx.lineBetween(cx, cy, -hw * 0.6, hh);
-  gfx.lineBetween(cx, cy, hw * 0.8, hh * 0.3);
-
-  gfx.lineBetween(cx, cy, cx, -hh);
-  gfx.lineBetween(cx, cy, -hw * 0.3, hh * 0.5);
-  gfx.lineBetween(cx, cy, hw * 0.4, -hh * 0.3);
-
-  gfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.7, -hh * 0.1);
-  gfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.15, -hh * 0.7);
-  gfx.lineBetween(hw * 0.5, -hh * 0.2, hw * 0.3, -hh * 0.6);
-  gfx.lineBetween(cx, -hh * 0.5, hw * 0.25, -hh * 0.8);
-
-  gfx.lineStyle(0.8, 0x88aacc, 0.35);
-  gfx.lineBetween(-hw * 0.15, -hh * 0.7, -hw * 0.45, -hh * 0.55);
-  gfx.lineBetween(-hw * 0.7, -hh * 0.1, -hw * 0.5, hh * 0.2);
-  gfx.lineBetween(hw * 0.3, -hh * 0.6, hw * 0.6, -hh * 0.4);
-  gfx.lineBetween(cx, hh, -hw * 0.4, hh * 0.35);
-  gfx.lineBetween(-hw * 0.3, hh * 0.5, -hw * 0.6, hh * 0.1);
-}
+import { UIFactory } from '../utils/UIFactory';
+import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET, FONT_FAMILY } from '../constants/Layout';
 
 async function createTempCardToHand(
   scene: ActiveSkillSceneAccess & Phaser.Scene,
@@ -64,14 +31,14 @@ async function createTempCardToHand(
 
   const smallSuit = scene.add.text(-CARD_W / 2 + 10, -CARD_H / 2 + 8, suitSymbol, {
     fontSize: '22px',
-    fontFamily: '"LXGWWenKai", "Noto Serif SC", serif',
+    fontFamily: FONT_FAMILY,
     color: topColor,
   });
   overlay.add(smallSuit);
 
   const rankText = scene.add.text(0, 0, tempCard.rankLabel, {
     fontSize: '64px',
-    fontFamily: '"LXGWWenKai", "Noto Serif SC", serif',
+    fontFamily: FONT_FAMILY,
     color: '#2a1008',
     stroke: '#ffd700',
     strokeThickness: 3,
@@ -79,7 +46,7 @@ async function createTempCardToHand(
   overlay.add(rankText);
 
   const spiderGfx = scene.add.graphics();
-  createSpiderWebGfx(spiderGfx, CARD_W, CARD_H);
+  UIFactory.drawSpiderWeb(spiderGfx, CARD_W, CARD_H);
   spiderGfx.setAlpha(0);
   overlay.add(spiderGfx);
 
@@ -175,12 +142,8 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
       isTemp: true,
     };
 
-    const idxA = hand.findIndex(
-      c => c.suit === a.suit && c.rank === a.rank && !c.isTemp,
-    );
-    const idxB = hand.findIndex(
-      (c, i) => i !== idxA && c.suit === b.suit && c.rank === b.rank && !c.isTemp,
-    );
+    const idxA = hand.findIndex(c => c.uid === a.uid);
+    const idxB = hand.findIndex(c => c.uid === b.uid && c.uid !== a.uid);
 
     if (idxA === -1 || idxB === -1) return;
 

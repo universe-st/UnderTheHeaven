@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
 import { GameAudioManager } from '../utils/GameAudioManager';
+import { VoiceManager } from '../utils/VoiceManager';
 import { UIFactory } from '../utils/UIFactory';
 import { FONT_FAMILY } from '../constants/Layout';
 
@@ -314,6 +315,7 @@ export class MenuScene extends Phaser.Scene {
     if (!this.settingsOpen || !this.settingsContainer) return;
 
     saveAudioSettings({ bgmVolume: this.bgmVolume, sfxVolume: this.sfxVolume, voiceVolume: this.voiceVolume });
+    VoiceManager.reloadSettings();
 
     const container = this.settingsContainer;
     this.tweens.add({

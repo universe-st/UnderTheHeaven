@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { FONT_FAMILY, DEPTH_UI, DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT } from '../../constants/Layout';
 import { GameAudioManager } from '../../utils/GameAudioManager';
+import { VoiceManager } from '../../utils/VoiceManager';
 import { loadAudioSettings, saveAudioSettings } from '../../AudioSettings';
 
 interface ModalHost {
@@ -570,6 +571,7 @@ export class ModalManager {
         newSettings.voiceVolume = value;
         saveAudioSettings(newSettings);
         GameAudioManager.setVoiceVolume(value);
+        VoiceManager.reloadSettings();
       }
     );
 

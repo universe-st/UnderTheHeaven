@@ -97,11 +97,12 @@ export class UIFactory {
     if (title) {
       const labelX = px + 16;
       const labelY = py - 10;
+      const titleW = title.length * 22 + 24;
       const labelBg = scene.add.graphics();
       labelBg.fillStyle(PANEL_BG_COLOR, 0.9);
-      labelBg.fillRoundedRect(labelX - 6, labelY - 10, title.length * 24 + 12, 28, 6);
+      labelBg.fillRoundedRect(labelX - 6, labelY - 10, titleW, 28, 6);
       labelBg.lineStyle(1, ACCENT_COLOR, 0.4);
-      labelBg.strokeRoundedRect(labelX - 6, labelY - 10, title.length * 24 + 12, 28, 6);
+      labelBg.strokeRoundedRect(labelX - 6, labelY - 10, titleW, 28, 6);
 
       scene.add.text(labelX, labelY + 4, title, {
         fontSize: titleFontSize,
@@ -219,6 +220,39 @@ export class UIFactory {
     overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
     overlay.on('pointerdown', () => onClickOutside());
     return overlay;
+  }
+
+  /**
+   * 绘制蜘蛛网花纹，用于临时牌装饰。
+   */
+  static drawSpiderWeb(gfx: Phaser.GameObjects.Graphics, cardW: number, cardH: number): void {
+    const hw = cardW / 2;
+    const hh = cardH / 2;
+    const cx = 0;
+    const cy = 0;
+
+    gfx.lineStyle(1, 0x88aacc, 0.6);
+
+    gfx.lineBetween(cx, cy, -hw, -hh);
+    gfx.lineBetween(cx, cy, hw, -hh * 0.7);
+    gfx.lineBetween(cx, cy, -hw * 0.6, hh);
+    gfx.lineBetween(cx, cy, hw * 0.8, hh * 0.3);
+
+    gfx.lineBetween(cx, cy, cx, -hh);
+    gfx.lineBetween(cx, cy, -hw * 0.3, hh * 0.5);
+    gfx.lineBetween(cx, cy, hw * 0.4, -hh * 0.3);
+
+    gfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.7, -hh * 0.1);
+    gfx.lineBetween(-hw * 0.3, -hh * 0.3, -hw * 0.15, -hh * 0.7);
+    gfx.lineBetween(hw * 0.5, -hh * 0.2, hw * 0.3, -hh * 0.6);
+    gfx.lineBetween(cx, -hh * 0.5, hw * 0.25, -hh * 0.8);
+
+    gfx.lineStyle(0.8, 0x88aacc, 0.35);
+    gfx.lineBetween(-hw * 0.15, -hh * 0.7, -hw * 0.45, -hh * 0.55);
+    gfx.lineBetween(-hw * 0.7, -hh * 0.1, -hw * 0.5, hh * 0.2);
+    gfx.lineBetween(hw * 0.3, -hh * 0.6, hw * 0.6, -hh * 0.4);
+    gfx.lineBetween(cx, hh, -hw * 0.4, hh * 0.35);
+    gfx.lineBetween(-hw * 0.3, hh * 0.5, -hw * 0.6, hh * 0.1);
   }
 
   static modalPanel(

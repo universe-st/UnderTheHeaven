@@ -539,7 +539,7 @@ export class BattleFlowManager {
       const gainTurnCtx: SkillContext = {
         gameScene: this.scene,
         battle: this.host.battle,
-        sourceCharacterId: 'zhugeliang',
+        sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
         playerCharacterIds: this.host.playerCharacterIds,
         enemyCharacterId: this.host.battle.enemyCharacterId,
       };
@@ -590,7 +590,7 @@ export class BattleFlowManager {
       const gainTurnCtx: SkillContext = {
         gameScene: this.scene,
         battle: this.host.battle,
-        sourceCharacterId: 'zhugeliang',
+        sourceCharacterId: this.host.battle.enemyCharacterId ?? 'enemy',
         playerCharacterIds: this.host.playerCharacterIds,
         enemyCharacterId: this.host.battle.enemyCharacterId,
       };
@@ -681,7 +681,7 @@ export class BattleFlowManager {
       const gainTurnCtx: SkillContext = {
         gameScene: this.scene,
         battle: this.host.battle,
-        sourceCharacterId: 'zhugeliang',
+        sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
         playerCharacterIds: this.host.playerCharacterIds,
         enemyCharacterId: this.host.battle.enemyCharacterId,
       };

@@ -33,7 +33,7 @@ function groupByOrderRank(cards: Card[]): Map<number, Card[]> {
 }
 
 function findConsecutiveRuns(ranks: number[], minLen: number, countFn: (r: number) => number): { start: number; end: number }[] {
-  const sorted = ranks.sort((a, b) => a - b);
+  const sorted = [...ranks].sort((a, b) => a - b);
   const runs: { start: number; end: number }[] = [];
   if (sorted.length === 0) return runs;
 
