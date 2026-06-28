@@ -440,26 +440,54 @@ export function decidePlay(
 
   const beating = generateBeatingPlays(aiHand, battleState.lastPlay);
   if (beating.length > 0) {
-    // 优先使用同牌型的合法出牌
-    const sameTypeBeating = beating.filter(
-      p => p.type === battleState.lastPlay!.type,
-    );
-    if (sameTypeBeating.length > 0) {
-      const selected = selectPlayWithHooks(
-        sameTypeBeating, aiHand, true, battleState.lastPlay, enemyCharId, profile, adjustPlayScores, battleState,
-      );
-      return selected?.cards ?? null;
-    }
+    // 战略放弃：passThreshold 高于最高评分时放弃接牌
+    if (profile && profile.passThreshold > 0) {
+      const topScored = scorePlayCandidates(beating, aiHand, true, battleState.lastPlay, enemyCharId, profile, adjustPlayScores, battleState);
+      if (topScored.length > 0 && topScored[0]!.score < profile.passThreshold * 50) {
+        // 战略放弃，不退出 — 继续到炸弹接管检查
+      } else {
+        // 正常接牌流程
+        const sameTypeBeating = beating.filter(
+          p => p.type === battleState.lastPlay!.type,
+        );
+        if (sameTypeBeating.length > 0) {
+          const selected = selectPlayWithHooks(
+            sameTypeBeating, aiHand, true, battleState.lastPlay, enemyCharId, profile, adjustPlayScores, battleState,
+          );
+          return selected?.cards ?? null;
+        }
 
-    // 仅炸弹/王炸可管上
-    const bombBeating = beating.filter(
-      p => p.type === HandType.Bomb || p.type === HandType.Rocket,
-    );
-    if (bombBeating.length > 0) {
-      const selected = selectPlayWithHooks(
-        bombBeating, aiHand, false, null, enemyCharId, profile, adjustPlayScores, battleState,
+        const bombBeating = beating.filter(
+          p => p.type === HandType.Bomb || p.type === HandType.Rocket,
+        );
+        if (bombBeating.length > 0) {
+          const selected = selectPlayWithHooks(
+            bombBeating, aiHand, false, null, enemyCharId, profile, adjustPlayScores, battleState,
+          );
+          return selected?.cards ?? null;
+        }
+      }
+    } else {
+      // 原逻辑：无 passThreshold 时正常接牌
+      const sameTypeBeating = beating.filter(
+        p => p.type === battleState.lastPlay!.type,
       );
-      return selected?.cards ?? null;
+      if (sameTypeBeating.length > 0) {
+        const selected = selectPlayWithHooks(
+          sameTypeBeating, aiHand, true, battleState.lastPlay, enemyCharId, profile, adjustPlayScores, battleState,
+        );
+        return selected?.cards ?? null;
+      }
+
+      const bombBeating = beating.filter(
+        p => p.type === HandType.Bomb || p.type === HandType.Rocket,
+      );
+      if (bombBeating.length > 0) {
+        const selected = selectPlayWithHooks(
+          bombBeating, aiHand, false, null, enemyCharId, profile, adjustPlayScores, battleState,
+        );
+        return selected?.cards ?? null;
+      }
     }
   }
 
@@ -486,20 +514,6 @@ export function decidePlay(
         bombPlays, aiHand, false, null, enemyCharId, profile, adjustPlayScores, battleState,
       );
       return selected?.cards ?? null;
-    }
-  }
-
-  // ---- passThreshold：有合法接牌但战略放弃 ----
-  if (profile && profile.passThreshold > 0 && beating.length > 0) {
-    const ctx: AIDecisionContext = {
-      hand: aiHand,
-      battleState,
-      lastPlay: battleState.lastPlay,
-      isFollow: true,
-    };
-    const topScored = scorePlayCandidates(beating, aiHand, true, battleState.lastPlay, enemyCharId, profile, adjustPlayScores, battleState);
-    if (topScored.length > 0 && topScored[0]!.score < profile.passThreshold * 50) {
-      return null;
     }
   }
 
