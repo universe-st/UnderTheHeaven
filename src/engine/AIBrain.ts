@@ -181,6 +181,33 @@ function scorePlay(
     }
   }
 
+  // ⑦ 角色策略偏好：花色偏好、小牌偏好、单牌偏好
+  if (enemyCharacterId && !isFollow && play.cards.length === 1) {
+    const card = play.cards[0]!;
+    switch (enemyCharacterId) {
+      case 'banner_army':
+        if (card.suit === 'diamond') score += 5;
+        break;
+      case 'mongol_army':
+        if (card.suit === 'spade') score += 5;
+        break;
+      case 'xiongnu_army':
+        if (card.suit === 'heart') score += 5;
+        break;
+      case 'nanmanjun':
+        if (card.suit === 'heart') score -= 12;
+        break;
+      case 'shizu':
+      case 'huangjinjun':
+        score -= card.rank;
+        break;
+    }
+  }
+  // 强盗：出牌偏好单张，避免浪费组合
+  if (enemyCharacterId === 'qiangdao' && !isFollow && play.cards.length >= 2) {
+    score -= 15;
+  }
+
   return score;
 }
 
