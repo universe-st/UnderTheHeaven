@@ -1,5 +1,14 @@
-import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
+import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager, type AIDecisionHook } from './SkillTypes';
+import { HandType } from '../models/BattleTypes';
 import { discardCardsFromHand, addCardsToHand } from '../utils/CardActions';
+
+const qiangdaoOnAIDecision: AIDecisionHook = (plays) => {
+  for (const p of plays) {
+    if (p.play.type === HandType.Single) {
+      p.score += 10;
+    }
+  }
+};
 
 export const QiangdaoJianJing: SkillDefinition = {
   id: 'qiangdao_jianjing',
@@ -28,4 +37,6 @@ export const QiangdaoJianJing: SkillDefinition = {
       await addCardsToHand(ctx.gameScene, 'enemy', [stolen]);
     }
   },
+
+  onAIDecision: qiangdaoOnAIDecision,
 };

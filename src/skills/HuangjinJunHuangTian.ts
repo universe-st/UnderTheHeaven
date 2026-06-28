@@ -1,5 +1,13 @@
-import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
+import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager, type AIDecisionHook } from './SkillTypes';
+import { HandType } from '../models/BattleTypes';
 import { discardCardsFromHand, drawCardsToHand } from '../utils/CardActions';
+
+const huangjinjunOnAIDecision: AIDecisionHook = (plays) => {
+  for (const p of plays) {
+    const minRank = Math.min(...p.play.cards.map(c => c.rank));
+    p.score += Math.max(0, 15 - minRank) * 1.5;
+  }
+};
 
 export const HuangjinJunHuangTian: SkillDefinition = {
   id: 'huangjinjun_huangtian',
@@ -34,4 +42,6 @@ export const HuangjinJunHuangTian: SkillDefinition = {
     await discardCardsFromHand(ctx.gameScene, 'enemy', [idx]);
     await drawCardsToHand(ctx.gameScene, 'enemy', 1);
   },
+
+  onAIDecision: huangjinjunOnAIDecision,
 };

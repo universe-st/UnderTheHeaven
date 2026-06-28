@@ -1,5 +1,21 @@
-import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
+import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager, type AIDecisionHook } from './SkillTypes';
+import { HandType } from '../models/BattleTypes';
 import { animateMultiplierUpdate } from '../utils/AnimationUtils';
+
+const xiliangArmyOnAIDecision: AIDecisionHook = (plays, ctx) => {
+  const handSize = ctx.hand.length;
+  for (const p of plays) {
+    const remaining = handSize - p.play.cards.length;
+    if (remaining <= 0) {
+      p.score += handSize <= 3 ? 30 : handSize <= 6 ? 15 : 5;
+    }
+    if (p.play.type === HandType.Straight ||
+        p.play.type === HandType.Bomb ||
+        p.play.type === HandType.Rocket) {
+      p.score += 10;
+    }
+  }
+};
 
 export const XiliangArmyHanYong: SkillDefinition = {
   id: 'xiliang_army_hanyong',
@@ -28,4 +44,6 @@ export const XiliangArmyHanYong: SkillDefinition = {
     visuals.playSkillTriggerSound();
     await animateMultiplierUpdate(scene, multiplierLabel, oldMultiplier, newMultiplier, 800);
   },
+
+  onAIDecision: xiliangArmyOnAIDecision,
 };

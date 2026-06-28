@@ -1,5 +1,15 @@
-import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
+import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager, type AIDecisionHook } from './SkillTypes';
+import { HandType } from '../models/BattleTypes';
 import { discardCardsFromHand, addCardsToHand } from '../utils/CardActions';
+
+const mongolArmyOnAIDecision: AIDecisionHook = (plays) => {
+  for (const p of plays) {
+    if (p.play.type === HandType.Single &&
+        p.play.cards[0]?.suit === 'spade') {
+      p.score += 15;
+    }
+  }
+};
 
 export const MongolArmyQiangLve: SkillDefinition = {
   id: 'mongol_army_qianglve',
@@ -29,4 +39,6 @@ export const MongolArmyQiangLve: SkillDefinition = {
       await addCardsToHand(ctx.gameScene, 'enemy', [stolen]);
     }
   },
+
+  onAIDecision: mongolArmyOnAIDecision,
 };

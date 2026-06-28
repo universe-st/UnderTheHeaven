@@ -1,4 +1,14 @@
-import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
+import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager, type AIDecisionHook } from './SkillTypes';
+import { HandType } from '../models/BattleTypes';
+
+const xiongnuArmyOnAIDecision: AIDecisionHook = (plays) => {
+  for (const p of plays) {
+    if (p.play.type === HandType.Single &&
+        p.play.cards[0]?.suit === 'heart') {
+      p.score += 15;
+    }
+  }
+};
 
 export const XiongnuArmyLangShou: SkillDefinition = {
   id: 'xiongnu_army_langshou',
@@ -22,4 +32,6 @@ export const XiongnuArmyLangShou: SkillDefinition = {
     visuals.playSkillTriggerSound();
     visuals.showHeal('enemy', cardScore);
   },
+
+  onAIDecision: xiongnuArmyOnAIDecision,
 };

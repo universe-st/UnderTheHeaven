@@ -1,6 +1,15 @@
-import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
+import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager, type AIDecisionHook } from './SkillTypes';
 import { HandType, type HandPattern } from '../models/BattleTypes';
 import { type ResponseBlockModifier, registerResponseBlock } from './PassiveSkillUtils';
+
+const bannerArmyOnAIDecision: AIDecisionHook = (plays) => {
+  for (const p of plays) {
+    if (p.play.type === HandType.Single &&
+        p.play.cards[0]?.suit === 'diamond') {
+      p.score += 20;
+    }
+  }
+};
 
 export const BannerArmyQiShe: SkillDefinition = {
   id: 'banner_army_qishe',
@@ -25,6 +34,8 @@ export const BannerArmyQiShe: SkillDefinition = {
       visuals.animateCardScale(centerCards[0]!);
     }
   },
+
+  onAIDecision: bannerArmyOnAIDecision,
 };
 
 export const BannerArmyQiSheBlock: ResponseBlockModifier = {
