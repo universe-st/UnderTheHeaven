@@ -155,11 +155,11 @@ function scorePlay(
     score += goodComboCount * w.comboPreserveWeight;
   }
 
-  // ④ 接牌节省性：用刚好管上的牌接，避免浪费大牌
+  // ④ 接牌时轻微偏好刚好管上（margin ≤ 2），但不惩罚用大牌管
+  // 二人玩法中不接牌 = 浪费机会，不应有 margin 惩罚
   if (isFollow && lastPlay) {
     const margin = play.mainValue - lastPlay.mainValue;
-    score -= margin * w.savingMaterialWeight;  // 牌值差距越大扣分越多
-    if (margin <= 2) score += w.closeMarginBonus;  // 刚好管上的小加分
+    if (margin <= 2) score += 2;
   }
 
   // ⑤ 主动出牌时偏好复合牌型（顺子 > 飞机 > 连对 > ... > 单张）

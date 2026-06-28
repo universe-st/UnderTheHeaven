@@ -349,7 +349,6 @@ describe('decidePlay - passThreshold regression', () => {
       phase: 'respond',
     }, 'banner_army');
     const result = decidePlay(state, (plays) => {
-      // Simulate BattleFlowManager injecting banner_army's onAIDecision hook
       for (const p of plays) {
         if (p.play.type === HandType.Single && p.play.cards[0]?.suit === 'diamond') {
           p.score += 20;
@@ -358,5 +357,39 @@ describe('decidePlay - passThreshold regression', () => {
     });
     expect(result).not.toBeNull();
     expect(result![0]!.rank).toBe(13);
+  });
+
+  it('banner_army beats single K with 2 when 2 is available', () => {
+    resetCardIdCounter();
+    const state = makeBattleWithEnemy({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: { hand: [makeCard(20, 'spade'), makeCard(25)], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人' },
+      lastPlay: { type: HandType.Single, cards: [makeCard(13)], mainValue: 13, length: 1 },
+      phase: 'respond',
+    }, 'banner_army');
+    const result = decidePlay(state, (plays) => {
+      for (const p of plays) {
+        if (p.play.type === HandType.Single && p.play.cards[0]?.suit === 'diamond') {
+          p.score += 20;
+        }
+      }
+    });
+    expect(result).not.toBeNull();
+    // Should play either 2 (rank 20) or 小王 (rank 25)
+    expect(result![0]!.rank).toBeGreaterThan(13);
+    expect([20, 25]).toContain(result![0]!.rank);
+  });
+
+  it('shizu beats single K with 2 when in respond mode', () => {
+    resetCardIdCounter();
+    const state = makeBattleWithEnemy({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: { hand: [makeCard(20, 'club')], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人' },
+      lastPlay: { type: HandType.Single, cards: [makeCard(13)], mainValue: 13, length: 1 },
+      phase: 'respond',
+    }, 'shizu');
+    const result = decidePlay(state);
+    expect(result).not.toBeNull();
+    expect(result![0]!.rank).toBeGreaterThan(13);
   });
 });
