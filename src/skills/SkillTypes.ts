@@ -78,6 +78,7 @@ export interface SkillDefinition {
   dialogLines?: string[];
   filter: SkillFilter;
   execute: SkillExecutor;
+  onAIDecision?: AIDecisionHook;
 }
 
 export interface PassiveSkill {
@@ -152,6 +153,18 @@ export interface CharacterSlotManager {
   getCharacterOrder(characterId: string): number;
   showDialog(characterId: string, text: string): void;
 }
+
+export interface AIDecisionContext {
+  hand: Card[];
+  battleState: BattleState;
+  lastPlay: HandPattern | null;
+  isFollow: boolean;
+}
+
+export type AIDecisionHook = (
+  plays: { play: HandPattern; score: number }[],
+  ctx: AIDecisionContext,
+) => void;
 
 export interface ActiveSkillSceneAccess {
   readonly scale: Phaser.Scale.ScaleManager;
