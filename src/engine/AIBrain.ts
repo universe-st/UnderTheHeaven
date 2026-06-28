@@ -7,10 +7,6 @@ import type { EnemyCharacterId } from '../models/Character';
 
 // ========== AI 阈值常量 ==========
 
-/** 评分差距在 10% 以内时从候选列表中随机选择，超出则取最高分 */
-const RANDOM_THRESHOLD = 0.10;
-/** 每次从评分最高的前 N 个候选中考虑随机选择 */
-const RANDOM_CANDIDATE_COUNT = 3;
 /** 己方手牌 ≤ 此值（含随机浮动）时考虑主动使用炸弹 */
 const BOMB_HAND_THRESHOLD = 6;
 /** 对方手牌 ≤ 此值（含随机浮动）时考虑主动使用炸弹 */
