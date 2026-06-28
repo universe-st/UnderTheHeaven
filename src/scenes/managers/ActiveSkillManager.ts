@@ -161,7 +161,7 @@ export class ActiveSkillManager {
 
     const skillZone = this.host.add.zone(0, 0, 250, 80).setInteractive({ cursor: 'pointer' });
     skillZone.on('pointerdown', () => {
-      this.onSkillClick();
+      void this.onSkillClick();
     });
     this.host.btnSkill.add(skillZone);
 

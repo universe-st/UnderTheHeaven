@@ -98,6 +98,29 @@ export class ModalManager {
     this.host.handPatternButton = container;
   }
 
+  private createModalCloseButton(
+    parent: Phaser.GameObjects.Container,
+    x: number, y: number,
+    onClick: () => void,
+    zoneSize: number = 52,
+  ): void {
+    const text = this.host.add.text(x, y, '✕', {
+      fontSize: '34px',
+      fontFamily: FONT_FAMILY,
+      color: '#7a5a3a',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+    const zone = this.host.add.zone(x, y, zoneSize, zoneSize)
+      .setInteractive({ cursor: 'pointer' })
+      .setDepth(DEPTH_OVERLAY_TEXT);
+    zone.on('pointerover', () => text.setColor('#2a1008'));
+    zone.on('pointerout', () => text.setColor('#7a5a3a'));
+    zone.on('pointerdown', () => {
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
+      onClick();
+    });
+    parent.add([text, zone]);
+  }
+
   showHandPatternModal(): void {
     if (this.host.handPatternModal) return;
 
@@ -139,29 +162,13 @@ export class ModalManager {
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(title);
 
-    const closeBtnX = modalX + modalW - 38;
-    const closeBtnY = modalY + 22;
-    const closeText = this.host.add.text(closeBtnX, closeBtnY, '✕', {
-      fontSize: '34px',
-      fontFamily: FONT_FAMILY,
-      color: '#7a5a3a',
-    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
-    const closeZone = this.host.add.zone(closeBtnX, closeBtnY, 52, 52).setInteractive({ cursor: 'pointer' }).setDepth(DEPTH_OVERLAY_TEXT);
-    closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
-    closeZone.on('pointerout', () => closeText.setColor('#7a5a3a'));
-    closeZone.on('pointerdown', () => {
-      GameAudioManager.playSfx(this.scene, 'sfx_button');
-      this.closeHandPatternModal();
-    });
-    container.add([closeText, closeZone]);
+    this.createModalCloseButton(container, modalX + modalW - 38, modalY + 22, () => this.closeHandPatternModal());
 
     const col1X = modalX + pad + 6;
     const col2X = col1X + 160;
     const col3X = col1X + 410;
     const headerY = titleY + 38;
     const headerStyle = { fontSize: '34px', fontFamily: FONT_FAMILY, color: '#4a2a10' } as const;
-
-    headerStyle satisfies Phaser.Types.GameObjects.Text.TextStyle;
 
     const headerBg = this.host.add.graphics();
     headerBg.fillStyle(0xe0d8c8, 0.6);

@@ -433,8 +433,9 @@ export class CardDisplayManager {
     const shiftDepth = this.host.centerDepthCounter;
     this.host.centerDepthCounter += newCards.length + oldCards.length;
 
-    for (const c of oldCards) {
-      c.setDepth(shiftDepth + oldCards.indexOf(c));
+    for (let ci = 0; ci < oldCards.length; ci++) {
+      const c = oldCards[ci]!;
+      c.setDepth(shiftDepth + ci);
       this.host.tweens.add({
         targets: c,
         x: c.x - 150,

@@ -8,23 +8,23 @@ export function waitForDelay(scene: Phaser.Scene, ms: number): Promise<void> {
 
 export function waitForTween(
   scene: Phaser.Scene,
-  config: Record<string, unknown>,
+  config: Phaser.Types.Tweens.TweenBuilderConfig & { onComplete?: () => void },
 ): Promise<void> {
   return new Promise(resolve => {
-    const onComplete = config.onComplete as (() => void) | undefined;
-    scene.tweens.add(({
+    const userOnComplete = config.onComplete;
+    scene.tweens.add({
       ...config,
       onComplete: () => {
-        onComplete?.();
+        userOnComplete?.();
         resolve();
       },
-    } as unknown) as Phaser.Types.Tweens.TweenBuilderConfig);
+    });
   });
 }
 
 export async function sequentialTweens(
   scene: Phaser.Scene,
-  configs: Record<string, unknown>[],
+  configs: (Phaser.Types.Tweens.TweenBuilderConfig & { onComplete?: () => void })[],
 ): Promise<void> {
   for (const config of configs) {
     await waitForTween(scene, config);

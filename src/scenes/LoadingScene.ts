@@ -18,7 +18,7 @@ export class LoadingScene extends Phaser.Scene {
     // progress bar reflects real loading progress.
   }
 
-  async create(): Promise<void> {
+  create(): void {
     const width = Number(this.scale.width) || Number(this.game.config.width) || CANVAS_WIDTH;
     const height = Number(this.scale.height) || Number(this.game.config.height) || CANVAS_HEIGHT;
     const cx = width / 2;
@@ -69,23 +69,25 @@ export class LoadingScene extends Phaser.Scene {
     this.loadAssets();
     this.load.start();
 
-    await this.loadFontWithRetry('LXGWWenKai', 72, 3);
+    void this.loadFontWithRetry('LXGWWenKai', 72, 3).catch(() => {
+      // font loading is best-effort; proceed with fallback fonts
+    }).then(() => {
+      this.add.text(cx, height * 0.38, '天 下 牌', {
+        fontSize: '90px',
+        fontFamily: FONT_FAMILY,
+        color: '#e8d5a3',
+        stroke: '#3a2010',
+        strokeThickness: 4,
+      }).setOrigin(0.5);
 
-    this.add.text(cx, height * 0.38, '天 下 牌', {
-      fontSize: '90px',
-      fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
-      stroke: '#3a2010',
-      strokeThickness: 4,
-    }).setOrigin(0.5);
-
-    this.add.text(cx, height * 0.38 + 58, '一 局 定 天 下', {
-      fontSize: '28px',
-      fontFamily: FONT_FAMILY,
-      color: '#b89050',
-      stroke: '#1a0800',
-      strokeThickness: 2,
-    }).setOrigin(0.5);
+      this.add.text(cx, height * 0.38 + 58, '一 局 定 天 下', {
+        fontSize: '28px',
+        fontFamily: FONT_FAMILY,
+        color: '#b89050',
+        stroke: '#1a0800',
+        strokeThickness: 2,
+      }).setOrigin(0.5);
+    });
   }
 
   private loadAssets(): void {

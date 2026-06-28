@@ -368,8 +368,8 @@ export class CharacterBarManager implements CharacterSlotManager {
 
     const container = h.characterSlotContainers[idx];
     if (!container) return;
-    const glowContainer = container.getAt(0) as Phaser.GameObjects.Container | undefined;
-    if (!glowContainer) return;
+    const glowContainer = container.getAt(0);
+    if (!(glowContainer instanceof Phaser.GameObjects.Container)) return;
 
     h.tweens.killTweensOf(glowContainer);
     glowContainer.setAlpha(0);
@@ -471,8 +471,8 @@ export class CharacterBarManager implements CharacterSlotManager {
 
     const container = h.characterSlotContainers[idx];
     if (!container) return;
-    const glowContainer = container.getAt(0) as Phaser.GameObjects.Container | undefined;
-    if (!glowContainer) return;
+    const glowContainer = container.getAt(0);
+    if (!(glowContainer instanceof Phaser.GameObjects.Container)) return;
 
     const existingTweens = h.characterSlotGlowTweens.get(idx);
     if (existingTweens) {
@@ -531,8 +531,8 @@ export class CharacterBarManager implements CharacterSlotManager {
       if (newIdx >= 0) {
         const glowEls = h.characterSlotGlows[newIdx];
         if (!glowEls) continue;
-        const gc = h.characterSlotContainers[newIdx]?.getAt(0) as Phaser.GameObjects.Container | undefined;
-        if (!gc) continue;
+        const gc = h.characterSlotContainers[newIdx]?.getAt(0);
+        if (!(gc instanceof Phaser.GameObjects.Container)) continue;
         await this.glowOn(cid);
       }
     }

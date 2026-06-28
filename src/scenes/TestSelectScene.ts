@@ -340,11 +340,15 @@ export class TestSelectScene extends Phaser.Scene {
     });
   }
 
-  private createPlayerScrollButtons(
+  private createArrowScrollButtons(
     panelRight: number, centerY: number,
     totalRows: number, visibleRows: number,
-    rowHeight: number, cardContainer: Phaser.GameObjects.Container
-  ): void {
+    rowHeight: number,
+    getScrollOffset: () => number,
+    setScrollOffset: (v: number) => void,
+    onScroll: () => void,
+    onStateUpdate: (rowHeight: number, maxScroll: number) => void,
+  ): { upBtn: Phaser.GameObjects.Container; downBtn: Phaser.GameObjects.Container } {
     const btnSize = 48;
     const btnX = panelRight;
     const maxScroll = Math.max(0, (totalRows - visibleRows) * rowHeight);
@@ -376,19 +380,35 @@ export class TestSelectScene extends Phaser.Scene {
       zone.on('pointerdown', () => {
         GameAudioManager.playSfx(this, 'sfx_button');
         const scrollAmt = direction === 'up' ? -rowHeight : rowHeight;
-        this.playerCardScrollOffset = Phaser.Math.Clamp(
-          this.playerCardScrollOffset + scrollAmt, 0, maxScroll
-        );
-        this.applyPlayerCardScroll(cardContainer);
-        this.updateScrollButtonStates(rowHeight, maxScroll);
+        const current = getScrollOffset();
+        setScrollOffset(Phaser.Math.Clamp(current + scrollAmt, 0, maxScroll));
+        onScroll();
+        onStateUpdate(rowHeight, maxScroll);
       });
 
       return c;
     };
 
-    this.playerScrollUpBtn = createArrowBtn(centerY - btnSize / 2 - 4, '▲', 'up');
-    this.playerScrollDownBtn = createArrowBtn(centerY + btnSize / 2 + 4, '▼', 'down');
-    this.updateScrollButtonStates(rowHeight, maxScroll);
+    const upBtn = createArrowBtn(centerY - btnSize / 2 - 4, '▲', 'up');
+    const downBtn = createArrowBtn(centerY + btnSize / 2 + 4, '▼', 'down');
+    onStateUpdate(rowHeight, maxScroll);
+    return { upBtn, downBtn };
+  }
+
+  private createPlayerScrollButtons(
+    panelRight: number, centerY: number,
+    totalRows: number, visibleRows: number,
+    rowHeight: number, cardContainer: Phaser.GameObjects.Container
+  ): void {
+    const { upBtn, downBtn } = this.createArrowScrollButtons(
+      panelRight, centerY, totalRows, visibleRows, rowHeight,
+      () => this.playerCardScrollOffset,
+      (v) => { this.playerCardScrollOffset = v; },
+      () => this.applyPlayerCardScroll(cardContainer),
+      (rh, ms) => this.updateScrollButtonStates(rh, ms),
+    );
+    this.playerScrollUpBtn = upBtn;
+    this.playerScrollDownBtn = downBtn;
   }
 
   private applyPlayerCardScroll(cardContainer: Phaser.GameObjects.Container): void {
@@ -463,50 +483,15 @@ export class TestSelectScene extends Phaser.Scene {
     totalRows: number, visibleRows: number,
     rowHeight: number, cardContainer: Phaser.GameObjects.Container
   ): void {
-    const btnSize = 48;
-    const btnX = panelRight;
-    const maxScroll = Math.max(0, (totalRows - visibleRows) * rowHeight);
-
-    const createArrowBtn = (y: number, label: string, direction: 'up' | 'down'): Phaser.GameObjects.Container => {
-      const c = this.add.container(btnX, y);
-
-      const bg = this.add.graphics();
-      const drawBg = (hover: boolean) => {
-        bg.clear();
-        bg.fillStyle(hover ? 0x6b3820 : 0x5a3018, 1);
-        bg.fillRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
-        bg.lineStyle(1.5, hover ? 0xe8d5a3 : 0xc8a050, 0.85);
-        bg.strokeRoundedRect(-btnSize / 2, -btnSize / 2, btnSize, btnSize, 6);
-      };
-      drawBg(false);
-      c.add(bg);
-
-      const txt = this.add.text(0, 0, label, {
-        fontSize: '24px',
-        fontFamily: FONT_FAMILY,
-        color: '#e8d5a3',
-      }).setOrigin(0.5);
-      c.add(txt);
-
-      const zone = this.add.zone(btnX, y, btnSize + 8, btnSize + 8).setInteractive({ cursor: 'pointer' });
-      zone.on('pointerover', () => drawBg(true));
-      zone.on('pointerout', () => drawBg(false));
-      zone.on('pointerdown', () => {
-        GameAudioManager.playSfx(this, 'sfx_button');
-        const scrollAmt = direction === 'up' ? -rowHeight : rowHeight;
-        this.enemyCardScrollOffset = Phaser.Math.Clamp(
-          this.enemyCardScrollOffset + scrollAmt, 0, maxScroll
-        );
-        this.applyEnemyCardScroll(cardContainer);
-        this.updateEnemyScrollButtonStates(rowHeight, maxScroll);
-      });
-
-      return c;
-    };
-
-    this.enemyScrollUpBtn = createArrowBtn(centerY - btnSize / 2 - 4, '▲', 'up');
-    this.enemyScrollDownBtn = createArrowBtn(centerY + btnSize / 2 + 4, '▼', 'down');
-    this.updateEnemyScrollButtonStates(rowHeight, maxScroll);
+    const { upBtn, downBtn } = this.createArrowScrollButtons(
+      panelRight, centerY, totalRows, visibleRows, rowHeight,
+      () => this.enemyCardScrollOffset,
+      (v) => { this.enemyCardScrollOffset = v; },
+      () => this.applyEnemyCardScroll(cardContainer),
+      (rh, ms) => this.updateEnemyScrollButtonStates(rh, ms),
+    );
+    this.enemyScrollUpBtn = upBtn;
+    this.enemyScrollDownBtn = downBtn;
   }
 
   private applyEnemyCardScroll(cardContainer: Phaser.GameObjects.Container): void {

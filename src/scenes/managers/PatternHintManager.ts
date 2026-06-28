@@ -44,7 +44,7 @@ export class PatternHintManager {
     } else {
       this.host.patternHintText.setText('无效牌型');
       this.host.patternHintText.setColor('#a04040');
-      this.checkHandValidationHint(selected);
+      this.checkHandValidationHint(selected).catch(() => {});
     }
   }
 

@@ -91,7 +91,10 @@ export class DragInputManager {
   private applyDragRange(currentIdx: number | null): void {
     if (this.dragStartIndex === null || this.dragSelectMode === null) return;
 
-    this.host.selectedIndices = new Set(this.dragSnapshot);
+    this.host.selectedIndices.clear();
+    for (const idx of this.dragSnapshot) {
+      this.host.selectedIndices.add(idx);
+    }
 
     if (currentIdx !== null) {
       const minIdx = Math.min(this.dragStartIndex, currentIdx);

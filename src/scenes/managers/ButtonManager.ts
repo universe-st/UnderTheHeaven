@@ -53,7 +53,7 @@ export class ButtonManager {
     const playZone = this.host.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: 'pointer' });
     playZone.on('pointerdown', () => {
       GameAudioManager.playSfx(this.scene, 'sfx_button');
-      this.onPlayClick();
+      void this.onPlayClick();
     });
     this.host.btnPlay.add(playZone);
 
@@ -77,7 +77,7 @@ export class ButtonManager {
     const passZone = this.host.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: 'pointer' });
     passZone.on('pointerdown', () => {
       GameAudioManager.playSfx(this.scene, 'sfx_button');
-      this.onPassClick();
+      void this.onPassClick();
     });
     this.host.btnPass.add(passZone);
   }

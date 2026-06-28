@@ -320,7 +320,7 @@ export class GameScene extends Phaser.Scene {
       };
       this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, initCtx)
         .then(() => { this.renderEnemyHand(); })
-        .catch(() => {});
+        .catch((err) => { console.warn('[GameScene] zhugeliang init skill error:', err); });
     }
   }
 

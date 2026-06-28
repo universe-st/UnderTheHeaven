@@ -9,7 +9,7 @@ export class GameAudioManager {
 
   static init(scene: Phaser.Scene): void {
     const key = scene.scene.key;
-    scene.events.on('shutdown', () => GameAudioManager.stopAll(key));
+    scene.events.once('shutdown', () => GameAudioManager.stopAll(key));
   }
 
   static track(scene: Phaser.Scene, sound: Phaser.Sound.BaseSound): void {
