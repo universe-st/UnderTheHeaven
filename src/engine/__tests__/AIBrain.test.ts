@@ -336,3 +336,27 @@ describe('decidePlay - onAIDecision callback integration', () => {
     expect(result2).not.toBeNull();
   });
 });
+
+// ========== Regression: passThreshold should not prevent legal plays ==========
+
+describe('decidePlay - passThreshold regression', () => {
+  it('banner_army beats single Q with club K', () => {
+    resetCardIdCounter();
+    const state = makeBattleWithEnemy({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: { hand: [makeCard(13, 'club')], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人' },
+      lastPlay: { type: HandType.Single, cards: [makeCard(12)], mainValue: 12, length: 1 },
+      phase: 'respond',
+    }, 'banner_army');
+    const result = decidePlay(state, (plays) => {
+      // Simulate BattleFlowManager injecting banner_army's onAIDecision hook
+      for (const p of plays) {
+        if (p.play.type === HandType.Single && p.play.cards[0]?.suit === 'diamond') {
+          p.score += 20;
+        }
+      }
+    });
+    expect(result).not.toBeNull();
+    expect(result![0]!.rank).toBe(13);
+  });
+});

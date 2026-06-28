@@ -186,8 +186,8 @@ function scorePlay(
   return score;
 }
 
-// passThreshold(0~1) 映射到分数空间：典型分数范围 0~200，50 为中间阈值
-const PASS_THRESHOLD_SCALE = 50;
+// passThreshold(0~1) 映射到分数空间：乘 10 使 0.1→1.0（典型 respond 评分 ~3）
+const PASS_THRESHOLD_SCALE = 10;
 
 // ========== AI 个性档案 ==========
 
