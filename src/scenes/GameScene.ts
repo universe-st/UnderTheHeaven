@@ -276,19 +276,8 @@ export class GameScene extends Phaser.Scene {
     this.renderAllCards();
     this.dragInputManager.setup();
     this.healthBarManager.updateVitalityBars();
-    this.updateUIForPhase();
 
-    GameAudioManager.init(this);
-    GameAudioManager.unlock(this);
-
-    this.time.delayedCall(200, () => {
-      GameAudioManager.playSfx(this, 'sfx_gong');
-      this.time.delayedCall(800, () => {
-        this.initBattleBgm();
-      });
-    });
-
-    // ── 技能系统初始化（Phase 2：统一异步事件流）──
+    // ── Skill system + pattern hint (must be before updateUIForPhase) ──
     this.skillEventBus = new SkillEventBus();
     this.skillRegistry = new SkillRegistry();
 
@@ -308,6 +297,18 @@ export class GameScene extends Phaser.Scene {
     this.patternHintManager = new PatternHintManager(this, this.skillRunner);
 
     this.initActiveSkills();
+
+    this.updateUIForPhase();
+
+    GameAudioManager.init(this);
+    GameAudioManager.unlock(this);
+
+    this.time.delayedCall(200, () => {
+      GameAudioManager.playSfx(this, 'sfx_gong');
+      this.time.delayedCall(800, () => {
+        this.initBattleBgm();
+      });
+    });
 
     if (this.playerCharacterIds.includes('zhugeliang')) {
       const initCtx: SkillContext = {
