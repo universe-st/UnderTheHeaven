@@ -116,4 +116,8 @@ export class SkillRunner {
 
     return additionalPatterns;
   }
+
+  getRegistry(): SkillRegistry {
+    return this.registry;
+  }
 }

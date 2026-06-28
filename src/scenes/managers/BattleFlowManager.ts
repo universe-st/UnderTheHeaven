@@ -433,7 +433,14 @@ export class BattleFlowManager {
   async aiRespond(): Promise<void> {
     await waitForDelay(this.scene, 400);
     this.host.battle.phase = 'respond';
-    const cards = decidePlay(this.host.battle);
+    const cards = decidePlay(this.host.battle, (plays, ctx) => {
+      const enemyCharId = this.host.battle.enemyCharacterId;
+      if (!enemyCharId) return;
+      const enemySkills = this.host.skillRunner.getRegistry().getSkillsByCharacter(enemyCharId);
+      for (const skill of enemySkills) {
+        skill.onAIDecision?.(plays, ctx);
+      }
+    });
     if (!cards || cards.length === 0) {
       await this.executePass('enemy');
       return;
@@ -577,7 +584,14 @@ export class BattleFlowManager {
 
     await waitForDelay(this.scene, 400);
     this.host.battle.phase = 'play';
-    const cards = decidePlay(this.host.battle);
+    const cards = decidePlay(this.host.battle, (plays, ctx) => {
+      const enemyCharId = this.host.battle.enemyCharacterId;
+      if (!enemyCharId) return;
+      const enemySkills = this.host.skillRunner.getRegistry().getSkillsByCharacter(enemyCharId);
+      for (const skill of enemySkills) {
+        skill.onAIDecision?.(plays, ctx);
+      }
+    });
     if (!cards || cards.length === 0) {
       this.host.battle.lastPlay = null;
       this.host.battle.turnHolder = 'player';
