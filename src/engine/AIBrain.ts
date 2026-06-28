@@ -16,6 +16,53 @@ const BOMB_HAND_THRESHOLD = 6;
 /** 对方手牌 ≤ 此值（含随机浮动）时考虑主动使用炸弹 */
 const BOMB_OPPONENT_HAND_THRESHOLD = 4;
 
+// ========== AI 个性档案类型 ==========
+
+export interface ScoreWeights {
+  damageWeight: number;
+  clearingWeight: number;
+  comboPreserveWeight: number;
+  savingMaterialWeight: number;
+  closeMarginBonus: number;
+  complexityWeight: number;
+}
+
+export interface SelectionConfig {
+  candidateCount: number;
+  randomThreshold: number;
+}
+
+export interface BotProfile {
+  aggression: number;
+  comboPreference: number;
+  handClearingTendency: number;
+  weights: ScoreWeights | null;
+  selection: SelectionConfig;
+  passThreshold: number;
+  bombOverride: { base: number; fuzzRange: number } | null;
+}
+
+export interface AIDecisionContext {
+  hand: Card[];
+  battleState: BattleState;
+  lastPlay: HandPattern | null;
+  isFollow: boolean;
+}
+
+export interface ScoredPlay {
+  play: HandPattern;
+  score: number;
+}
+
+export const DEFAULT_WEIGHTS: ScoreWeights = {
+  damageWeight: 0.05,
+  clearingWeight: 3,
+  comboPreserveWeight: 2,
+  savingMaterialWeight: 3,
+  closeMarginBonus: 4,
+  complexityWeight: 4,
+};
+
 // ========== 牌型优先级（数值越小越复杂，越优先出） ==========
 
 function patternPriority(type: HandType): number {
