@@ -3,7 +3,7 @@ import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
 import { GameAudioManager } from '../utils/GameAudioManager';
 import { VoiceManager } from '../utils/VoiceManager';
 import { UIFactory } from '../utils/UIFactory';
-import { FONT_FAMILY } from '../constants/Layout';
+import { FONT_FAMILY, DEPTH_OVERLAY } from '../constants/Layout';
 
 const SHOW_TEST_BUTTON = true;
 
@@ -229,7 +229,7 @@ export class MenuScene extends Phaser.Scene {
     const px = (sw - panelW) / 2;
     const py = (sh - panelH) / 2;
 
-    const container = this.add.container(0, 0).setDepth(200);
+    const container = this.add.container(0, 0).setDepth(DEPTH_OVERLAY);
     this.settingsContainer = container;
 
     const overlay = UIFactory.modalOverlay(this, sw, sh, () => this.hideSettings());
