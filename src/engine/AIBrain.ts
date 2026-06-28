@@ -8,9 +8,9 @@ import type { EnemyCharacterId } from '../models/Character';
 // ========== AI 阈值常量 ==========
 
 /** 己方手牌 ≤ 此值（含随机浮动）时考虑主动使用炸弹 */
-const BOMB_HAND_THRESHOLD = 6;
+const BOMB_HAND_THRESHOLD = 10;
 /** 对方手牌 ≤ 此值（含随机浮动）时考虑主动使用炸弹 */
-const BOMB_OPPONENT_HAND_THRESHOLD = 4;
+const BOMB_OPPONENT_HAND_THRESHOLD = 8;
 
 // ========== AI 个性档案类型 ==========
 
@@ -146,33 +146,46 @@ function scorePlay(
   score += play.cards.length * w.clearingWeight * clearingMod;
 
   // ③ 组合完整性保护：出牌后剩余手牌中保留的复合牌型越多越好
+  // 手牌少时保护权重衰减，避免因保留组合而错失接牌/清空机会
   const remaining = getRemainingHand(hand, play.cards);
   if (remaining.length > 0) {
     const remainingPlays = findAllPlays(remaining);
     const goodComboCount = remainingPlays.filter(p =>
       COMPLEX_COMBO_TYPES.has(p.type),
     ).length;
-    score += goodComboCount * w.comboPreserveWeight;
+    const preserveDecay = hand.length <= 5 ? 0.1 : hand.length <= 10 ? 0.5 : 1.0;
+    score += goodComboCount * w.comboPreserveWeight * preserveDecay;
   }
 
-  // ④ 接牌时轻微偏好刚好管上（margin ≤ 2），但不惩罚用大牌管
-  // 二人玩法中不接牌 = 浪费机会，不应有 margin 惩罚
+  // ④ 清空手牌巨额奖励：二人玩法中清空一手 = ×5 伤害
+  if (remaining.length === 0) {
+    score += 50;
+  }
+
+  // ⑤ 接牌时轻微偏好刚好管上（margin ≤ 2），但不惩罚用大牌管
   if (isFollow && lastPlay) {
     const margin = play.mainValue - lastPlay.mainValue;
     if (margin <= 2) score += 2;
   }
 
-  // ⑤ 主动出牌时偏好复合牌型（顺子 > 飞机 > 连对 > ... > 单张）
+  // ⑥ 主动出牌时偏好复合牌型（顺子 > 飞机 > 连对 > ... > 单张）
   if (!isFollow) {
     const priority = patternPriority(play.type);
     const pref = profile?.comboPreference ?? 0.5;
     score += (11 - priority) * w.complexityWeight * pref;
   }
 
-  // ⑥ 最少浪费：顺子/连对/飞机应从最小点数开出，保护大牌
-  if (play.type === HandType.Straight || play.type === HandType.ConsecutivePairs ||
-      play.type === HandType.Airplane || play.type === HandType.AirplaneSingle ||
-      play.type === HandType.AirplanePair) {
+  // ⑦ 牌权控制：出高点数牌增加对方接牌难度
+  if (!isFollow) {
+    if (play.mainValue >= 25) score += 15;  // 小王/大王
+    else if (play.mainValue >= 20) score += 8;  // 2
+  }
+
+  // ⑧ 最少浪费：顺子/连对/飞机从最小点数开出（仅主动出牌时）
+  if (!isFollow &&
+      (play.type === HandType.Straight || play.type === HandType.ConsecutivePairs ||
+       play.type === HandType.Airplane || play.type === HandType.AirplaneSingle ||
+       play.type === HandType.AirplanePair)) {
     const minCard = [...play.cards].sort((a, b) => a.rank - b.rank)[0]!;
     if (minCard.rank === play.mainValue) {
       score += 5;
@@ -274,20 +287,33 @@ function scorePlayCandidates(
   adjustPlayScores: ((plays: { play: HandPattern; score: number }[], ctx: AIDecisionContext) => void) | undefined,
   battleState: BattleState,
 ): { play: HandPattern; score: number }[] {
-  const scored: { play: HandPattern; score: number }[] = plays.map(p => ({
+  let scored: { play: HandPattern; score: number }[] = plays.map(p => ({
     play: p,
     score: scorePlay(p, hand, isFollow, lastPlay, enemyCharacterId, profile),
   }));
 
-  // 血量压力修正 + 保留炸弹惩罚
   if (profile && battleState) {
     const opponentVitality = isFollow
       ? battleState.player.vitality
       : battleState.enemy.vitality;
+    const myVitality = battleState.enemy.vitality;
+    const myVitalityMax = battleState.enemy.vitalityMax;
+
+    // 大牌追踪：根据弃牌堆判断对手剩余大牌
+    const playedAll = [
+      ...battleState.player.discardPile,
+      ...battleState.enemy.discardPile,
+    ];
+    const highRanksPlayed = playedAll.filter(
+      c => c.rank >= 15 && c.rank <= 30,
+    ).length;
+    const totalHighCards = 10; // 4×A + 4×2 + 1×小王 + 1×大王
+    const remainingHigh = Math.max(0, totalHighCards - highRanksPlayed);
+
     for (const s of scored) {
       const damage = calculateDamage(s.play);
 
-      // 血量压力：能击杀对方时高奖励，接近击杀时中奖励
+      // 血量压力：能击杀对方时高奖励
       if (damage >= opponentVitality) {
         s.score += 30 * profile.aggression;
       } else if (opponentVitality - damage < opponentVitality * 0.3) {
@@ -298,6 +324,18 @@ function scorePlayCandidates(
       if ((s.play.type === HandType.Bomb || s.play.type === HandType.Rocket) &&
           damage < opponentVitality) {
         s.score -= 20 * (1 - profile.aggression);
+      }
+
+      // 己方血量压力：残血时整体激进
+      if (myVitality < myVitalityMax * 0.3) {
+        s.score *= 1.3;
+      } else if (myVitality < myVitalityMax * 0.5) {
+        s.score *= 1.15;
+      }
+
+      // 大牌优势：对方快没大牌时放心出
+      if (remainingHigh <= 2) {
+        s.score *= 1.15;
       }
     }
   }
