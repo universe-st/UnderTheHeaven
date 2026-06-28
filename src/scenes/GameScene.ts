@@ -160,7 +160,7 @@ export class GameScene extends Phaser.Scene implements CharacterSlotManager {
     this.centerCardsOwner = null;
     this.centerDepthCounter = DEPTH_CENTER_BASE;
 
-    this.bgmManager.stopBattleBgm();
+    this.bgmManager?.stopBattleBgm();
 
     this.handPatternModal?.destroy();
     this.handPatternModal = null;
