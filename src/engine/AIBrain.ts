@@ -181,14 +181,6 @@ function scorePlay(
     }
   }
 
-  // ⑦ 南蛮军藤甲：偏好打出黑桃牌（敌方黑色牌不计算伤害），避免打出红桃牌
-  if (enemyCharacterId === 'nanmanjun') {
-    for (const card of play.cards) {
-      if (card.suit === 'spade' || card.suit === 'club') score += 5;
-      if (card.suit === 'heart') score -= 10;
-    }
-  }
-
   return score;
 }
 

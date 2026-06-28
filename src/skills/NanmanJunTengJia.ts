@@ -3,8 +3,18 @@ import {
   type SkillDefinition,
   type SkillContext,
   type SkillVisualManager,
+  type AIDecisionHook,
 } from './SkillTypes';
 import { nullifyCardDamage, multiplyCardDamage } from './SkillUtils';
+
+const nanmanjunOnAIDecision: AIDecisionHook = (plays) => {
+  for (const p of plays) {
+    for (const card of p.play.cards) {
+      if (card.suit === 'spade' || card.suit === 'club') p.score += 5;
+      if (card.suit === 'heart') p.score -= 10;
+    }
+  }
+};
 
 export const NanmanJunTengJiaBlack: SkillDefinition = {
   id: 'nanmanjun_tengjia_black',
@@ -24,6 +34,8 @@ export const NanmanJunTengJiaBlack: SkillDefinition = {
   execute: async (ctx: SkillContext, visuals: SkillVisualManager): Promise<void> => {
     await nullifyCardDamage(ctx, visuals);
   },
+
+  onAIDecision: nanmanjunOnAIDecision,
 };
 
 export const NanmanJunTengJiaHeart: SkillDefinition = {
