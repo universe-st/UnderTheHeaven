@@ -236,11 +236,167 @@ function selectPlay(
   return topN[0]!.play;
 }
 
+// ========== AI 个性档案 ==========
+
+const BOT_PROFILES: Record<EnemyCharacterId, BotProfile> = {
+  shizu: {
+    aggression: 0.3,
+    comboPreference: 0.3,
+    handClearingTendency: 0.3,
+    weights: null,
+    selection: { candidateCount: 2, randomThreshold: 0.05 },
+    passThreshold: 0.2,
+    bombOverride: null,
+  },
+  huangjinjun: {
+    aggression: 0.6,
+    comboPreference: 0.4,
+    handClearingTendency: 0.3,
+    weights: null,
+    selection: { candidateCount: 3, randomThreshold: 0.10 },
+    passThreshold: 0.0,
+    bombOverride: null,
+  },
+  nanmanjun: {
+    aggression: 0.5,
+    comboPreference: 0.5,
+    handClearingTendency: 0.3,
+    weights: null,
+    selection: { candidateCount: 3, randomThreshold: 0.10 },
+    passThreshold: 0.1,
+    bombOverride: null,
+  },
+  qiangdao: {
+    aggression: 0.5,
+    comboPreference: 0.4,
+    handClearingTendency: 0.4,
+    weights: null,
+    selection: { candidateCount: 3, randomThreshold: 0.10 },
+    passThreshold: 0.1,
+    bombOverride: null,
+  },
+  banner_army: {
+    aggression: 0.5,
+    comboPreference: 0.3,
+    handClearingTendency: 0.2,
+    weights: null,
+    selection: { candidateCount: 3, randomThreshold: 0.10 },
+    passThreshold: 0.1,
+    bombOverride: null,
+  },
+  mongol_army: {
+    aggression: 0.7,
+    comboPreference: 0.4,
+    handClearingTendency: 0.4,
+    weights: null,
+    selection: { candidateCount: 4, randomThreshold: 0.15 },
+    passThreshold: 0.0,
+    bombOverride: null,
+  },
+  xiliang_army: {
+    aggression: 0.8,
+    comboPreference: 0.6,
+    handClearingTendency: 0.6,
+    weights: null,
+    selection: { candidateCount: 4, randomThreshold: 0.20 },
+    passThreshold: 0.3,
+    bombOverride: null,
+  },
+  xiongnu_army: {
+    aggression: 0.4,
+    comboPreference: 0.3,
+    handClearingTendency: 0.2,
+    weights: null,
+    selection: { candidateCount: 2, randomThreshold: 0.08 },
+    passThreshold: 0.3,
+    bombOverride: null,
+  },
+};
+
+// ========== 带钩子的评分与选择辅助函数 ==========
+
+function scorePlayCandidates(
+  plays: HandPattern[],
+  hand: Card[],
+  isFollow: boolean,
+  lastPlay: HandPattern | null,
+  enemyCharacterId: EnemyCharacterId | undefined,
+  profile: BotProfile | undefined,
+  adjustPlayScores: ((plays: { play: HandPattern; score: number }[], ctx: AIDecisionContext) => void) | undefined,
+  battleState: BattleState,
+): { play: HandPattern; score: number }[] {
+  const scored: { play: HandPattern; score: number }[] = plays.map(p => ({
+    play: p,
+    score: scorePlay(p, hand, isFollow, lastPlay, enemyCharacterId, profile),
+  }));
+
+  // 血量压力修正
+  if (profile && battleState) {
+    const opponentVitality = isFollow
+      ? battleState.player.vitality
+      : battleState.enemy.vitality;
+    for (const s of scored) {
+      const damage = calculateDamage(s.play);
+      if (damage >= opponentVitality) {
+        s.score += 30 * profile.aggression;
+      } else if (opponentVitality - damage < opponentVitality * 0.3) {
+        s.score += 15 * profile.aggression;
+      }
+    }
+  }
+
+  // 调用外部钩子（onAIDecision）
+  if (adjustPlayScores) {
+    adjustPlayScores(scored, {
+      hand,
+      battleState,
+      lastPlay,
+      isFollow,
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
+
+function selectPlayWithHooks(
+  plays: HandPattern[],
+  hand: Card[],
+  isFollow: boolean,
+  lastPlay: HandPattern | null,
+  enemyCharacterId: EnemyCharacterId | undefined,
+  profile: BotProfile | undefined,
+  adjustPlayScores: ((plays: { play: HandPattern; score: number }[], ctx: AIDecisionContext) => void) | undefined,
+  battleState: BattleState,
+): HandPattern | undefined {
+  const scored = scorePlayCandidates(plays, hand, isFollow, lastPlay, enemyCharacterId, profile, adjustPlayScores, battleState);
+  if (scored.length === 0) return undefined;
+  if (scored.length === 1) return scored[0]!.play;
+
+  const sel = profile?.selection ?? { candidateCount: 3, randomThreshold: 0.10 };
+  const topN = scored.slice(0, Math.min(sel.candidateCount, scored.length));
+  const bestScore = topN[0]!.score;
+
+  const closeCandidates = topN.filter(s => {
+    if (bestScore <= 0) return true;
+    return (bestScore - s.score) / bestScore < sel.randomThreshold;
+  });
+
+  if (closeCandidates.length > 1) {
+    return closeCandidates[Math.floor(Math.random() * closeCandidates.length)]!.play;
+  }
+  return topN[0]!.play;
+}
+
 // ========== AI 决策主入口 ==========
 
-export function decidePlay(battleState: BattleState): Card[] | null {
+export function decidePlay(
+  battleState: BattleState,
+  adjustPlayScores?: (plays: { play: HandPattern; score: number }[], ctx: AIDecisionContext) => void,
+): Card[] | null {
   const aiHand = battleState.enemy.hand;
   const enemyCharId = battleState.enemyCharacterId;
+  const profile = enemyCharId ? BOT_PROFILES[enemyCharId] : undefined;
 
   const generateAllPlays = (hand: Card[]): HandPattern[] => {
     return findAllPlays(hand);
@@ -263,13 +419,17 @@ export function decidePlay(battleState: BattleState): Card[] | null {
     );
 
     if (normalPlays.length > 0) {
-      const selected = selectPlay(normalPlays, aiHand, false, null, enemyCharId);
-      return selected.cards;
+      const selected = selectPlayWithHooks(
+        normalPlays, aiHand, false, null, enemyCharId, profile, adjustPlayScores, battleState,
+      );
+      return selected?.cards ?? null;
     }
 
     if (bombs.length > 0) {
-      const selected = selectPlay(bombs, aiHand, false, null, enemyCharId);
-      return selected.cards;
+      const selected = selectPlayWithHooks(
+        bombs, aiHand, false, null, enemyCharId, profile, adjustPlayScores, battleState,
+      );
+      return selected?.cards ?? null;
     }
 
     return null;
@@ -280,26 +440,30 @@ export function decidePlay(battleState: BattleState): Card[] | null {
 
   const beating = generateBeatingPlays(aiHand, battleState.lastPlay);
   if (beating.length > 0) {
-    // 优先使用同牌型的合法出牌（带节省性评分）
+    // 优先使用同牌型的合法出牌
     const sameTypeBeating = beating.filter(
       p => p.type === battleState.lastPlay!.type,
     );
     if (sameTypeBeating.length > 0) {
-      const selected = selectPlay(sameTypeBeating, aiHand, true, battleState.lastPlay, enemyCharId);
-      return selected.cards;
+      const selected = selectPlayWithHooks(
+        sameTypeBeating, aiHand, true, battleState.lastPlay, enemyCharId, profile, adjustPlayScores, battleState,
+      );
+      return selected?.cards ?? null;
     }
 
-    // 仅炸弹/王炸可管上（对手出了炸弹），直接用最小炸弹
+    // 仅炸弹/王炸可管上
     const bombBeating = beating.filter(
       p => p.type === HandType.Bomb || p.type === HandType.Rocket,
     );
     if (bombBeating.length > 0) {
-      const selected = selectPlay(bombBeating, aiHand, false, null, enemyCharId);
-      return selected.cards;
+      const selected = selectPlayWithHooks(
+        bombBeating, aiHand, false, null, enemyCharId, profile, adjustPlayScores, battleState,
+      );
+      return selected?.cards ?? null;
     }
   }
 
-  // ---- 无合法接牌，考虑用炸弹强行接管 ----
+  // ---- 考虑用炸弹强行接管 ----
   const lastType = battleState.lastPlay.type;
   if (lastType !== HandType.Bomb && lastType !== HandType.Rocket) {
     const allPlays = generateAllPlays(aiHand);
@@ -307,12 +471,35 @@ export function decidePlay(battleState: BattleState): Card[] | null {
       p => p.type === HandType.Bomb || p.type === HandType.Rocket,
     );
 
+    const bombCfg = profile?.bombOverride;
     const handSize = aiHand.length;
     const opponentHandSize = battleState.player.hand.length;
 
-    if (bombPlays.length > 0 && shouldUseBomb(handSize, opponentHandSize)) {
-      const selected = selectPlay(bombPlays, aiHand, false, null, enemyCharId);
-      return selected.cards;
+    // Use profile bomb thresholds if available, otherwise use global defaults with fuzz
+    const use = bombCfg
+      ? (handSize <= bombCfg.base + (Math.floor(Math.random() * (bombCfg.fuzzRange * 2 + 1)) - bombCfg.fuzzRange) ||
+         opponentHandSize <= bombCfg.base + (Math.floor(Math.random() * (bombCfg.fuzzRange * 2 + 1)) - bombCfg.fuzzRange))
+      : shouldUseBomb(handSize, opponentHandSize);
+
+    if (bombPlays.length > 0 && use) {
+      const selected = selectPlayWithHooks(
+        bombPlays, aiHand, false, null, enemyCharId, profile, adjustPlayScores, battleState,
+      );
+      return selected?.cards ?? null;
+    }
+  }
+
+  // ---- passThreshold：有合法接牌但战略放弃 ----
+  if (profile && profile.passThreshold > 0 && beating.length > 0) {
+    const ctx: AIDecisionContext = {
+      hand: aiHand,
+      battleState,
+      lastPlay: battleState.lastPlay,
+      isFollow: true,
+    };
+    const topScored = scorePlayCandidates(beating, aiHand, true, battleState.lastPlay, enemyCharId, profile, adjustPlayScores, battleState);
+    if (topScored.length > 0 && topScored[0]!.score < profile.passThreshold * 50) {
+      return null;
     }
   }
 
