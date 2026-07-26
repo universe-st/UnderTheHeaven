@@ -12,6 +12,7 @@ import {
   VISIBLE_BAR_WIDTH, FADE_WIDTH,
   DEPTH_UI, DEPTH_DAMAGE,
 } from '../../constants/Layout';
+import { clampBubbleCenterX, clampBubbleTailX } from '../../utils/bubbleLayout';
 
 export interface CharacterBarHost {
   readonly scale: Phaser.Scale.ScaleManager;
@@ -285,8 +286,6 @@ export class CharacterBarManager implements CharacterSlotManager {
       anchorY = 160;
     }
 
-    const container = h.add.container(anchorX, anchorY).setDepth(DEPTH_DAMAGE - 5).setAlpha(0);
-
     const textObj = h.add.text(0, 0, lines.join('\n'), {
       fontSize: `${fontSize}px`,
       fontFamily: FONT_FAMILY,
@@ -301,6 +300,13 @@ export class CharacterBarManager implements CharacterSlotManager {
     const boxH = Math.max(textH + padY * 2, 40);
     const totalH = boxH + 10;
 
+    const { width: screenW, height: screenH } = h.scale;
+    const centerX = clampBubbleCenterX(anchorX, boxW, screenW, 16);
+    const tailX = clampBubbleTailX(anchorX - centerX, boxW);
+    const topY = Phaser.Math.Clamp(anchorY, 8, screenH - totalH - 8);
+
+    const container = h.add.container(centerX, topY).setDepth(DEPTH_DAMAGE - 5).setAlpha(0);
+
     const tailSize = 8;
     const graphicsTop = tailDir === 'down' ? 0 : tailSize;
     const textY = tailDir === 'down' ? padY + 5 : padY + tailSize + 5;
@@ -309,18 +315,18 @@ export class CharacterBarManager implements CharacterSlotManager {
     gfx.fillStyle(0xfffdf5, 0.95);
     gfx.fillRoundedRect(-boxW / 2, graphicsTop, boxW, boxH, 10);
     if (tailDir === 'down') {
-      gfx.fillTriangle(-tailSize, boxH, tailSize, boxH, 0, totalH);
+      gfx.fillTriangle(tailX - tailSize, boxH, tailX + tailSize, boxH, tailX, totalH);
     } else {
-      gfx.fillTriangle(-tailSize, tailSize, tailSize, tailSize, 0, 0);
+      gfx.fillTriangle(tailX - tailSize, tailSize, tailX + tailSize, tailSize, tailX, 0);
     }
     gfx.lineStyle(2, 0x6a4a2a, 0.7);
     gfx.strokeRoundedRect(-boxW / 2, graphicsTop, boxW, boxH, 10);
     if (tailDir === 'down') {
-      gfx.lineBetween(-tailSize, boxH, 0, totalH);
-      gfx.lineBetween(tailSize, boxH, 0, totalH);
+      gfx.lineBetween(tailX - tailSize, boxH, tailX, totalH);
+      gfx.lineBetween(tailX + tailSize, boxH, tailX, totalH);
     } else {
-      gfx.lineBetween(-tailSize, tailSize, 0, 0);
-      gfx.lineBetween(tailSize, tailSize, 0, 0);
+      gfx.lineBetween(tailX - tailSize, tailSize, tailX, 0);
+      gfx.lineBetween(tailX + tailSize, tailSize, tailX, 0);
     }
     container.add(gfx);
 
