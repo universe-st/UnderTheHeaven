@@ -1,13 +1,15 @@
 import Phaser from 'phaser';
 import type { Card} from '../models/Card';
-import { createDeck, shuffleDeck, sortHand, resetCardIdCounter } from '../models/Card';
-import type { BattleState, HandPattern} from '../models/BattleTypes';
+import { createDeck, shuffleDeck, sortHand, resetCardIdCounter, getNextCardId } from '../models/Card';
+import type { BattleState, HandPattern, BattleConfig } from '../models/BattleTypes';
 import { GameAudioManager } from '../utils/GameAudioManager';
 import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
 import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayerCharacter } from '../models/Character';
 import { getCharacterEnemyName } from '../engine/CharacterAbilities';
+import { PLAYER_VITALITY } from '../models/RunState';
+import { getRun } from '../models/RunManager';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, type SkillContext, type ActiveSkillDefinition } from '../skills';
-import { clearPassiveSkills } from '../skills/PassiveSkillUtils';
+import { clearPassiveSkills, registerAllPassiveSkills } from '../skills/PassiveSkillUtils';
 import {
   FONT_FAMILY,
   DEPTH_BG, DEPTH_BG_BORDER, DEPTH_UI,
@@ -27,13 +29,6 @@ import { PatternHintManager } from './managers/PatternHintManager';
 import { ButtonManager } from './managers/ButtonManager';
 import { BgmManager } from './managers/BgmManager';
 
-interface TestBattleConfig {
-  selectedPlayerCharacterIds?: PlayerCharacterId[];
-  enemyCharacterId?: EnemyCharacterId;
-  playerVitality?: number;
-  enemyVitality?: number;
-}
-
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
 export class GameScene extends Phaser.Scene {
@@ -42,6 +37,7 @@ export class GameScene extends Phaser.Scene {
 
   selectedIndices: Set<number> = new Set();
   cardObjects: Phaser.GameObjects.Container[] = [];
+  handScrollX: number = 0;
   enemyCardObjects: Phaser.GameObjects.Container[] = [];
 
   playerVitalityBar!: Phaser.GameObjects.Graphics;
@@ -94,8 +90,14 @@ export class GameScene extends Phaser.Scene {
   respondChainDepth: number = 0;
   damageSettlementCancelled: boolean = false;
 
-  private testConfig: TestBattleConfig | null = null;
+  private testConfig: BattleConfig | null = null;
+  isTestMode: boolean = false;
   playerCharacterIds: PlayerCharacterId[] = [];
+
+  /** 入场配置（含 runMode），供 BattleFlowManager 等管理器读取 */
+  get battleConfig(): BattleConfig | null {
+    return this.testConfig;
+  }
 
   characterSlotContainers: Phaser.GameObjects.Container[] = [];
   characterSlotTexts: Phaser.GameObjects.Text[] = [];
@@ -135,7 +137,7 @@ export class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
-  init(data?: TestBattleConfig): void {
+  init(data?: BattleConfig): void {
     if (data) {
       this.testConfig = data;
     } else {
@@ -154,6 +156,7 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'player_init';
     this.selectedIndices = new Set();
     this.cardObjects = [];
+    this.handScrollX = 0;
     this.enemyCardObjects = [];
     this.centerCards = [];
     this.centerCardsOwner = null;
@@ -197,8 +200,10 @@ export class GameScene extends Phaser.Scene {
     this.skillEventBus?.clear();
     this.skillRegistry?.clear();
     clearPassiveSkills();
+    registerAllPassiveSkills();
 
     this.revealedEnemyCards = new Set();
+    this.isTestMode = this.testConfig !== null && !this.testConfig.runMode;
 
     this.btnSkill?.destroy();
     this.btnSkill = null;
@@ -306,23 +311,34 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
-    if (this.playerCharacterIds.includes('zhugeliang')) {
-      const initCtx: SkillContext = {
-        gameScene: this,
-        battle: this.battle,
-        sourceCharacterId: 'zhugeliang',
-        playerCharacterIds: this.playerCharacterIds,
-        enemyCharacterId: this.battle.enemyCharacterId,
-      };
-      this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, initCtx)
-        .then(() => { this.renderEnemyHand(); })
-        .catch((err) => { console.warn('[GameScene] zhugeliang init skill error:', err); });
-    }
+    // 战斗开局：通过标准技能事件通道广播 ON_GAIN_TURN，
+    // 是否触发由已注册技能（如诸葛亮「先算」）自身的 filter 判定。
+    const initCtx: SkillContext = {
+      gameScene: this,
+      battle: this.battle,
+      sourceCharacterId: this.battle.player.characterId ?? this.playerCharacterIds[0]!,
+      playerCharacterIds: this.playerCharacterIds,
+      enemyCharacterId: this.battle.enemyCharacterId,
+    };
+    this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, initCtx)
+      .then(() => { this.renderEnemyHand(); })
+      .catch((err) => { console.warn('[GameScene] battle start skill error:', err); });
   }
 
   private initBattle(): BattleState {
     const playerDeck = shuffleDeck(createDeck());
     const enemyDeck = shuffleDeck(createDeck());
+
+    const runMode = this.testConfig?.runMode;
+
+    // 融合购买的卡牌（仅加入玩家牌组）
+    const purchased = this.testConfig?.purchasedCards;
+    if (purchased && purchased.length > 0) {
+      for (const card of purchased) {
+        playerDeck.push({ ...card, uid: getNextCardId() });
+      }
+      shuffleDeck(playerDeck);
+    }
 
     const playerHand = playerDeck.splice(0, 17);
     const enemyHand = enemyDeck.splice(0, 17);
@@ -335,8 +351,8 @@ export class GameScene extends Phaser.Scene {
     const enemyName = getCharacterEnemyName(enemyCharId);
     const playerChar = PLAYER_CHARACTERS[playerCharId];
 
-    const playerVit = this.testConfig?.playerVitality ?? 500;
-    const enemyVit = this.testConfig?.enemyVitality ?? 500;
+    const playerVit = runMode ? PLAYER_VITALITY : (this.testConfig?.playerVitality ?? 500);
+    const enemyVit = runMode ? runMode.enemyVitality : (this.testConfig?.enemyVitality ?? 500);
 
     return {
       player: {
@@ -365,6 +381,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private selectPlayerCharacter(): PlayerCharacterId {
+    const runMode = this.testConfig?.runMode;
+    if (runMode) {
+      // 局外循环：玩家阵容 = 当前对局 roster 全量
+      const roster = getRun()?.roster;
+      this.playerCharacterIds = roster && roster.length > 0 ? [...roster] : [randomPlayerCharacter()];
+      return this.playerCharacterIds[0]!;
+    }
     if (this.testConfig?.selectedPlayerCharacterIds && this.testConfig.selectedPlayerCharacterIds.length > 0) {
       this.playerCharacterIds = [...this.testConfig.selectedPlayerCharacterIds];
       return this.playerCharacterIds[0]!;
@@ -375,6 +398,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private selectEnemyCharacter(): EnemyCharacterId {
+    const runMode = this.testConfig?.runMode;
+    if (runMode) {
+      return runMode.enemyId;
+    }
     if (this.testConfig?.enemyCharacterId) {
       return this.testConfig.enemyCharacterId;
     }
@@ -525,10 +552,10 @@ export class GameScene extends Phaser.Scene {
     switch (this.phase) {
       case 'player_init':
         if (this.playerHasPlayablePattern()) {
-          this.turnIndicatorText.setText('');
+          this.turnIndicatorText.setText('轮到你出牌');
           this.turnIndicatorText.setPosition(width / 2, 100);
         } else {
-          this.turnIndicatorText.setText('');
+          this.turnIndicatorText.setText('轮到你出牌');
           this.turnIndicatorText.setPosition(width / 2, height - 370);
         }
         this.thinkingText.setVisible(false);
@@ -539,7 +566,7 @@ export class GameScene extends Phaser.Scene {
         if (this.btnSkill) this.btnSkill.setVisible(false);
         break;
       case 'player_respond':
-        this.turnIndicatorText.setText('');
+        this.turnIndicatorText.setText('跟牌或不出');
         this.turnIndicatorText.setPosition(width / 2, 100);
         this.thinkingText.setVisible(false);
         this.turnIndicatorText.setVisible(true);
@@ -547,12 +574,12 @@ export class GameScene extends Phaser.Scene {
         this.btnPass.setVisible(true);
         this.btnPassText.setColor('#1a0804');
         if (!this.playerHasPlayablePattern()) {
-          this.turnIndicatorText.setText('');
+          this.turnIndicatorText.setText('跟牌或不出');
           this.turnIndicatorText.setPosition(width / 2, height - 370);
         }
         break;
       case 'ai_init':
-        this.thinkingText.setText('');
+        this.thinkingText.setText('对方思考中…');
         this.thinkingText.setVisible(true);
         this.turnIndicatorText.setVisible(false);
         this.btnPlay.setVisible(false);
@@ -562,7 +589,7 @@ export class GameScene extends Phaser.Scene {
         this.closeSkillDropdown();
         break;
       case 'ai_respond':
-        this.thinkingText.setText('');
+        this.thinkingText.setText('对方思考中…');
         this.thinkingText.setVisible(true);
         this.turnIndicatorText.setVisible(false);
         this.btnPlay.setVisible(false);
@@ -601,11 +628,11 @@ export class GameScene extends Phaser.Scene {
     if (who === 'player') {
       this.thinkingText.setVisible(false);
       this.turnIndicatorText.setVisible(true);
-      this.turnIndicatorText.setText('');
+      this.turnIndicatorText.setText('轮到你出牌');
       this.turnIndicatorText.setPosition(width / 2, 100);
     } else {
       this.turnIndicatorText.setVisible(false);
-      this.thinkingText.setText('');
+      this.thinkingText.setText('对方思考中…');
       this.thinkingText.setVisible(true);
     }
   }
@@ -630,10 +657,6 @@ export class GameScene extends Phaser.Scene {
   ): Promise<void> {
     await this.damageSettlementManager.playDamageSettlement(pattern, target, isEmptyHand);
   }
-
-
-
-
 
   async animateCardsToPositionsAsync(
     cards: Phaser.GameObjects.Container[],

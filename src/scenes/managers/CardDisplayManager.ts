@@ -3,8 +3,10 @@ import type { Card } from '../../models/Card';
 import { sortPlayedCards, JOKER_MIN_RANK } from '../../models/Card';
 import { waitForTween, fadeOutAndDestroy } from '../../utils/AnimationUtils';
 import { UIFactory } from '../../utils/UIFactory';
+import { calcHandLayout } from '../../engine/handLayout';
 import {
-  FONT_FAMILY, CARD_W, CARD_H, SELECTED_OFFSET, CARD_OVERLAP_OFFSET,
+  FONT_FAMILY, CARD_W, CARD_H, CARD_OVERLAP_OFFSET, SELECTED_OFFSET,
+  HAND_AREA_MARGIN,
   DEPTH_PLAYER_HAND, DEPTH_ENEMY_HAND, DEPTH_CENTER_BASE,
 } from '../../constants/Layout';
 
@@ -20,7 +22,9 @@ export interface CardDisplayHost {
   centerCardsOwner: 'player' | 'enemy' | null;
   centerDepthCounter: number;
   selectedIndices: Set<number>;
+  handScrollX: number;
   revealedEnemyCards: Set<Card>;
+  isTestMode: boolean;
 }
 
 export class CardDisplayManager {
@@ -199,6 +203,47 @@ export class CardDisplayManager {
     this.renderEnemyHand(true);
   }
 
+  getHandLayout(): { startX: number; offset: number; scrollable: boolean } {
+    const hand = this.host.battle.player.hand;
+    const { width } = this.host.scale;
+    const available = width - HAND_AREA_MARGIN * 2;
+    const layout = calcHandLayout(hand.length, available, CARD_OVERLAP_OFFSET, CARD_W);
+    let startX: number;
+    if (layout.scrollable) {
+      const minScroll = available - layout.totalWidth;
+      this.host.handScrollX = Phaser.Math.Clamp(this.host.handScrollX, minScroll, 0);
+      startX = HAND_AREA_MARGIN + CARD_W / 2 + this.host.handScrollX;
+    } else {
+      this.host.handScrollX = 0;
+      startX = (width - layout.totalWidth) / 2 + CARD_W / 2;
+    }
+    return { startX, offset: layout.offset, scrollable: layout.scrollable };
+  }
+
+  isHandScrollable(): boolean {
+    const hand = this.host.battle.player.hand;
+    const { width } = this.host.scale;
+    return calcHandLayout(hand.length, width - HAND_AREA_MARGIN * 2, CARD_OVERLAP_OFFSET, CARD_W).scrollable;
+  }
+
+  scrollHandBy(dx: number): void {
+    const hand = this.host.battle.player.hand;
+    const { width } = this.host.scale;
+    const available = width - HAND_AREA_MARGIN * 2;
+    const layout = calcHandLayout(hand.length, available, CARD_OVERLAP_OFFSET, CARD_W);
+    if (!layout.scrollable) return;
+    const minScroll = available - layout.totalWidth;
+    this.host.handScrollX = Phaser.Math.Clamp(this.host.handScrollX + dx, minScroll, 0);
+    this.applyHandPositions();
+  }
+
+  applyHandPositions(): void {
+    const { startX, offset } = this.getHandLayout();
+    for (let i = 0; i < this.host.cardObjects.length; i++) {
+      this.host.cardObjects[i]!.setX(startX + i * offset);
+    }
+  }
+
   renderPlayerHand(animateEntry: boolean = false): void {
     this.host.cardObjects.forEach(c => c.destroy());
     this.host.cardObjects = [];
@@ -206,13 +251,11 @@ export class CardDisplayManager {
     const hand = this.host.battle.player.hand;
     const { width, height } = this.host.scale;
     const baseY = height - 90;
-    const overlapOffset = CARD_OVERLAP_OFFSET;
-    const totalW = CARD_W + (hand.length - 1) * overlapOffset;
-    const startX = (width - totalW) / 2 + CARD_W / 2;
+    const { startX, offset } = this.getHandLayout();
     const offscreenX = width + CARD_W;
 
     for (let i = 0; i < hand.length; i++) {
-      const targetX = startX + i * overlapOffset;
+      const targetX = startX + i * offset;
       const isSelected = this.host.selectedIndices.has(i);
       const y = baseY + (isSelected ? SELECTED_OFFSET : 0);
       const initX = animateEntry ? offscreenX : targetX;
@@ -269,6 +312,11 @@ export class CardDisplayManager {
         revealedDisplay.setAlpha(0.6);
         revealedDisplay.setScale(0.75);
         container.add(revealedDisplay);
+      } else if (this.host.isTestMode) {
+        const testDisplay = this.createCardDisplay(hand[i]!, 0, 0, false);
+        testDisplay.setAlpha(0.45);
+        testDisplay.setScale(0.75);
+        container.add(testDisplay);
       } else {
         const cardBack = this.host.add.image(0, 0, 'card_back');
         cardBack.setDisplaySize(CARD_W, CARD_H);
@@ -358,7 +406,46 @@ export class CardDisplayManager {
     }
   }
 
+  private patternLabel: Phaser.GameObjects.Container | null = null;
+
+  showPatternLabel(label: string, isBomb: boolean): void {
+    this.clearPatternLabel();
+    const text = this.host.add.text(0, 0, label, {
+      fontSize: '30px',
+      fontFamily: FONT_FAMILY,
+      color: isBomb ? '#ffd090' : '#ffe9c0',
+    }).setOrigin(0.5);
+    const padX = 26;
+    const padY = 10;
+    const w = text.width + padX * 2;
+    const h = text.height + padY * 2;
+    const bg = this.host.add.graphics();
+    bg.fillStyle(isBomb ? 0x8a2a10 : 0x8a5a20, 0.92);
+    bg.fillRoundedRect(-w / 2, -h / 2, w, h, 8);
+    bg.lineStyle(1.5, 0xe8c880, 0.7);
+    bg.strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
+    const container = this.host.add.container(1200, 370, [bg, text])
+      .setDepth(DEPTH_CENTER_BASE + 300)
+      .setAlpha(0)
+      .setScale(0.8);
+    this.patternLabel = container;
+    this.host.tweens.add({
+      targets: container,
+      alpha: 1,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 160,
+      ease: 'Back.easeOut',
+    });
+  }
+
+  clearPatternLabel(): void {
+    this.patternLabel?.destroy();
+    this.patternLabel = null;
+  }
+
   clearCenterCards(): void {
+    this.clearPatternLabel();
     for (const c of this.host.centerCards) {
       c.destroy();
     }
@@ -368,6 +455,7 @@ export class CardDisplayManager {
   }
 
   fadeOutCenterCards(onComplete: () => void): void {
+    this.clearPatternLabel();
     const cards = [...this.host.centerCards];
     this.host.centerCards = [];
     this.host.centerCardsOwner = null;
