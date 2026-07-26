@@ -463,6 +463,16 @@ export class CardDisplayManager {
       scaleY: 1,
       duration: 160,
       ease: 'Back.easeOut',
+      onComplete: () => {
+        this.host.tweens.add({
+          targets: container,
+          alpha: 0,
+          duration: 400,
+          delay: 1800,
+          ease: 'Sine.easeIn',
+          onComplete: () => this.clearPatternLabel(),
+        });
+      },
     });
   }
 

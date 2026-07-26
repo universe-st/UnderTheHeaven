@@ -43,7 +43,7 @@ export class TurnIndicatorManager {
 
     this.enemyFrame = this.host.add.graphics().setDepth(DEPTH_UI + 1).setVisible(false);
     this.enemyFrame.lineStyle(3, 0xffd700, 0.9);
-    this.enemyFrame.strokeRoundedRect(44, 8, 512, 92, 8);
+    this.enemyFrame.strokeRoundedRect(8, 8, 540, 92, 8);
 
     this.playerFrame = this.host.add.graphics().setDepth(DEPTH_UI + 1).setVisible(false);
     this.playerFrame.lineStyle(3, 0xffd700, 0.9);

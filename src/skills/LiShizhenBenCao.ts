@@ -11,6 +11,7 @@ export const LiShizhenBenCao: SkillDefinition = {
 
   filter: (ctx: SkillContext): boolean => {
     if (!ctx.playedCards) return false;
+    if (!ctx.playerCharacterIds.includes(ctx.sourceCharacterId)) return false;
     if (ctx.battle.player.vitality >= ctx.battle.player.vitalityMax) return false;
     const clubCards = ctx.playedCards.filter(c => c.suit === 'club');
     return clubCards.length > 0;
