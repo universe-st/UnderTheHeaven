@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 import type { BattleState } from '../../models/BattleTypes';
-import { SELECTED_OFFSET, CARD_H } from '../../constants/Layout';
+import { SELECTED_OFFSET, CARD_H, CARD_W } from '../../constants/Layout';
 import type { CardDisplayManager } from './CardDisplayManager';
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
@@ -129,7 +129,7 @@ export class DragInputManager {
       }
     }
 
-    if (bestDist > 90) return null;
+    if (bestDist > CARD_W / 2) return null;
     return bestIdx;
   }
 
