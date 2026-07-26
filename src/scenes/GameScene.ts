@@ -28,6 +28,7 @@ import { InfoBarManager } from './managers/InfoBarManager';
 import { PatternHintManager } from './managers/PatternHintManager';
 import { ButtonManager } from './managers/ButtonManager';
 import { BgmManager } from './managers/BgmManager';
+import { TurnIndicatorManager } from './managers/TurnIndicatorManager';
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
@@ -47,12 +48,13 @@ export class GameScene extends Phaser.Scene {
   playerDeckText!: Phaser.GameObjects.Text;
   enemyDeckText!: Phaser.GameObjects.Text;
   patternHintText!: Phaser.GameObjects.Text;
-  private turnIndicatorText!: Phaser.GameObjects.Text;
-  private thinkingText!: Phaser.GameObjects.Text;
+  turnIndicatorManager!: TurnIndicatorManager;
   btnPlay!: Phaser.GameObjects.Container;
   btnPass!: Phaser.GameObjects.Container;
   btnPlayText!: Phaser.GameObjects.Text;
   btnPassText!: Phaser.GameObjects.Text;
+  btnHint!: Phaser.GameObjects.Container;
+  btnHintText!: Phaser.GameObjects.Text;
 
   btnSkill: Phaser.GameObjects.Container | null = null;
   btnSkillText: Phaser.GameObjects.Text | null = null;
@@ -215,6 +217,9 @@ export class GameScene extends Phaser.Scene {
     this.activeSkillEligibleIds = [];
     this.currentActiveSkillId = null;
 
+    this.turnIndicatorManager?.destroy();
+    this.tweens.timeScale = 1;
+
     this.tweens.killAll();
   }
 
@@ -225,7 +230,8 @@ export class GameScene extends Phaser.Scene {
 
     this.drawBackground(width, height);
     this.createPatternHint(width, height);
-    this.createTurnIndicator(width, height);
+    this.turnIndicatorManager = new TurnIndicatorManager(this);
+    this.turnIndicatorManager.create(width, height);
 
     this.battle = this.initBattle();
 
@@ -434,24 +440,6 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(DEPTH_UI);
   }
 
-  private createTurnIndicator(w: number, _h: number): void {
-    this.turnIndicatorText = this.add.text(w / 2, 100, '', {
-      fontSize: '22px',
-      fontFamily: FONT_FAMILY,
-      color: '#4a2a10',
-      stroke: '#f0ebe0',
-      strokeThickness: 1,
-    }).setOrigin(0.5).setDepth(DEPTH_UI);
-
-    this.thinkingText = this.add.text(590, 67, '', {
-      fontSize: '20px',
-      fontFamily: FONT_FAMILY,
-      color: '#4a2a10',
-      stroke: '#f0ebe0',
-      strokeThickness: 1,
-    }).setOrigin(0, 0.5).setDepth(DEPTH_UI).setVisible(false);
-  }
-
   private createCharacterSlots(w: number, h: number): void {
     this.characterBarManager.createCharacterSlots(w, h);
   }
@@ -547,51 +535,24 @@ export class GameScene extends Phaser.Scene {
   // ═══════════════════════════════════════════════
 
   updateUIForPhase(): void {
-    const { width, height } = this.scale;
-
     switch (this.phase) {
       case 'player_init':
-        if (this.playerHasPlayablePattern()) {
-          this.turnIndicatorText.setText('轮到你出牌');
-          this.turnIndicatorText.setPosition(width / 2, 100);
-        } else {
-          this.turnIndicatorText.setText('轮到你出牌');
-          this.turnIndicatorText.setPosition(width / 2, height - 370);
-        }
-        this.thinkingText.setVisible(false);
-        this.turnIndicatorText.setVisible(true);
+        this.turnIndicatorManager.showPlayerTurn('轮到你出牌');
         this.btnPlay.setVisible(this.playerHasPlayablePattern());
         this.btnPassText.setColor('#8a7a5a');
         this.btnPass.setVisible(false);
         if (this.btnSkill) this.btnSkill.setVisible(false);
         break;
       case 'player_respond':
-        this.turnIndicatorText.setText('跟牌或不出');
-        this.turnIndicatorText.setPosition(width / 2, 100);
-        this.thinkingText.setVisible(false);
-        this.turnIndicatorText.setVisible(true);
+        this.turnIndicatorManager.showPlayerTurn('跟牌或不出');
         this.btnPlay.setVisible(this.playerHasPlayablePattern());
         this.btnPass.setVisible(true);
         this.btnPassText.setColor('#1a0804');
-        if (!this.playerHasPlayablePattern()) {
-          this.turnIndicatorText.setText('跟牌或不出');
-          this.turnIndicatorText.setPosition(width / 2, height - 370);
-        }
+        if (this.btnSkill) this.btnSkill.setVisible(false);
         break;
       case 'ai_init':
-        this.thinkingText.setText('对方思考中…');
-        this.thinkingText.setVisible(true);
-        this.turnIndicatorText.setVisible(false);
-        this.btnPlay.setVisible(false);
-        this.btnPass.setVisible(false);
-        this.btnPassText.setColor('#8a7a5a');
-        if (this.btnSkill) this.btnSkill.setVisible(false);
-        this.closeSkillDropdown();
-        break;
       case 'ai_respond':
-        this.thinkingText.setText('对方思考中…');
-        this.thinkingText.setVisible(true);
-        this.turnIndicatorText.setVisible(false);
+        this.turnIndicatorManager.showAiThinking();
         this.btnPlay.setVisible(false);
         this.btnPass.setVisible(false);
         this.btnPassText.setColor('#8a7a5a');
@@ -599,19 +560,11 @@ export class GameScene extends Phaser.Scene {
         this.closeSkillDropdown();
         break;
       case 'animating':
-        this.thinkingText.setVisible(false);
-        this.turnIndicatorText.setVisible(false);
+      case 'game_over':
+        this.turnIndicatorManager.hideAll();
         this.btnPlay.setVisible(false);
         this.btnPass.setVisible(false);
         this.btnPassText.setColor('#8a7a5a');
-        if (this.btnSkill) this.btnSkill.setVisible(false);
-        this.closeSkillDropdown();
-        break;
-      case 'game_over':
-        this.thinkingText.setVisible(false);
-        this.turnIndicatorText.setVisible(false);
-        this.btnPlay.setVisible(false);
-        this.btnPass.setVisible(false);
         if (this.btnSkill) this.btnSkill.setVisible(false);
         this.closeSkillDropdown();
         break;
@@ -619,21 +572,21 @@ export class GameScene extends Phaser.Scene {
         break;
     }
 
+    const isPlayerPhase = this.phase === 'player_init' || this.phase === 'player_respond';
+    if (this.btnHint) {
+      this.btnHint.setVisible(isPlayerPhase);
+      this.btnHintText.setColor(this.playerHasPlayablePattern() ? '#1a0a04' : '#8a7a5a');
+    }
+
     this.updateButtonLayout();
     this.updateVitalityBars();
   }
 
   updateTurnIndicator(who: 'player' | 'enemy'): void {
-    const { width } = this.scale;
     if (who === 'player') {
-      this.thinkingText.setVisible(false);
-      this.turnIndicatorText.setVisible(true);
-      this.turnIndicatorText.setText('轮到你出牌');
-      this.turnIndicatorText.setPosition(width / 2, 100);
+      this.turnIndicatorManager.showPlayerTurn('轮到你出牌');
     } else {
-      this.turnIndicatorText.setVisible(false);
-      this.thinkingText.setText('对方思考中…');
-      this.thinkingText.setVisible(true);
+      this.turnIndicatorManager.showAiThinking();
     }
   }
 
