@@ -33,7 +33,7 @@ export class TurnIndicatorManager {
     }).setOrigin(0.5).setDepth(DEPTH_UI).setVisible(false)
       .setShadow(0, 0, '#ffd700', 10, true, true);
 
-    this.thinking = this.host.add.text(590, 67, '对方思考中…', {
+    this.thinking = this.host.add.text(660, 67, '对方思考中…', {
       fontSize: '24px',
       fontFamily: FONT_FAMILY,
       color: '#4a2a10',
