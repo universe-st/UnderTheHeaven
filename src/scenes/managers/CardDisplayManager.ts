@@ -235,6 +235,7 @@ export class CardDisplayManager {
     const minScroll = available - layout.totalWidth;
     this.host.handScrollX = Phaser.Math.Clamp(this.host.handScrollX + dx, minScroll, 0);
     this.applyHandPositions();
+    this.updateHandOverflowHints();
   }
 
   applyHandPositions(): void {
@@ -242,6 +243,28 @@ export class CardDisplayManager {
     for (let i = 0; i < this.host.cardObjects.length; i++) {
       this.host.cardObjects[i]!.setX(startX + i * offset);
     }
+  }
+
+  /** 溢出滑动模式下显示两端渐隐提示；非溢出时隐藏 */
+  updateHandOverflowHints(): void {
+    const { width, height } = this.host.scale;
+    const scrollable = this.isHandScrollable();
+
+    if (!this.handFadeLeft) {
+      this.handFadeLeft = this.host.add.graphics().setDepth(DEPTH_PLAYER_HAND + 500);
+      this.handFadeLeft.fillGradientStyle(0x1a0f08, 0x1a0f08, 0x1a0f08, 0x1a0f08, 0.85, 0, 0.85, 0);
+      this.handFadeLeft.fillRect(0, height - 260, 90, 260);
+      this.handFadeRight = this.host.add.graphics().setDepth(DEPTH_PLAYER_HAND + 500);
+      this.handFadeRight.fillGradientStyle(0x1a0f08, 0x1a0f08, 0x1a0f08, 0x1a0f08, 0, 0.85, 0, 0.85);
+      this.handFadeRight.fillRect(width - 90, height - 260, 90, 260);
+    }
+
+    const minScroll = (width - HAND_AREA_MARGIN * 2) -
+      calcHandLayout(this.host.battle.player.hand.length, width - HAND_AREA_MARGIN * 2, CARD_OVERLAP_OFFSET, CARD_W).totalWidth;
+    const showLeft = scrollable && this.host.handScrollX < -1;
+    const showRight = scrollable && this.host.handScrollX > minScroll + 1;
+    this.handFadeLeft!.setVisible(showLeft);
+    this.handFadeRight!.setVisible(showRight);
   }
 
   renderPlayerHand(animateEntry: boolean = false): void {
@@ -273,6 +296,8 @@ export class CardDisplayManager {
         });
       }
     }
+
+    this.updateHandOverflowHints();
   }
 
   renderEnemyHand(animateEntry: boolean = false, baseDelay: number = 700, onComplete?: () => void): void {
@@ -407,6 +432,8 @@ export class CardDisplayManager {
   }
 
   private patternLabel: Phaser.GameObjects.Container | null = null;
+  private handFadeLeft: Phaser.GameObjects.Graphics | null = null;
+  private handFadeRight: Phaser.GameObjects.Graphics | null = null;
 
   showPatternLabel(label: string, isBomb: boolean): void {
     this.clearPatternLabel();
