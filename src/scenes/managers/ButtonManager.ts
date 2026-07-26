@@ -9,6 +9,8 @@ export interface ButtonHost {
   btnPass: Phaser.GameObjects.Container;
   btnPlayText: Phaser.GameObjects.Text;
   btnPassText: Phaser.GameObjects.Text;
+  btnHint: Phaser.GameObjects.Container;
+  btnHintText: Phaser.GameObjects.Text;
 }
 
 export class ButtonManager {
@@ -16,22 +18,49 @@ export class ButtonManager {
   private scene: Phaser.Scene;
   private onPlayClick: () => Promise<void>;
   private onPassClick: () => Promise<void>;
+  private onHintClick: () => void;
 
   constructor(
     host: ButtonHost & Phaser.Scene,
     onPlayClick: () => Promise<void>,
     onPassClick: () => Promise<void>,
+    onHintClick: () => void,
   ) {
     this.host = host;
     this.scene = host;
     this.onPlayClick = onPlayClick;
     this.onPassClick = onPassClick;
+    this.onHintClick = onHintClick;
   }
 
   createButtons(w: number, h: number): void {
     const btnY = h - 320;
     const btnW = 250;
     const btnH = 80;
+
+    this.host.btnHint = this.host.add.container(w / 2 - 480, btnY).setDepth(DEPTH_UI);
+    const hintBg = this.host.add.graphics();
+    hintBg.fillStyle(0xd8c8a0, 1);
+    hintBg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
+    hintBg.lineStyle(1.5, 0x8a6030, 0.85);
+    hintBg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
+    this.host.btnHint.add(hintBg);
+
+    this.host.btnHintText = this.host.add.text(0, 0, '提  示', {
+      fontSize: '28px',
+      fontFamily: FONT_FAMILY,
+      color: '#1a0a04',
+      stroke: '#e8dcc8',
+      strokeThickness: 2,
+    }).setOrigin(0.5);
+    this.host.btnHint.add(this.host.btnHintText);
+
+    const hintZone = this.host.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: 'pointer' });
+    hintZone.on('pointerdown', () => {
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
+      this.onHintClick();
+    });
+    this.host.btnHint.add(hintZone);
 
     this.host.btnPlay = this.host.add.container(w / 2 - 160, btnY).setDepth(DEPTH_UI);
     const playBg = this.host.add.graphics();

@@ -13,6 +13,7 @@ import { canPlayerBeat } from '../../engine/CharacterAbilities';
 import { SkillTiming } from '../../skills';
 import type { SkillContext, SkillEventBus, SkillRunner } from '../../skills';
 import { getBlockedResponseTypes } from '../../skills/PassiveSkillUtils';
+import { findHintPlays } from '../../engine/findHintPlays';
 import { waitForDelay, waitForTween } from '../../utils/AnimationUtils';
 import type { CardDisplayManager } from './CardDisplayManager';
 import type { DamageSettlementManager } from './DamageSettlementManager';
@@ -133,6 +134,39 @@ export class BattleFlowManager {
     if (this.host.phase !== 'player_respond') return;
 
     await this.executePass('player');
+  }
+
+  onHintClick(): void {
+    if (this.host.phase !== 'player_init' && this.host.phase !== 'player_respond') return;
+
+    const hand = this.host.battle.player.hand;
+    const lastPlay = this.host.phase === 'player_respond' ? this.host.battle.lastPlay : null;
+    const blockedTypes = lastPlay
+      ? getBlockedResponseTypes(this.host.battle.enemyCharacterId, lastPlay)
+      : [];
+
+    const candidates = findHintPlays(hand, lastPlay, (p) => {
+      if (blockedTypes.includes(p.type)) return false;
+      if (!lastPlay) return true;
+      return canPlayerBeat(this.host.battle.player.characterId, p, lastPlay);
+    });
+    if (candidates.length === 0) return;
+
+    const selectedUids = new Set(this.host.getSelectedCards().map(c => c.uid));
+    const currentIdx = candidates.findIndex(c =>
+      c.cards.length === selectedUids.size && c.cards.every(cc => selectedUids.has(cc.uid)),
+    );
+    const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % candidates.length : 0;
+    const choice = candidates[nextIdx]!;
+
+    this.host.selectedIndices.clear();
+    for (const card of choice.cards) {
+      const idx = hand.findIndex(h => h.uid === card.uid);
+      if (idx >= 0) this.host.selectedIndices.add(idx);
+    }
+
+    this.cardDisplay.renderPlayerHand();
+    this.host.updatePatternHint();
   }
 
   async executePlay(cards: Card[], pattern: HandPattern): Promise<void> {

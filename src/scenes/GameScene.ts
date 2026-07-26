@@ -274,6 +274,7 @@ export class GameScene extends Phaser.Scene {
       this,
       () => this.battleFlowManager.onPlayClick(),
       () => this.battleFlowManager.onPassClick(),
+      () => this.battleFlowManager.onHintClick(),
     );
     this.buttonManager.createButtons(width, height);
 
