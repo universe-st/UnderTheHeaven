@@ -4,6 +4,7 @@ export const CARD_W = 180;
 export const CARD_H = 252;
 export const CARD_OVERLAP_OFFSET = CARD_W * 0.75;
 export const SELECTED_OFFSET = -40;
+export const HAND_AREA_MARGIN = 60;
 
 export const AVATAR_SOURCE_SIZE = 512;
 
@@ -37,3 +38,12 @@ export const HAND_PATTERN_MODAL_H = 750;
 export const PATTERN_BTN_W = 180;
 export const PATTERN_BTN_H = 72;
 export const PATTERN_BTN_GAP = 230;
+
+export const PREP_PANEL_X = 60;
+export const PREP_PANEL_Y = 180;
+export const PREP_PANEL_W = 740;
+export const PREP_PANEL_H = 700;
+export const PREP_PANEL_GAP = 30;
+export const PREP_PANEL_RIGHT = PREP_PANEL_X + PREP_PANEL_W;
+export const PREP_ITEM_H = 170;
+export const PREP_ITEM_GAP = 14;
