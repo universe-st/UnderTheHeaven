@@ -1,12 +1,15 @@
 import Phaser from 'phaser';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
-import { HAND_TYPE_LABELS } from '../../models/BattleTypes';
+import { HAND_TYPE_LABELS, HandType } from '../../models/BattleTypes';
 import { getCoefficient } from '../../engine/DamageCalculator';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import { waitForDelay, waitForTween, waitForCounterTween } from '../../utils/AnimationUtils';
+import { JuiceManager } from './JuiceManager';
 import { FONT_FAMILY, DEPTH_DAMAGE, DEPTH_CENTER_BASE } from '../../constants/Layout';
 import { SkillTiming, type SkillContext, type SkillEventBus } from '../../skills';
 import type { PlayerCharacterId } from '../../models/Character';
+import type { BattleConfig } from '../../models/BattleTypes';
+import { getRun, buciCoefficientBonus } from '../../models/RunManager';
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
@@ -14,6 +17,7 @@ interface DamageSettlementHost {
   readonly scale: Phaser.Scale.ScaleManager;
   readonly tweens: Phaser.Tweens.TweenManager;
   readonly add: Phaser.GameObjects.GameObjectFactory;
+  readonly battleConfig: BattleConfig | null;
   battle: BattleState;
   phase: GamePhase;
   damageSettlementCancelled: boolean;
@@ -31,10 +35,12 @@ interface DamageSettlementHost {
 export class DamageSettlementManager {
   private host: DamageSettlementHost;
   private scene: Phaser.Scene;
+  private juice: JuiceManager;
 
   constructor(host: DamageSettlementHost & Phaser.Scene) {
     this.host = host;
     this.scene = host;
+    this.juice = new JuiceManager(host);
   }
 
   async playDamageSettlement(
@@ -53,6 +59,22 @@ export class DamageSettlementManager {
     const finalDamage = Math.round(sumRanks * coefficient * damageMultiplier);
 
     const damageInfo = { sumRanks, coefficient, baseCoefficient, damageMultiplier, finalDamage };
+
+    // 卜辞牌加成（仅局外循环中玩家造成伤害时）：匹配牌型的 coefficientBonus
+    // 全部加法叠加进系数；同时抬升 baseCoefficient，保证后续技能（如章邯「绝守」）
+    // 以 baseCoefficient 为基准重算时不丢失卜辞加成，系数标签也直接显示加成后数值。
+    if (target === 'enemy' && this.host.battleConfig?.runMode) {
+      const run = getRun();
+      const bonus = run ? buciCoefficientBonus(run.buciCards, pattern.type) : 0;
+      if (bonus > 0) {
+        damageInfo.baseCoefficient += bonus;
+        damageInfo.coefficient += bonus;
+        damageInfo.finalDamage = Math.round(
+          damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
+        );
+      }
+    }
+
     const sourceCharId = target === 'enemy'
       ? (this.host.battle.player.characterId ?? this.host.playerCharacterIds[0]!)
       : (this.host.battle.enemyCharacterId ?? 'unknown');
@@ -61,11 +83,12 @@ export class DamageSettlementManager {
     const centerX = width / 2;
     const centerY = height / 2;
 
+    const isBombPattern = pattern.type === HandType.Bomb || pattern.type === HandType.Rocket;
     const counterText = this.host.add.text(centerX, centerY, '0', {
-      fontSize: '72px',
+      fontSize: isBombPattern ? '108px' : '72px',
       fontFamily: FONT_FAMILY,
       fontStyle: 'bold',
-      color: '#cc3333',
+      color: isBombPattern ? '#dd3300' : '#cc3333',
     }).setOrigin(0.5).setDepth(DEPTH_DAMAGE).setShadow(0, 0, '#ff8800', 14, true, true);
 
 
@@ -80,7 +103,7 @@ export class DamageSettlementManager {
     );
 
     await this.stage2ShowCoefficient(
-      counterText, pattern, damageInfo, baseCoefficient, isEmptyHand, target, sourceCharId,
+      counterText, pattern, damageInfo, damageInfo.baseCoefficient, isEmptyHand, target, sourceCharId,
     );
   }
 
@@ -340,7 +363,14 @@ export class DamageSettlementManager {
 
     const battleObj = target === 'enemy' ? this.host.battle.enemy : this.host.battle.player;
     const newVitality = Math.max(0, battleObj.vitality - damageInfo.finalDamage);
-    await this.host.animateHealthBarDepletionAsync(target, newVitality, 300);
+
+    const isBomb = pattern.type === HandType.Bomb || pattern.type === HandType.Rocket;
+    this.juice.hitstop(80);
+    this.juice.shakeForDamage(damageInfo.finalDamage, isBomb);
+    await Promise.all([
+      this.juice.flashVictimSide(target),
+      this.host.animateHealthBarDepletionAsync(target, newVitality, 300),
+    ]);
 
     const healthDecreaseCtx: SkillContext = {
       gameScene: this.scene,
