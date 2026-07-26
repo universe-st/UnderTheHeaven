@@ -244,11 +244,11 @@ export class GameScene extends Phaser.Scene {
       this.enemyAvatarBorder.setVisible(true);
     }
 
-    this.dragInputManager = new DragInputManager(this);
+    this.cardDisplayManager = new CardDisplayManager(this);
+    this.dragInputManager = new DragInputManager(this, this.cardDisplayManager);
     this.healthBarManager = new HealthBarManager(this);
     this.damageSettlementManager = new DamageSettlementManager(this);
     this.modalManager = new ModalManager(this);
-    this.cardDisplayManager = new CardDisplayManager(this);
     this.battleFlowManager = new BattleFlowManager(
       this,
       this.cardDisplayManager,
