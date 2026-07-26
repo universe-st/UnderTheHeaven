@@ -10,7 +10,6 @@ export interface InfoBarHost {
   battle: BattleState;
 
   enemyNameText: Phaser.GameObjects.Text;
-  enemyNameFrame: Phaser.GameObjects.Graphics;
   enemyAvatarImage: Phaser.GameObjects.Image;
   enemyAvatarBorder: Phaser.GameObjects.Graphics;
   enemyVitalityBar: Phaser.GameObjects.Graphics;
@@ -47,15 +46,7 @@ export class InfoBarManager {
       strokeThickness: 3,
     }).setOrigin(0, 0.5).setShadow(0, 2, '#1a0800', 4, true, true).setDepth(DEPTH_UI);
 
-    // 敌方名字线框（金色边框背景）
-    this.host.enemyNameFrame = this.host.add.graphics();
-    this.host.enemyNameFrame.setDepth(DEPTH_UI - 1);
-    const namePad = 8;
-    const nameH = 32;
-    this.host.enemyNameFrame.fillStyle(0x2a1a0f, 0.6);
-    this.host.enemyNameFrame.fillRoundedRect(enemyBarX - namePad, enemyBarY - 22 - nameH / 2 - namePad, barW + namePad * 2 - 8, nameH + namePad * 2, 4);
-    this.host.enemyNameFrame.lineStyle(1.5, 0xb89040, 0.5);
-    this.host.enemyNameFrame.strokeRoundedRect(enemyBarX - namePad, enemyBarY - 22 - nameH / 2 - namePad, barW + namePad * 2 - 8, nameH + namePad * 2, 4);
+    // 敌人名字（金色风格，无背景框）
 
     // 敌人头像（敌人名字左侧，战斗开始后根据 enemyCharacterId 设置纹理）
     const avatarSize = 80;

@@ -65,7 +65,6 @@ export class GameScene extends Phaser.Scene {
   currentActiveSkillId: string | null = null;
 
   enemyNameText!: Phaser.GameObjects.Text;
-  enemyNameFrame!: Phaser.GameObjects.Graphics;
   playerNameText!: Phaser.GameObjects.Text;
   enemyAvatarImage!: Phaser.GameObjects.Image;
   enemyAvatarBorder!: Phaser.GameObjects.Graphics;
