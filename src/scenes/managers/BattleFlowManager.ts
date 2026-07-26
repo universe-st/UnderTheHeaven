@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { Card } from '../../models/Card';
 import { shuffleDeck, sortHand, sortPlayedCards } from '../../models/Card';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
-import { HandType } from '../../models/BattleTypes';
+import { HandType, HAND_TYPE_LABELS } from '../../models/BattleTypes';
 import { identifyHand } from '../../engine/HandRecognizer';
 import { decidePlay } from '../../engine/AIBrain';
 import { GameAudioManager } from '../../utils/GameAudioManager';
@@ -16,6 +16,11 @@ import { getBlockedResponseTypes } from '../../skills/PassiveSkillUtils';
 import { waitForDelay, waitForTween } from '../../utils/AnimationUtils';
 import type { CardDisplayManager } from './CardDisplayManager';
 import type { DamageSettlementManager } from './DamageSettlementManager';
+import type { BattleConfig, RunModeConfig } from '../../models/BattleTypes';
+import type { NodeType } from '../../models/RunState';
+import { tongbaoReward, calcDestinyLoss, isRunOver, isRunComplete } from '../../models/RunState';
+import { applyBattleResult } from '../../models/RunManager';
+import { UIFactory } from '../../utils/UIFactory';
 import {
   FONT_FAMILY, CARD_W, CARD_H,
   DEPTH_CENTER_BASE, DEPTH_OVERLAY_TEXT, DEPTH_OVERLAY,
@@ -28,6 +33,8 @@ export interface BattleFlowHost {
   readonly scale: Phaser.Scale.ScaleManager;
   readonly tweens: Phaser.Tweens.TweenManager;
   readonly add: Phaser.GameObjects.GameObjectFactory;
+  readonly battleConfig: BattleConfig | null;
+  readonly isTestMode: boolean;
   battle: BattleState;
   phase: GamePhase;
   selectedIndices: Set<number>;
@@ -268,6 +275,11 @@ export class BattleFlowManager {
     this.host.centerCards = animatedCards;
     this.host.centerCardsOwner = 'player';
 
+    this.cardDisplay.showPatternLabel(
+      HAND_TYPE_LABELS[pattern.type],
+      pattern.type === HandType.Bomb || pattern.type === HandType.Rocket,
+    );
+
     onPlayCtx.centerCardContainers = this.host.centerCards;
     await this.host.skillEventBus.emit(SkillTiming.ON_PLAY, onPlayCtx);
 
@@ -431,7 +443,7 @@ export class BattleFlowManager {
   }
 
   async aiRespond(): Promise<void> {
-    await waitForDelay(this.scene, 400);
+    await waitForDelay(this.scene, 300 + Math.random() * 300);
     this.host.battle.phase = 'respond';
     const cards = decidePlay(this.host.battle, (plays, ctx) => {
       const enemyCharId = this.host.battle.enemyCharacterId;
@@ -442,11 +454,15 @@ export class BattleFlowManager {
       }
     });
     if (!cards || cards.length === 0) {
+      await waitForDelay(this.scene, 200 + Math.random() * 300);
       await this.executePass('enemy');
       return;
     }
 
     const pattern = identifyHand(cards)!;
+    if (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) {
+      await waitForDelay(this.scene, 500);
+    }
     GameAudioManager.playSfx(this.scene, 'sfx_play_card');
     if (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) {
       GameAudioManager.playSfx(this.scene, 'sfx_bomb');
@@ -490,6 +506,11 @@ export class BattleFlowManager {
       this.host.centerCards = [...displayCards];
       this.host.centerCardsOwner = 'enemy';
 
+      this.cardDisplay.showPatternLabel(
+        HAND_TYPE_LABELS[pattern.type],
+        pattern.type === HandType.Bomb || pattern.type === HandType.Rocket,
+      );
+
       const aiOnPlayCtx: SkillContext = {
         gameScene: this.scene,
         battle: this.host.battle,
@@ -525,6 +546,12 @@ export class BattleFlowManager {
       await this.cardDisplay.animateShiftAndReplaceAsync(playerCenterCards, displayCards, 150);
       this.host.centerCards = displayCards;
       this.host.centerCardsOwner = 'enemy';
+
+      this.cardDisplay.showPatternLabel(
+        HAND_TYPE_LABELS[pattern.type],
+        pattern.type === HandType.Bomb || pattern.type === HandType.Rocket,
+      );
+
       await waitForDelay(this.scene, 100);
       await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.battle.turnHolder = 'player';
@@ -540,6 +567,11 @@ export class BattleFlowManager {
     await this.cardDisplay.animateShiftAndReplaceAsync(playerCenterCards, displayCards, 150);
     this.host.centerCards = displayCards;
     this.host.centerCardsOwner = 'enemy';
+
+    this.cardDisplay.showPatternLabel(
+      HAND_TYPE_LABELS[pattern.type],
+      pattern.type === HandType.Bomb || pattern.type === HandType.Rocket,
+    );
 
     const aiOnPlayCtx: SkillContext = {
       gameScene: this.scene,
@@ -582,7 +614,7 @@ export class BattleFlowManager {
     };
     await this.host.skillEventBus.emit(SkillTiming.ON_TURN_START, turnStartCtx);
 
-    await waitForDelay(this.scene, 400);
+    await waitForDelay(this.scene, 300 + Math.random() * 300);
     this.host.battle.phase = 'play';
     const cards = decidePlay(this.host.battle, (plays, ctx) => {
       const enemyCharId = this.host.battle.enemyCharacterId;
@@ -603,6 +635,9 @@ export class BattleFlowManager {
     }
 
     const pattern = identifyHand(cards)!;
+    if (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) {
+      await waitForDelay(this.scene, 500);
+    }
     GameAudioManager.playSfx(this.scene, 'sfx_play_card');
     if (pattern.type === HandType.Bomb || pattern.type === HandType.Rocket) {
       GameAudioManager.playSfx(this.scene, 'sfx_bomb');
@@ -637,6 +672,11 @@ export class BattleFlowManager {
     await this.cardDisplay.animateCardsToPositionsAsync(displayCards, pos, 120);
     this.host.centerCards = displayCards;
     this.host.centerCardsOwner = 'enemy';
+
+    this.cardDisplay.showPatternLabel(
+      HAND_TYPE_LABELS[pattern.type],
+      pattern.type === HandType.Bomb || pattern.type === HandType.Rocket,
+    );
 
     const aiOnPlayCtx: SkillContext = {
       gameScene: this.scene,
@@ -731,12 +771,6 @@ export class BattleFlowManager {
       strokeThickness: 4,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
 
-    this.scene.add.text(width / 2, height / 2 + 30, '点击返回主菜单', {
-      fontSize: '24px',
-      fontFamily: FONT_FAMILY,
-      color: '#8a7a60',
-    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
-
     this.scene.tweens.add({
       targets: title,
       scaleX: { from: 0.5, to: 1 },
@@ -744,6 +778,23 @@ export class BattleFlowManager {
       duration: 400,
       ease: 'Back.easeOut',
     });
+
+    const runMode = this.host.battleConfig?.runMode;
+    if (runMode) {
+      this.showRunModeResult(playerWin, runMode);
+      return;
+    }
+    if (this.host.isTestMode) {
+      this.showTestModeResult();
+      return;
+    }
+
+    // 兜底路径：菜单直进的裸战斗，保持原有行为
+    this.scene.add.text(width / 2, height / 2 + 30, '点击返回主菜单', {
+      fontSize: '24px',
+      fontFamily: FONT_FAMILY,
+      color: '#8a7a60',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
 
     this.scene.time.delayedCall(500, () => {
       this.scene.input.once('pointerdown', () => {
@@ -753,5 +804,92 @@ export class BattleFlowManager {
         });
       });
     });
+  }
+
+  /**
+   * 局外循环终局：写回 RunManager（含落盘），显示收益/损失，
+   * 点击后按对局状态跳转 MapScene 或 RunEndScene。
+   */
+  private showRunModeResult(playerWin: boolean, runMode: RunModeConfig): void {
+    const { width, height } = this.scene.scale;
+    let subText: string;
+    let nextSceneKey: string;
+    let nextSceneData: { victory: boolean } | undefined;
+
+    if (playerWin) {
+      // 事件节点的战斗胜利按普通战斗发放通宝
+      const rewardType: NodeType = runMode.nodeType === 'event' ? 'normal' : runMode.nodeType;
+      const reward = tongbaoReward(rewardType, Math.random);
+      const run = applyBattleResult({ nodeId: runMode.nodeId, victory: true, reward });
+      subText = `通宝 +${reward}`;
+      if (run && isRunComplete(run)) {
+        nextSceneKey = 'RunEndScene';
+        nextSceneData = { victory: true };
+      } else {
+        nextSceneKey = 'MapScene';
+      }
+    } else {
+      const enemy = this.host.battle.enemy;
+      const percent = enemy.vitalityMax > 0
+        ? Math.round((enemy.vitality / enemy.vitalityMax) * 100)
+        : 0;
+      const destinyLoss = calcDestinyLoss(percent, runMode.nodeType === 'boss');
+      const run = applyBattleResult({ nodeId: runMode.nodeId, victory: false, enemyVitalityPercent: percent });
+      subText = `天命 -${destinyLoss}`;
+      if (run && isRunOver(run)) {
+        nextSceneKey = 'RunEndScene';
+        nextSceneData = { victory: false };
+      } else {
+        nextSceneKey = 'MapScene';
+      }
+    }
+
+    this.scene.add.text(width / 2, height / 2 + 30, subText, {
+      fontSize: '32px',
+      fontFamily: FONT_FAMILY,
+      color: '#b89050',
+      stroke: '#1a0800',
+      strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+
+    this.scene.add.text(width / 2, height / 2 + 90, '点击继续', {
+      fontSize: '24px',
+      fontFamily: FONT_FAMILY,
+      color: '#8a7a60',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+
+    this.scene.time.delayedCall(500, () => {
+      this.scene.input.once('pointerdown', () => {
+        this.scene.cameras.main.fadeOut(400, 0, 0, 0);
+        this.scene.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+          this.scene.scene.start(nextSceneKey, nextSceneData);
+        });
+      });
+    });
+  }
+
+  /** 测试模式终局：提供「再来一局」（同配置重开）与「返回主菜单」 */
+  private showTestModeResult(): void {
+    const { width, height } = this.scene.scale;
+    const btnTextStyle = {
+      fontSize: '26px',
+      fontFamily: FONT_FAMILY,
+      color: '#e8d5a3',
+      stroke: '#2a1008',
+      strokeThickness: 2,
+    };
+
+    UIFactory.button(this.scene, width / 2 - 190, height / 2 + 70, '↻', '再来一局', () => {
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
+      this.scene.scene.restart(this.host.battleConfig ?? undefined);
+    }, { w: 300, h: 64, textStyle: btnTextStyle }).setDepth(DEPTH_OVERLAY_TEXT);
+
+    UIFactory.button(this.scene, width / 2 + 190, height / 2 + 70, '⌂', '返回主菜单', () => {
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
+      this.scene.cameras.main.fadeOut(400, 0, 0, 0);
+      this.scene.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.scene.scene.start('MenuScene');
+      });
+    }, { w: 300, h: 64, textStyle: btnTextStyle }).setDepth(DEPTH_OVERLAY_TEXT);
   }
 }
