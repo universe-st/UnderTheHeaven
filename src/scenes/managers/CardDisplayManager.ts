@@ -621,6 +621,7 @@ export class CardDisplayManager {
   }
 
   async fadeOutCenterCardsAsync(): Promise<void> {
+    this.clearPatternLabel();
     const cards = [...this.host.centerCards];
     this.host.centerCards = [];
     this.host.centerCardsOwner = null;
