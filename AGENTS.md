@@ -22,7 +22,7 @@
 
 ## 项目概述
 
-天下牌是一款中式风格的卡牌游戏。当前处于早期开发阶段，已完成主菜单场景和加载场景的基本框架。
+天下牌是一款中式风格的卡牌游戏。已完成主菜单、Roguelike 地图（36 层）、黄金台商店、局结算与核心对战场景。
 
 ---
 
@@ -60,7 +60,13 @@ UnderTheHeaven/
 │   ├── config.ts                # Phaser GameConfig 配置
 │   └── scenes/                  # Phaser 场景
 │       ├── LoadingScene.ts      # 加载场景（入口，显示加载画面）
-│       └── MenuScene.ts         # 主菜单场景（标题、按钮、BGM、浮动粒子）
+│       ├── MenuScene.ts         # 主菜单场景（标题、按钮、BGM、浮动粒子）
+│       ├── MapScene.ts          # Roguelike 地图场景
+│       ├── ShopScene.ts         # 黄金台商店场景
+│       ├── RunEndScene.ts       # 一局结算场景
+│       ├── GameScene.ts         # 对战场景（核心）
+│       ├── TestSelectScene.ts   # 测试角色选择场景
+│       └── managers/            # GameScene 拆分的管理模块（见「模块分层」）
 ├── public/                      # 静态资源（Vite 在根路径提供访问）
 │   ├── fonts/                   # 字体文件
 │   │   └── LXGWWenKai-Regular.ttf
@@ -117,13 +123,19 @@ src/
 │   └── Layout.ts            # 画布尺寸、卡牌尺寸、Slot 尺寸、深度层、字体栈
 ├── models/                  # 数据模型（纯 TypeScript，无 Phaser 依赖）
 │   ├── Card.ts              # 卡牌数据结构、牌组创建、洗牌
-│   ├── BattleTypes.ts       # 牌型枚举、对战状态、手牌模式
-│   └── Character.ts         # 角色定义、角色列表、角色工具函数
+│   ├── BattleTypes.ts       # 牌型枚举、对战状态、手牌模式、RunModeConfig/BattleConfig
+│   ├── Character.ts         # 角色定义、角色列表、角色工具函数
+│   ├── RunState.ts          # Roguelike 局状态：RunState/MapNode/NodeType/BuCiCard、天命与通宝结算
+│   ├── Shop.ts              # 黄金台商店商品定义
+│   ├── Events.ts            # 地图事件定义（8 种）
+│   ├── RunManager.ts        # 局状态单例 + localStorage 存档（键 uth_run_save）
+│   └── __tests__/           # 模型层单元测试（Vitest）
 ├── engine/                  # 核心游戏引擎（纯逻辑，可单测）
 │   ├── HandRecognizer.ts    # 牌型识别、查找所有可能出法、比较大小
 │   ├── DamageCalculator.ts  # 伤害计算
 │   ├── AIBrain.ts           # AI 决策引擎
 │   ├── CharacterAbilities.ts# 角色技能辅助函数
+│   ├── MapGenerator.ts      # Roguelike 地图生成（createRng / generateMap，36 层）
 │   └── __tests__/           # 引擎层单元测试（Vitest）
 ├── skills/                  # 技能系统
 │   ├── SkillTypes.ts        # 技能类型定义（SkillTiming, SkillContext, SkillDefinition 等）
@@ -138,6 +150,9 @@ src/
 ├── scenes/                  # Phaser 场景
 │   ├── LoadingScene.ts      # 加载场景（入口，显示加载画面）
 │   ├── MenuScene.ts         # 主菜单（标题、按钮、BGM、浮动粒子）
+│   ├── MapScene.ts          # Roguelike 地图（36 层节点、天命/通宝顶栏、事件弹窗）
+│   ├── ShopScene.ts         # 黄金台商店
+│   ├── RunEndScene.ts       # 一局结算（通关「天下归一」/ 失败「天命已尽」）
 │   ├── GameScene.ts         # 对战场景（核心）
 │   ├── TestSelectScene.ts   # 测试角色选择场景
 │   └── managers/            # GameScene 拆分的管理模块
@@ -154,7 +169,8 @@ src/
 │       ├── BgmManager.ts         # 战斗 BGM 轮播
 │       ├── ModalManager.ts       # 设置、音量、弹窗
 │       ├── PatternHintManager.ts # 选中牌型提示
-│       └── VolumeSlider.ts       # 通用音量滑块组件
+│       ├── VolumeSlider.ts       # 通用音量滑块组件
+│       └── MapEventModal.ts      # MapScene 事件弹窗辅助类
 └── utils/                   # 工具类
     ├── UIFactory.ts         # 共享 UI 绘制工具（背景、分割线、面板、按钮、弹窗）
     ├── GameAudioManager.ts  # 音频管理器
@@ -183,6 +199,8 @@ src/
 | 角色数据 | `src/models/Character.ts` | `PLAYER_CHARACTERS`, `ENEMY_CHARACTERS`, `randomPlayerCharacter()`, `PlayerCharacterId`, `EnemyCharacterId`, `PlayerCharacter.beatRule`（接牌规则：`'strict'`/`'equal'`） |
 | 角色名称 | `src/engine/CharacterAbilities.ts` | `getCharacterEnemyName()`, `getCharacterPlayerName()` —— 直接从 `PLAYER_CHARACTERS`/`ENEMY_CHARACTERS` 数据记录中读取，禁止写 switch 语句 |
 | 接牌判定 | `src/engine/CharacterAbilities.ts` | `canPlayerBeat(playerCharId, newPlay, lastPlay)` —— 按角色 `beatRule` 统一判定；新增接牌规则只需声明 `beatRule`，无需修改调用方 |
+| 局状态（Roguelike） | `src/models/RunManager.ts` | `startNewRun()`, `getRun()`, `hasSave()`, `applyBattleResult()`, `buciCoefficientBonus()` —— 局状态单例 + localStorage 存档（键 `uth_run_save`，损坏自动清除，无 localStorage 时降级内存） |
+| 地图生成 | `src/engine/MapGenerator.ts` | `createRng(seed)`（mulberry32 确定性随机）, `generateMap(rng)` —— 36 层地图，9/18/27/36 层单 Boss 节点 |
 | 字体栈 | `src/constants/Layout.ts` | `FONT_FAMILY`（替代各场景中分散定义的字体字符串） |
 
 ### 禁止的做法
@@ -199,12 +217,16 @@ src/
 ## 场景结构
 
 ```
-LoadingScene -> MenuScene -> GameScene / TestSelectScene
+LoadingScene -> MenuScene -> MapScene -> GameScene / ShopScene -> RunEndScene
+（TestSelectScene 为测试入口，选择角色后直进 GameScene）
 ```
 
 - `LoadingScene` — 入口场景，显示加载画面和资源加载进度，加载完成后跳转至 MenuScene
-- `MenuScene` — 主菜单，包含标题、按钮（开始/继续/设置/测试）、背景音乐、浮动粒子特效
-- `GameScene` — 核心对战场景（761 行，持续拆解中：见 `src/scenes/managers/` 目录）
+- `MenuScene` — 主菜单，包含标题、按钮（开始/继续/设置/测试）、背景音乐、浮动粒子特效；开始游戏（有存档先确认覆盖）或继续游戏（有存档才可用）均进入 MapScene
+- `MapScene` — Roguelike 地图场景，36 层竖向可拖拽地图 + 顶栏（天命/通宝/层数）+ 阵容弹窗 + 事件弹窗；战斗节点进入 GameScene（runMode），商店节点进入 ShopScene
+- `ShopScene` — 黄金台商店场景，消耗通宝购买角色、破军卜辞牌、天命回复
+- `GameScene` — 核心对战场景（781 行，持续拆解中：见 `src/scenes/managers/` 目录）；战斗胜利得通宝回地图，失败扣天命
+- `RunEndScene` — 一局结算场景：天命归零显示「天命已尽」，击破 36 层 Boss 显示「天下归一」，可「再来一局」
 - `TestSelectScene` — 测试用角色选择场景，可选择多角色 + 敌人 + 血量进入 GameScene
 
 ### GameScene 模块拆解计划
@@ -214,7 +236,7 @@ src/scenes/managers/
 ├── DragInputManager.ts        ✅ 已提取 — 拖拽选择输入逻辑（~170 行）
 ├── HealthBarManager.ts        ✅ 已提取 — 气血条渲染与动画（~115 行）
 ├── DamageSettlementManager.ts ✅ 已提取 — 三阶段伤害结算动画（~421 行）
-├── ModalManager.ts             ☐ 待拆分 — 设置/音量/返回确认/牌型系数弹窗（~720 行）
+├── ModalManager.ts            ✅ 已提取 — 设置/音量/返回确认/牌型系数弹窗
 ├── CardDisplayManager.ts      ✅ 已提取 — 卡牌渲染/动画/选择交互（~606 行）
 ├── BattleFlowManager.ts       ✅ 已提取 — 战斗阶段编排（~763 行）
 ├── CharacterBarManager.ts     ✅ 已提取 — 角色条/光效/对话框（~552 行）
@@ -224,7 +246,8 @@ src/scenes/managers/
 ├── PatternHintManager.ts      ✅ 已提取 — 选中牌型提示
 ├── ButtonManager.ts           ✅ 已提取 — 出牌/不出按钮
 ├── BgmManager.ts              ✅ 已提取 — 战斗 BGM 轮播
-└── VolumeSlider.ts            ✅ 已提取 — 通用音量滑块组件（~117 行）
+├── VolumeSlider.ts            ✅ 已提取 — 通用音量滑块组件（~117 行）
+└── MapEventModal.ts           ✅ 已提取 — MapScene 事件弹窗辅助类（~145 行）
 ```
 
 当前 GameScene 已大规模拆解为专注的管理器，后续大型功能应继续添加至 `src/scenes/managers/` 目录。

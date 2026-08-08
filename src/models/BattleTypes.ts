@@ -1,5 +1,6 @@
 import type { Card } from './Card';
 import type { PlayerCharacterId, EnemyCharacterId } from './Character';
+import type { NodeType } from './RunState';
 
 export enum HandType {
   Single,
@@ -57,4 +58,27 @@ export interface BattleState {
   lastPlay: HandPattern | null;
   phase: 'play' | 'respond';
   turnCount: number;
+}
+
+/** Roguelike 局外循环进入战斗时由 MapScene 传入的节点信息 */
+export interface RunModeConfig {
+  nodeId: string;
+  nodeType: NodeType;
+  floor: number;
+  enemyId: EnemyCharacterId;
+  enemyVitality: number;
+}
+
+/**
+ * GameScene 入场配置。
+ * 全部字段可选：测试选择场景传入角色/气数等字段；
+ * 局外循环（MapScene）只传 runMode，其余由 RunManager 的对局状态决定。
+ */
+export interface BattleConfig {
+  selectedPlayerCharacterIds?: PlayerCharacterId[];
+  enemyCharacterId?: EnemyCharacterId;
+  playerVitality?: number;
+  enemyVitality?: number;
+  purchasedCards?: Card[];
+  runMode?: RunModeConfig;
 }

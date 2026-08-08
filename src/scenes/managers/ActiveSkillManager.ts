@@ -3,7 +3,7 @@ import type { Card } from '../../models/Card';
 import type { BattleState } from '../../models/BattleTypes';
 import type { PlayerCharacterId } from '../../models/Character';
 import type { ActiveSkillDefinition, CharacterSlotManager } from '../../skills';
-import { LiuBoWenChouCe } from '../../skills';
+import { LiuBoWenChouCe, ZuChongZhiYuanZhou } from '../../skills';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import type { CardDisplayManager } from './CardDisplayManager';
 import { FONT_FAMILY, DEPTH_UI } from '../../constants/Layout';
@@ -81,6 +81,10 @@ export class ActiveSkillManager {
     if (this.host.playerCharacterIds.includes('liubowen')) {
       this.host.activeSkills.push(LiuBoWenChouCe);
       this.host.activeSkillUseCounts.set(LiuBoWenChouCe.id, 0);
+    }
+    if (this.host.playerCharacterIds.includes('zuchongzhi')) {
+      this.host.activeSkills.push(ZuChongZhiYuanZhou);
+      this.host.activeSkillUseCounts.set(ZuChongZhiYuanZhou.id, 0);
     }
   }
 
@@ -253,18 +257,17 @@ export class ActiveSkillManager {
     }
 
     GameAudioManager.playSfx(this.scene, 'sfx_skill_trigger');
-    await this.slotManager.glowOn('liubowen');
-    await this.slotManager.moveToFront('liubowen');
-    await this.slotManager.shakeAndPulse('liubowen');
-    this.slotManager.showDialog('liubowen', '人算不如天算，天算不如我算！');
+    await this.slotManager.glowOn(skill.ownerCharacterId);
+    await this.slotManager.moveToFront(skill.ownerCharacterId);
+    await this.slotManager.shakeAndPulse(skill.ownerCharacterId);
 
     await skill.execute(this.host, selected);
 
     const used = this.host.activeSkillUseCounts.get(skill.id) ?? 0;
     this.host.activeSkillUseCounts.set(skill.id, used + 1);
 
-    await this.slotManager.glowOff('liubowen');
-    await this.slotManager.restoreSlot('liubowen');
+    await this.slotManager.glowOff(skill.ownerCharacterId);
+    await this.slotManager.restoreSlot(skill.ownerCharacterId);
 
     const playerHand = this.host.battle.player.hand;
 

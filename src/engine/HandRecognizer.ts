@@ -130,6 +130,15 @@ export function identifyHand(cards: Card[]): HandPattern | null {
     }
   }
 
+  // Special straight: A-2-3-4-5 — the only straight allowed to contain 2 (A acts as 1).
+  // mainValue = 1 (A as 1), making it the weakest 5-card straight: any other
+  // 5-card straight beats it, and it beats none.
+  if (n === 5 && allSingles(counts)) {
+    if (counts.has(15) && counts.has(20) && counts.has(3) && counts.has(4) && counts.has(5)) {
+      return { type: HandType.Straight, cards: sorted, mainValue: 1, length: 5 };
+    }
+  }
+
   // ConsecutivePairs (≥3 pairs, consecutive ranks)
   if (n >= 6 && n % 2 === 0) {
     const pairs = Array.from(counts.entries()).filter(([, c]) => c === 2 || c === 3 || c === 4);
@@ -313,6 +322,21 @@ export function findAllPlays(hand: Card[]): HandPattern[] {
           length: len,
         });
       }
+    }
+  }
+
+  // Special straight: A-2-3-4-5 (A as 1; the only straight allowed to contain 2).
+  // Order ranks: A=14, 2=15. mainValue = 1 (weakest 5-card straight).
+  {
+    const specialOrderRanks = [14, 15, 3, 4, 5];
+    if (specialOrderRanks.every(r => grouped.has(r))) {
+      const combo = specialOrderRanks.map(r => grouped.get(r)![0]!);
+      results.push({
+        type: HandType.Straight,
+        cards: combo,
+        mainValue: 1,
+        length: 5,
+      });
     }
   }
 

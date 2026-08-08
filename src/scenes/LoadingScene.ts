@@ -114,6 +114,12 @@ export class LoadingScene extends Phaser.Scene {
     this.load.image('card_pattern_dragon', 'card_pattern_dragon.png');
     this.load.image('card_pattern_tiger', 'card_pattern_tiger.png');
 
+    // 四象印（青龙/白虎/朱雀/玄武）
+    this.load.image('seal_qinglong', 'seal_qinglong.png');
+    this.load.image('seal_baihu', 'seal_baihu.png');
+    this.load.image('seal_zhuque', 'seal_zhuque.png');
+    this.load.image('seal_xuanwu', 'seal_xuanwu.png');
+
     // 角色头像图片
     this.load.image('char_zhugeliang', 'char_zhugeliang.png');
     this.load.image('char_hanxin', 'char_hanxin.png');
@@ -127,6 +133,7 @@ export class LoadingScene extends Phaser.Scene {
     this.load.image('char_zhangfei', 'char_zhangfei.png');
     this.load.image('char_zhanghan', 'char_zhanghan.png');
     this.load.image('char_bianque', 'char_bianque.png');
+    this.load.image('char_zuchongzhi', 'char_zuchongzhi.png');
 
     // 敌人头像图片
     this.load.image('char_huangjinjun', 'char_huangjinjun.png');

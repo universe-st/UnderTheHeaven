@@ -26,6 +26,7 @@ export { SkillRegistry } from './SkillRegistry';
 export { SkillRunner } from './SkillRunner';
 export { SkillVisualManagerImpl } from './SkillVisualManagerImpl';
 export { LiuBoWenChouCe } from './LiuBoWenChouSuan';
+export { ZuChongZhiYuanZhou } from './ZuChongZhiYuanZhou';
 
 export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   HanxinDianBing,

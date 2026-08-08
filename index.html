@@ -8,7 +8,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, minimal-ui" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>天下牌</title>
   <style>
     @font-face {
@@ -19,8 +22,14 @@
       font-display: swap;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; touch-action: manipulation; }
-    canvas { display: block; }
+    html, body {
+      width: 100%; height: 100%; height: -webkit-fill-available;
+      overflow: hidden; background: #000; touch-action: manipulation;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    }
+    /* Phaser ScaleManager 控制 canvas width/height/margin，外部不干涉 */
+    /* 隐藏 Safari 滚动条区域 */
+    ::-webkit-scrollbar { display: none; }
   </style>
 </head>
 <body>

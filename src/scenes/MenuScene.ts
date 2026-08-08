@@ -3,7 +3,8 @@ import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
 import { GameAudioManager } from '../utils/GameAudioManager';
 import { VoiceManager } from '../utils/VoiceManager';
 import { UIFactory } from '../utils/UIFactory';
-import { FONT_FAMILY, DEPTH_OVERLAY } from '../constants/Layout';
+import { FONT_FAMILY, DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT } from '../constants/Layout';
+import * as RunManager from '../models/RunManager';
 
 const SHOW_TEST_BUTTON = true;
 
@@ -14,6 +15,7 @@ export class MenuScene extends Phaser.Scene {
 
   private settingsOpen = false;
   private settingsContainer: Phaser.GameObjects.Container | null = null;
+  private newRunConfirmContainer: Phaser.GameObjects.Container | null = null;
   private bgmVolume = 0.3;
   private sfxVolume = 0.5;
   private voiceVolume = 0.7;
@@ -29,6 +31,8 @@ export class MenuScene extends Phaser.Scene {
     this.settingsOpen = false;
     this.settingsContainer?.destroy();
     this.settingsContainer = null;
+    this.newRunConfirmContainer?.destroy();
+    this.newRunConfirmContainer = null;
     const settings = loadAudioSettings();
     this.bgmVolume = settings.bgmVolume;
     this.sfxVolume = settings.sfxVolume;
@@ -70,15 +74,30 @@ export class MenuScene extends Phaser.Scene {
 
     UIFactory.button(this, cx, height * 0.57, '▸', '开始游戏', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
-      GameAudioManager.stopBgm(this);
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.start('GameScene');
-      });
+      if (RunManager.hasSave()) {
+        this.showNewRunConfirm();
+        return;
+      }
+      this.startNewRunAndGotoMap();
     }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
 
-    // Disabled "继续游戏" button
-    {
+    // 「继续游戏」：有存档时可用，无存档时置灰占位
+    if (RunManager.hasSave()) {
+      UIFactory.button(this, cx, height * 0.66, '✦', '继续游戏', () => {
+        GameAudioManager.playSfx(this, 'sfx_button');
+        if (RunManager.load()) {
+          GameAudioManager.stopBgm(this);
+          this.cameras.main.fadeOut(400, 0, 0, 0);
+          this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+            this.scene.start('MapScene');
+          });
+        } else {
+          // 存档损坏：清除并重建菜单（回到置灰态）
+          RunManager.clear();
+          this.scene.restart();
+        }
+      }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
+    } else {
       const dw = 340; const dh = 72; const dy = height * 0.66;
       const disabledGfx = this.add.graphics();
       disabledGfx.fillStyle(0x2a1a0f, 0.5);
@@ -123,6 +142,69 @@ export class MenuScene extends Phaser.Scene {
     this.playMenuBgm();
 
     this.input.keyboard!.on('keydown-M', () => this.toggleMute());
+  }
+
+  private startNewRunAndGotoMap(): void {
+    RunManager.startNewRun();
+    GameAudioManager.stopBgm(this);
+    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start('MapScene');
+    });
+  }
+
+  /** 已有存档时开始新游戏前的覆盖确认弹窗 */
+  private showNewRunConfirm(): void {
+    if (this.newRunConfirmContainer) return;
+
+    const { width: sw, height: sh } = this.scale;
+    const panelW = 620;
+    const panelH = 300;
+    const px = (sw - panelW) / 2;
+    const py = (sh - panelH) / 2;
+
+    const container = this.add.container(0, 0).setDepth(DEPTH_OVERLAY);
+    this.newRunConfirmContainer = container;
+
+    const overlay = UIFactory.modalOverlay(this, sw, sh, () => this.hideNewRunConfirm());
+    container.add(overlay);
+
+    const panel = UIFactory.modalPanel(this, px, py, panelW, panelH);
+    container.add(panel);
+
+    container.add(this.add.text(sw / 2, py + 70, '开启新的征程？', {
+      fontSize: '38px',
+      fontFamily: FONT_FAMILY,
+      color: '#3a2010',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT));
+
+    container.add(this.add.text(sw / 2, py + 140, '已有进行中的征程，开始新游戏将覆盖存档', {
+      fontSize: '24px',
+      fontFamily: FONT_FAMILY,
+      color: '#6a4a2a',
+    }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT));
+
+    const btnTextStyle = {
+      fontSize: '26px',
+      fontFamily: FONT_FAMILY,
+      color: '#e8d5a3',
+      stroke: '#2a1008',
+      strokeThickness: 2,
+    };
+    container.add(UIFactory.button(this, sw / 2 - 150, py + 225, '✓', '确认', () => {
+      GameAudioManager.playSfx(this, 'sfx_button');
+      this.hideNewRunConfirm();
+      this.startNewRunAndGotoMap();
+    }, { w: 240, h: 64, textStyle: btnTextStyle }).setDepth(DEPTH_OVERLAY_TEXT));
+    container.add(UIFactory.button(this, sw / 2 + 150, py + 225, '✕', '取消', () => {
+      GameAudioManager.playSfx(this, 'sfx_button');
+      this.hideNewRunConfirm();
+    }, { w: 240, h: 64, textStyle: btnTextStyle }).setDepth(DEPTH_OVERLAY_TEXT));
+  }
+
+  private hideNewRunConfirm(): void {
+    this.newRunConfirmContainer?.destroy();
+    this.newRunConfirmContainer = null;
   }
 
   private createParticles(w: number, h: number): void {

@@ -1,3 +1,5 @@
+import type { FourSeal } from './FourSeal';
+
 let nextCardId = 1;
 
 export function getNextCardId(): string {
@@ -21,9 +23,15 @@ export interface Card {
     suit: string;
   };
   isTemp?: boolean;
+  /** 四象印（青龙/白虎/朱雀/玄武），印随牌走，打出时触发效果 */
+  seal?: FourSeal;
 }
 
 const SUITS: Array<Card['suit']> = ['spade', 'club', 'heart', 'diamond'];
+export { SUITS };
+
+/** 普通牌点数（不含王），与 createDeck 一致 */
+export const CARD_RANKS: readonly number[] = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 20];
 
 const RANK_MAP: { [key: number]: string } = {
   3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10',
@@ -38,7 +46,7 @@ export function createDeck(): Card[] {
   const deck: Card[] = [];
 
   for (const suit of SUITS) {
-    for (const rank of [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 20]) {
+    for (const rank of CARD_RANKS) {
       deck.push({
         uid: getNextCardId(),
         suit,

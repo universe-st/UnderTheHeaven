@@ -337,8 +337,9 @@ export class GameScene extends Phaser.Scene {
 
     const runMode = this.testConfig?.runMode;
 
-    // 融合购买的卡牌（仅加入玩家牌组）
-    const purchased = this.testConfig?.purchasedCards;
+    // 融合购买的卡牌（仅加入玩家牌组）：测试模式优先，局外循环从存档牌池取
+    const purchased = this.testConfig?.purchasedCards
+      ?? (runMode ? getRun()?.cardPool : undefined);
     if (purchased && purchased.length > 0) {
       for (const card of purchased) {
         playerDeck.push({ ...card, uid: getNextCardId() });

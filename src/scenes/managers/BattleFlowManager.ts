@@ -20,7 +20,7 @@ import type { DamageSettlementManager } from './DamageSettlementManager';
 import type { BattleConfig, RunModeConfig } from '../../models/BattleTypes';
 import type { NodeType } from '../../models/RunState';
 import { tongbaoReward, calcDestinyLoss, isRunOver, isRunComplete } from '../../models/RunState';
-import { applyBattleResult } from '../../models/RunManager';
+import { applyBattleResult, consumePendingInterest } from '../../models/RunManager';
 import { UIFactory } from '../../utils/UIFactory';
 import {
   FONT_FAMILY, CARD_W, CARD_H,
@@ -855,7 +855,8 @@ export class BattleFlowManager {
       const rewardType: NodeType = runMode.nodeType === 'event' ? 'normal' : runMode.nodeType;
       const reward = tongbaoReward(rewardType, Math.random);
       const run = applyBattleResult({ nodeId: runMode.nodeId, victory: true, reward });
-      subText = `通宝 +${reward}`;
+      const interest = consumePendingInterest();
+      subText = interest > 0 ? `通宝 +${reward} · 利息 +${interest}` : `通宝 +${reward}`;
       if (run && isRunComplete(run)) {
         nextSceneKey = 'RunEndScene';
         nextSceneData = { victory: true };

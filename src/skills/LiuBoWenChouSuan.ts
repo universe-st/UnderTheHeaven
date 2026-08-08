@@ -1,6 +1,7 @@
 import type { ActiveSkillDefinition, ActiveSkillSceneAccess } from './SkillTypes';
 import type { Card } from '../models/Card';
 import { rankToLabel, sortHand, getNextCardId } from '../models/Card';
+import { canUseChouCe, middleRanksBetween } from './LiuBoWenChouSuanLogic';
 import { waitForTween, waitForDelay } from '../utils/AnimationUtils';
 import { UIFactory } from '../utils/UIFactory';
 import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET, FONT_FAMILY } from '../constants/Layout';
@@ -98,20 +99,11 @@ async function createTempCardToHand(
 export const LiuBoWenChouCe: ActiveSkillDefinition = {
   id: 'liubowen_chouce',
   name: '筹策',
-  description: '选择两张点数差大于1的牌（除大王、小王、2外），创造一张点数在两者之间的临时牌，创造牌的花色和较大牌一致',
+  description: '（主动技）选择两张点数差大于1的牌（大王、小王、2除外），创造一张点数在两者之间的临时牌，创造的牌花色与点数较大的牌一致。每次牌权限一次。',
   maxUses: 1,
   ownerCharacterId: 'liubowen',
 
-  cardFilter: (selectedCards: Card[]): boolean => {
-    if (selectedCards.length !== 2) return false;
-    const [a, b] = selectedCards as [Card, Card];
-    if (a.rank === 25 || a.rank === 30 || a.rank === 20) return false;
-    if (b.rank === 25 || b.rank === 30 || b.rank === 20) return false;
-    if (a.rank < 3 || a.rank > 15) return false;
-    if (b.rank < 3 || b.rank > 15) return false;
-    const diff = Math.abs(a.rank - b.rank);
-    return diff > 1;
-  },
+  cardFilter: canUseChouCe,
 
   execute: async (scene, selectedCards) => {
     const hand = scene.getBattle().player.hand;
@@ -120,12 +112,7 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
     const rankA = Math.min(a.rank, b.rank);
     const rankB = Math.max(a.rank, b.rank);
 
-    const possibleRanks: number[] = [];
-    for (let r = rankA + 1; r < rankB; r++) {
-      if (r >= 3 && r <= 15) {
-        possibleRanks.push(r);
-      }
-    }
+    const possibleRanks = middleRanksBetween(rankA, rankB);
     if (possibleRanks.length === 0) return;
 
     const middleRank = possibleRanks[Math.floor(Math.random() * possibleRanks.length)]!;

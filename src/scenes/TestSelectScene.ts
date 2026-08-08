@@ -3,7 +3,7 @@ import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
 import { PLAYER_CHARACTERS, PLAYER_CHARACTER_LIST, ENEMY_CHARACTER_LIST } from '../models/Character';
 import { GameAudioManager } from '../utils/GameAudioManager';
 import { UIFactory } from '../utils/UIFactory';
-import { FONT_FAMILY } from '../constants/Layout';
+import { FONT_FAMILY, AVATAR_SOURCE_SIZE } from '../constants/Layout';
 
 export interface TestBattleConfig {
   selectedPlayerCharacterIds: PlayerCharacterId[];
@@ -290,7 +290,7 @@ export class TestSelectScene extends Phaser.Scene {
     portraitGfx.fillRoundedRect(portraitX - portraitSize / 2, portraitY - portraitSize / 2, portraitSize, portraitSize, 6);
 
     const charImg = this.add.image(portraitX, portraitY, `char_${id}`);
-    const imgScale = Math.min(portraitSize / 512, 0.15);
+    const imgScale = portraitSize / AVATAR_SOURCE_SIZE;
     charImg.setScale(imgScale);
 
     const textOffsetX = 55;
@@ -300,14 +300,8 @@ export class TestSelectScene extends Phaser.Scene {
       color: isSelected ? '#e8d5a3' : '#c8a050',
     }).setOrigin(0.5).setData('_nameText', true);
 
-    const costTxt = this.add.text(cx + textOffsetX - 10, cy + 14, `费用 ${char.cost}`, {
-      fontSize: '18px',
-      fontFamily: FONT_FAMILY,
-      color: '#8a7040',
-    }).setOrigin(0.5);
-
     const abilitiesStr = char.abilities.map(a => a.name).join(' · ');
-    const abiTxt = this.add.text(cx + textOffsetX - 10, cy + 38, abilitiesStr, {
+    const abiTxt = this.add.text(cx + textOffsetX - 10, cy + 14, abilitiesStr, {
       fontSize: '16px',
       fontFamily: FONT_FAMILY,
       color: '#6a5030',
@@ -316,7 +310,7 @@ export class TestSelectScene extends Phaser.Scene {
     const zone = this.add.zone(cx, cy, cardW, cardH).setInteractive({ cursor: 'pointer' });
 
     if (parent) {
-      parent.add([gfx, portraitGfx, charImg, nameTxt, costTxt, abiTxt, zone]);
+      parent.add([gfx, portraitGfx, charImg, nameTxt, abiTxt, zone]);
     }
 
     zone.on('pointerover', () => draw(isSelected, true));
@@ -837,7 +831,7 @@ export class TestSelectScene extends Phaser.Scene {
     };
     drawNormal();
 
-    this.add.text(btnX, btnY, '▶  开 始 测 试', {
+    this.add.text(btnX, btnY, '▶  开 始 战 斗', {
       fontSize: '30px',
       fontFamily: FONT_FAMILY,
       color: '#e8d5a3',
@@ -855,7 +849,7 @@ export class TestSelectScene extends Phaser.Scene {
   }
 
   private startTestBattle(): void {
-    const config: TestBattleConfig = {
+    const config = {
       selectedPlayerCharacterIds: [...this.selectedPlayerIds],
       enemyCharacterId: this.selectedEnemyId,
       playerVitality: this.playerVitality,

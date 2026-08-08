@@ -1,4 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army';
 
 export interface CharacterAbility {
@@ -10,7 +10,6 @@ export interface CharacterAbility {
 export interface PlayerCharacter {
   id: PlayerCharacterId;
   name: string;
-  cost: number;
   abilities: CharacterAbility[];
   /**
    * 接牌规则：'strict' 必须严格大于上家才能接牌（默认）；
@@ -29,31 +28,26 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
   bianque: {
     id: 'bianque',
     name: '扁鹊',
-    cost: 3,
     abilities: [{ skillId: 'bianque_huisheng', name: '回生', description: '你气数降到0时，回复一半气数避免失败。每局只能触发一次。' }],
   },
   hanxin: {
     id: 'hanxin',
     name: '韩信',
-    cost: 8,
     abilities: [{ skillId: 'hanxin_dianbing', name: '点兵', description: '你打出牌的伤害倍数+X，X为打出牌的花色数' }],
   },
   liubowen: {
     id: 'liubowen',
     name: '刘伯温',
-    cost: 5,
-    abilities: [{ skillId: 'liubowen_chouce', name: '筹策', description: '选择两张点数差大于1的牌（除大王、小王、2外），创造一张点数在两者之间的临时牌，创造牌的花色和较大牌一致' }],
+    abilities: [{ skillId: 'liubowen_chouce', name: '筹策', description: '（主动技）选择两张点数差大于1的牌（大王、小王、2除外），创造一张点数在两者之间的临时牌，创造的牌花色与点数较大的牌一致。每次牌权限一次。' }],
   },
   lishizhen: {
     id: 'lishizhen',
     name: '李时珍',
-    cost: 3,
     abilities: [{ skillId: 'lishizhen_bencao', name: '本草', description: '打出牌时，回复等同于本次打出的所有梅花牌分数之和的气数' }],
   },
   zhugeliang: {
     id: 'zhugeliang',
     name: '诸葛亮',
-    cost: 8,
     beatRule: 'equal',
     abilities: [
       { skillId: 'zhugeliang_xiansuan', name: '先算', description: '对方摸满手牌后，你随机令对方七张牌变成【明置】状态' },
@@ -63,44 +57,42 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
   wentianxiang: {
     id: 'wentianxiang',
     name: '文天祥',
-    cost: 5,
     abilities: [{ skillId: 'wentianxiang_danxin', name: '丹心', description: '你的红桃牌结算伤害+10' }],
   },
   niugao: {
     id: 'niugao',
     name: '牛皋',
-    cost: 3,
     abilities: [{ skillId: 'niugao_menggong', name: '猛攻', description: '你造成伤害后，若对方手牌数不小于10，随机弃置其一张牌' }],
   },
   luocheng: {
     id: 'luocheng',
     name: '罗成',
-    cost: 5,
     abilities: [{ skillId: 'luocheng_wuqiang', name: '舞枪', description: '你的方片牌结算伤害+10' }],
   },
   xuewanche: {
     id: 'xuewanche',
     name: '薛万彻',
-    cost: 5,
     abilities: [{ skillId: 'xuewanche_xiaorui', name: '骁锐', description: '你的梅花牌结算伤害+10' }],
   },
   gaoshun: {
     id: 'gaoshun',
     name: '高顺',
-    cost: 5,
     abilities: [{ skillId: 'gaoshun_xianzhen', name: '陷阵', description: '你的黑桃牌结算伤害+10' }],
   },
   zhangfei: {
     id: 'zhangfei',
     name: '张飞',
-    cost: 5,
     abilities: [{ skillId: 'zhangfei_duanhe', name: '断喝', description: '若你手牌数量不大于四张，敌方对你结算伤害时，如果结算到了与你手牌中拥有花色的牌，你直接令已计数伤害归零并无效后续待结算牌。你获得牌权。' }],
   },
   zhanghan: {
     id: 'zhanghan',
     name: '章邯',
-    cost: 5,
     abilities: [{ skillId: 'zhanghan_jueshou', name: '绝守', description: '你的气数损失每有10%，伤害结算时系数时+0.3。' }],
+  },
+  zuchongzhi: {
+    id: 'zuchongzhi',
+    name: '祖冲之',
+    abilities: [{ skillId: 'zuchongzhi_yuanzhou', name: '圆周', description: '（主动技）选择任意张圆周率开头的序列牌弃置（例如：3 1 4 1 5 9 2 6），然后摸等量的牌。每次牌权限一次。' }],
   },
 };
 
@@ -153,8 +145,8 @@ export const ENEMY_CHARACTERS: Record<EnemyCharacterId, EnemyCharacter> = {
 export const PLAYER_CHARACTER_LIST: PlayerCharacter[] = Object.values(PLAYER_CHARACTERS);
 export const ENEMY_CHARACTER_LIST: EnemyCharacter[] = Object.values(ENEMY_CHARACTERS);
 
-const DEFAULT_PLAYER_CHARACTER_IDS: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao'];
+const DEFAULT_PLAYER_CHARACTER_IDS: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao', 'zuchongzhi'];
 
-export function randomPlayerCharacter(): PlayerCharacterId {
-  return DEFAULT_PLAYER_CHARACTER_IDS[Math.floor(Math.random() * DEFAULT_PLAYER_CHARACTER_IDS.length)]!;
+export function randomPlayerCharacter(rng: () => number = Math.random): PlayerCharacterId {
+  return DEFAULT_PLAYER_CHARACTER_IDS[Math.floor(rng() * DEFAULT_PLAYER_CHARACTER_IDS.length)]!;
 }

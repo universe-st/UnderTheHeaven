@@ -7,11 +7,14 @@ import {
 } from './SkillTypes';
 import { nullifyCardDamage, multiplyCardDamage } from './SkillUtils';
 
-const nanmanjunOnAIDecision: AIDecisionHook = (plays) => {
+const nanmanjunOnAIDecision: AIDecisionHook = (plays, ctx) => {
+  // 花色偏好（风格化：南蛮军喜黑避红）只影响「出哪张」，绝不应压过「要不要接」。
+  // 接牌（isFollow）时红桃不惩罚：放弃接牌会白白损失牌权，即使接牌伤害低也是正收益。
+  // 主动出牌时惩罚也温和化（±3），避免顺子等复合牌型按张数放大导致评分失真。
   for (const p of plays) {
     for (const card of p.play.cards) {
-      if (card.suit === 'spade' || card.suit === 'club') p.score += 5;
-      if (card.suit === 'heart') p.score -= 10;
+      if (card.suit === 'spade' || card.suit === 'club') p.score += ctx.isFollow ? 1 : 3;
+      if (card.suit === 'heart') p.score -= ctx.isFollow ? 0 : 3;
     }
   }
 };

@@ -287,7 +287,7 @@ function scorePlayCandidates(
   adjustPlayScores: ((plays: { play: HandPattern; score: number }[], ctx: AIDecisionContext) => void) | undefined,
   battleState: BattleState,
 ): { play: HandPattern; score: number }[] {
-  let scored: { play: HandPattern; score: number }[] = plays.map(p => ({
+  const scored: { play: HandPattern; score: number }[] = plays.map(p => ({
     play: p,
     score: scorePlay(p, hand, isFollow, lastPlay, enemyCharacterId, profile),
   }));

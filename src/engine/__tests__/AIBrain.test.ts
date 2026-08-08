@@ -5,6 +5,7 @@ import type { BattleState } from '../../models/BattleTypes';
 import { HandType, type HandPattern } from '../../models/BattleTypes';
 import { decidePlay } from '../AIBrain';
 import type { EnemyCharacterId } from '../../models/Character';
+import { NanmanJunTengJiaBlack } from '../../skills/NanmanJunTengJia';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade', uid?: string): Card {
   return { uid: uid ?? getNextCardId(), suit, rank, rankLabel: String(rank) };
@@ -272,19 +273,25 @@ describe('onAIDecision hooks - unit tests', () => {
     expect(plays[1]!.score).toBe(57.5);
   });
 
-  it('nanmanjun: adds +5 for black, -10 for heart', () => {
+  it('nanmanjun: prefers black when leading, no heart penalty when following', () => {
     const plays = [makeMockPlay(5, 'spade'), makeMockPlay(7, 'heart'), makeMockPlay(9, 'diamond')];
-    const hook = (plays: { play: HandPattern; score: number }[]) => {
+    const hook = (plays: { play: HandPattern; score: number }[], ctx: { isFollow: boolean }) => {
       for (const p of plays) {
         for (const card of p.play.cards) {
-          if (card.suit === 'spade' || card.suit === 'club') p.score += 5;
-          if (card.suit === 'heart') p.score -= 10;
+          if (card.suit === 'spade' || card.suit === 'club') p.score += ctx.isFollow ? 1 : 3;
+          if (card.suit === 'heart') p.score -= ctx.isFollow ? 0 : 3;
         }
       }
     };
-    hook(plays);
-    expect(plays[0]!.score).toBe(55); // spade: +5
-    expect(plays[1]!.score).toBe(40); // heart: -10
+    // 主动出牌：黑牌 +3、红桃 -3（温和的风格偏好）
+    hook(plays, { isFollow: false });
+    expect(plays[0]!.score).toBe(53); // spade: +3
+    expect(plays[1]!.score).toBe(47); // heart: -3
+    expect(plays[2]!.score).toBe(50); // diamond: unchanged
+    // 接牌：红桃不惩罚（放弃接牌会损失牌权，惩罚不应压过接牌收益）
+    hook(plays, { isFollow: true });
+    expect(plays[0]!.score).toBe(54); // spade: +1 轻微偏好
+    expect(plays[1]!.score).toBe(47); // heart: unchanged
     expect(plays[2]!.score).toBe(50); // diamond: unchanged
   });
 
@@ -391,6 +398,26 @@ describe('decidePlay - passThreshold regression', () => {
     const result = decidePlay(state);
     expect(result).not.toBeNull();
     expect(result![0]!.rank).toBeGreaterThan(13);
+  });
+
+  it('nanmanjun beats single 3 with a heart card even when all cards are hearts', () => {
+    // 回归：敌方南蛮军剩 5 张全红桃牌，玩家出单张 3，AI 必须接牌。
+    // 藤甲的红桃惩罚此前（-10/张）把接牌评分压到 passThreshold 以下导致放弃，白白损失牌权。
+    resetCardIdCounter();
+    const state = makeBattleWithEnemy({
+      player: { hand: [makeCard(3)], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: {
+        hand: makeCardSet([4, 5, 6, 7, 8], ['heart', 'heart', 'heart', 'heart', 'heart']),
+        deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人',
+      },
+      lastPlay: { type: HandType.Single, cards: [makeCard(3)], mainValue: 3, length: 1 },
+      phase: 'respond',
+    }, 'nanmanjun');
+    const result = decidePlay(state, (plays, ctx) => {
+      NanmanJunTengJiaBlack.onAIDecision?.(plays, ctx);
+    });
+    expect(result).not.toBeNull();
+    expect(result![0]!.rank).toBeGreaterThan(3);
   });
 });
 

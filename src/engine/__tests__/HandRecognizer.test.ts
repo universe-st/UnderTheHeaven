@@ -168,6 +168,60 @@ describe('findBeatingPlays', () => {
   });
 });
 
+describe('A-2-3-4-5 special straight (A as 1)', () => {
+  it('identifies A-2-3-4-5 as a straight with mainValue 1', () => {
+    const result = identifyHand(makeCards([15, 20, 3, 4, 5]));
+    expect(result?.type).toBe(HandType.Straight);
+    expect(result?.length).toBe(5);
+    expect(result?.mainValue).toBe(1);
+  });
+
+  it('is the weakest 5-card straight: 5-6-7-8-9 beats it, it beats no other straight', () => {
+    const special = identifyHand(makeCards([15, 20, 3, 4, 5]))!;
+    const straight56789 = identifyHand(makeCards([5, 6, 7, 8, 9]))!;
+    const straight34567 = identifyHand(makeCards([3, 4, 5, 6, 7]))!;
+    expect(canBeat(straight56789, special)).toBe(true);
+    expect(canBeat(straight34567, special)).toBe(true);
+    expect(canBeat(special, straight56789)).toBe(false);
+    expect(canBeat(special, straight34567)).toBe(false);
+  });
+
+  it('findAllPlays finds A-2-3-4-5 from a hand containing A, 2, 3, 4, 5', () => {
+    const hand = makeCards([15, 20, 3, 4, 5, 9]);
+    const plays = findAllPlays(hand);
+    const special = plays.filter(p => p.type === HandType.Straight && p.mainValue === 1);
+    expect(special.length).toBe(1);
+    expect(special[0]!.length).toBe(5);
+    expect(special[0]!.cards.length).toBe(5);
+  });
+
+  it('findBeatingPlays can beat it with a normal straight, and it cannot beat a normal straight', () => {
+    const special = identifyHand(makeCards([15, 20, 3, 4, 5]))!;
+    const beaterHand = makeCards([5, 6, 7, 8, 9]);
+    const beating = findBeatingPlays(beaterHand, special);
+    expect(beating.some(p => p.type === HandType.Straight && p.mainValue === 5)).toBe(true);
+
+    const normal = identifyHand(makeCards([3, 4, 5, 6, 7]))!;
+    const specialHand = makeCards([15, 20, 3, 4, 5]);
+    const specialBeating = findBeatingPlays(specialHand, normal);
+    expect(specialBeating.some(p => p.type === HandType.Straight)).toBe(false);
+  });
+
+  it('does not identify 2-3-4-5-6 as a straight (2 cannot lead)', () => {
+    expect(identifyHand(makeCards([20, 3, 4, 5, 6]))).toBeNull();
+  });
+
+  it('does not identify A-2-3-4 as a straight (too short)', () => {
+    expect(identifyHand(makeCards([15, 20, 3, 4]))).toBeNull();
+  });
+
+  it('does not identify combinations with jokers as straights', () => {
+    expect(identifyHand(makeCards([25, 3, 4, 5, 6]))).toBeNull();
+    expect(identifyHand(makeCards([30, 15, 20, 3, 4]))).toBeNull();
+    expect(identifyHand(makeCards([25, 30, 3, 4, 5]))).toBeNull();
+  });
+});
+
 describe('createDeck', () => {
   it('creates 54 card deck', () => {
     resetCardIdCounter();

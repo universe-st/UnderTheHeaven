@@ -1,6 +1,6 @@
 import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager, type AIDecisionHook } from './SkillTypes';
 import { HandType, type HandPattern } from '../models/BattleTypes';
-import { type ResponseBlockModifier, registerResponseBlock } from './PassiveSkillUtils';
+import { type ResponseBlockModifier } from './PassiveSkillUtils';
 
 const bannerArmyOnAIDecision: AIDecisionHook = (plays) => {
   for (const p of plays) {
@@ -49,4 +49,5 @@ export const BannerArmyQiSheBlock: ResponseBlockModifier = {
   },
 };
 
-registerResponseBlock('banner_army', BannerArmyQiSheBlock);
+
+

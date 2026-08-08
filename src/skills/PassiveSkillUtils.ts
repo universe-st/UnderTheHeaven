@@ -1,4 +1,4 @@
-import type { HandType, HandPattern } from '../models/BattleTypes';
+import { HandType, type HandPattern } from '../models/BattleTypes';
 import type { ResponseBlockModifier } from './SkillTypes';
 
 export type { ResponseBlockModifier };
@@ -13,6 +13,21 @@ export function registerResponseBlock(characterId: string, modifier: ResponseBlo
   if (!arr.includes(modifier)) {
     arr.push(modifier);
   }
+}
+
+/** 注册所有静态被动技能。每次创建 GameScene 时在 clearPassiveSkills 之后调用。 */
+export function registerAllPassiveSkills(): void {
+  PASSIVE_SKILLS.clear();
+  registerResponseBlock('banner_army', {
+    type: 'response_block',
+    getBlockedTypes: (ctx: { lastPlay: HandPattern }): HandType[] => {
+      const lp = ctx.lastPlay;
+      if (lp.type === HandType.Single && lp.cards.length === 1 && lp.cards[0]!.suit === 'diamond') {
+        return [HandType.Single];
+      }
+      return [];
+    },
+  });
 }
 
 export function getBlockedResponseTypes(enemyCharacterId: string | undefined, lastPlay: HandPattern | null): HandType[] {
