@@ -92,7 +92,7 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
   zuchongzhi: {
     id: 'zuchongzhi',
     name: '祖冲之',
-    abilities: [{ skillId: 'zuchongzhi_yuanzhou', name: '圆周', description: '（主动技）选择任意张圆周率开头的序列牌弃置（例如：3 1 4 1 5 9 2 6），然后摸等量的牌。每次牌权限一次。' }],
+    abilities: [{ skillId: 'zuchongzhi_yuanzhou', name: '圆周', description: '（主动技）选择任意张圆周率开头的序列牌弃置，然后创造点数和花色完全相同，并且附带随机四象印的临时牌。每次牌权限一次。' }],
   },
 };
 

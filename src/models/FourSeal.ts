@@ -53,3 +53,11 @@ export function randomSeal(rng: () => number): FourSeal | null {
   }
   return FOUR_SEALS[Math.floor(rng() * FOUR_SEALS.length)]!;
 }
+
+/**
+ * 必带印：等概率返回四印之一（用于"附带随机四象印"的技能效果，
+ * 与 randomSeal 的 25% 概率语义不同）。
+ */
+export function randomFourSeal(rng: () => number = Math.random): FourSeal {
+  return FOUR_SEALS[Math.floor(rng() * FOUR_SEALS.length)]!;
+}

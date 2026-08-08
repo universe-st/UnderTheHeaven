@@ -156,6 +156,8 @@ export function createPokerCardVisual(
   }
 
   // ═══ 四象印徽标（盖在卡面中央，如盖章）═══
+  // 同时把印类型与印图片引用存入 data，供战斗结算（DamageSettlementManager）
+  // 在对应时机做「金光闪烁」动画：card.getData('seal') / card.getData('sealImg')。
   if (card.seal) {
     const sealKey = SEAL_IMAGE_KEYS[card.seal];
     if (scene.textures.exists(sealKey)) {
@@ -163,12 +165,15 @@ export function createPokerCardVisual(
       sealImg.setScale(58 / SEAL_SOURCE_SIZE);
       sealImg.setAlpha(0.92);
       container.add(sealImg);
+      container.setData('seal', card.seal);
+      container.setData('sealImg', sealImg);
     }
   }
 
   container.setData('uid', card.uid);
   container.setData('rank', card.rank);
   container.setData('suit', card.suit ?? '');
+  container.setData('isTemp', card.isTemp === true);
 
   return container;
 }

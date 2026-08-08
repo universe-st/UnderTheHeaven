@@ -4,6 +4,7 @@ import { sortPlayedCards } from '../../models/Card';
 import { createPokerCardVisual } from '../../utils/CardVisual';
 import { waitForTween, fadeOutAndDestroy } from '../../utils/AnimationUtils';
 import { UIFactory } from '../../utils/UIFactory';
+import { CardShatterManager } from './CardShatterManager';
 import { calcHandLayout } from '../../engine/handLayout';
 import {
   FONT_FAMILY, CARD_W, CARD_H, CARD_OVERLAP_OFFSET, SELECTED_OFFSET,
@@ -31,10 +32,12 @@ export interface CardDisplayHost {
 export class CardDisplayManager {
   private host: CardDisplayHost;
   private scene: Phaser.Scene;
+  private shatterManager: CardShatterManager;
 
   constructor(host: CardDisplayHost & Phaser.Scene) {
     this.host = host;
     this.scene = host;
+    this.shatterManager = new CardShatterManager(host);
   }
 
   createCardDisplay(card: Card, x: number, y: number, isSelected: boolean = false): Phaser.GameObjects.Container {
@@ -530,7 +533,15 @@ export class CardDisplayManager {
     this.host.centerCardsOwner = null;
     if (cards.length === 0) return;
     this.host.centerDepthCounter = DEPTH_CENTER_BASE;
-    await fadeOutAndDestroy(cards, 80, this.scene);
+    const tempCards = cards.filter(c => c.getData('isTemp') === true);
+    const normalCards = cards.filter(c => c.getData('isTemp') !== true);
+    if (tempCards.length > 0) {
+      // 先等临时牌碎裂动画播完，残影保持静止；随后残影与其它牌一起淡出消失
+      await this.shatterManager.shatterCardsAsync(tempCards);
+      await fadeOutAndDestroy([...normalCards, ...tempCards], 80, this.scene);
+    } else {
+      await fadeOutAndDestroy(cards, 80, this.scene);
+    }
   }
 
   async animateShiftAndReplaceAsync(
@@ -544,7 +555,15 @@ export class CardDisplayManager {
     const shiftDepth = this.host.centerDepthCounter;
     this.host.centerDepthCounter += newCards.length + oldCards.length;
 
-    const oldPromises = oldCards.map((c, i) => {
+    // 被顶掉的旧牌中：临时牌碎裂并留下半透明残影（不阻塞替换动画），碎片播完后残影自行淡出
+    const tempOld = oldCards.filter(c => c.getData('isTemp') === true);
+    const normalOld = oldCards.filter(c => c.getData('isTemp') !== true);
+    if (tempOld.length > 0) {
+      void this.shatterManager.shatterCardsAsync(tempOld).then(() =>
+        fadeOutAndDestroy(tempOld, 120, this.scene),
+      );
+    }
+    const oldPromises = normalOld.map((c, i) => {
       c.setDepth(shiftDepth + i);
       return waitForTween(this.scene, {
         targets: c,

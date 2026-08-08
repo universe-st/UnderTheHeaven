@@ -1,6 +1,8 @@
 import type { ActiveSkillDefinition } from './SkillTypes';
 import type { Card } from '../models/Card';
-import { shuffleDeck, sortHand } from '../models/Card';
+import { getNextCardId } from '../models/Card';
+import { randomFourSeal } from '../models/FourSeal';
+import { discardCardsFromHand, addCardsToHand } from '../utils/CardActions';
 import { waitForDelay } from '../utils/AnimationUtils';
 import { FONT_FAMILY } from '../constants/Layout';
 
@@ -40,7 +42,7 @@ function isPiPrefix(cards: Card[]): boolean {
 export const ZuChongZhiYuanZhou: ActiveSkillDefinition = {
   id: 'zuchongzhi_yuanzhou',
   name: '圆周',
-  description: '（主动技）选择任意张牌，其点数能排列成圆周率开头的序列（如 3、1、4、1、5、9、2、6…）即可弃置，然后摸等量的牌。每次牌权限一次。',
+  description: '（主动技）选择任意张圆周率开头的序列牌弃置，然后创造点数和花色完全相同，并且附带随机四象印的临时牌。每次牌权限一次。',
   maxUses: 1,
   ownerCharacterId: 'zuchongzhi',
 
@@ -51,8 +53,6 @@ export const ZuChongZhiYuanZhou: ActiveSkillDefinition = {
 
   execute: async (scene, selectedCards) => {
     const hand = scene.getBattle().player.hand;
-    const deck = scene.getBattle().player.deck;
-    const discardPile = scene.getBattle().player.discardPile;
 
     const indices: number[] = [];
     for (const card of selectedCards) {
@@ -70,12 +70,12 @@ export const ZuChongZhiYuanZhou: ActiveSkillDefinition = {
 
     const bg = scene.add.graphics();
     bg.fillStyle(0x1a0a2a, 0.9);
-    bg.fillRoundedRect(-130, -60, 260, 120, 14);
+    bg.fillRoundedRect(-150, -80, 300, 160, 14);
     bg.lineStyle(2, 0xffd700, 0.7);
-    bg.strokeRoundedRect(-130, -60, 260, 120, 14);
+    bg.strokeRoundedRect(-150, -80, 300, 160, 14);
     overlay.add(bg);
 
-    const piText = scene.add.text(0, -16, 'π = 3.1415...', {
+    const piText = scene.add.text(0, -40, 'π = 3.1415...', {
       fontSize: '30px',
       fontFamily: FONT_FAMILY,
       color: '#ffd700',
@@ -84,12 +84,19 @@ export const ZuChongZhiYuanZhou: ActiveSkillDefinition = {
     }).setOrigin(0.5);
     overlay.add(piText);
 
-    const subText = scene.add.text(0, 20, `弃 ${count} 摸 ${count}`, {
+    const sub1Text = scene.add.text(0, 4, `弃 ${count} 张`, {
       fontSize: '22px',
       fontFamily: FONT_FAMILY,
       color: '#c8a080',
     }).setOrigin(0.5);
-    overlay.add(subText);
+    overlay.add(sub1Text);
+
+    const sub2Text = scene.add.text(0, 34, `创造 ${count} 张带印临时牌`, {
+      fontSize: '22px',
+      fontFamily: FONT_FAMILY,
+      color: '#c8a080',
+    }).setOrigin(0.5);
+    overlay.add(sub2Text);
 
     overlay.setScale(0.5);
     overlay.setAlpha(0);
@@ -107,31 +114,20 @@ export const ZuChongZhiYuanZhou: ActiveSkillDefinition = {
 
     await waitForDelay(scene, 500);
 
-    const sortedIndices = [...indices].sort((a, b) => b - a);
-    for (const idx of sortedIndices) {
-      const [removed] = hand.splice(idx, 1);
-      if (removed) {
-        discardPile.push(removed);
-      }
-    }
+    // 弃置选中的圆周率序列牌
+    await discardCardsFromHand(scene, 'player', indices);
 
-    let currentDeck = deck;
-    if (currentDeck.length < count) {
-      const remaining = currentDeck.splice(0);
-      const shuffled = shuffleDeck(discardPile);
-      discardPile.length = 0;
-      deck.length = 0;
-      deck.push(...shuffled, ...remaining);
-      currentDeck = deck;
-    }
+    // 创造点数和花色完全相同的临时牌，每张附带随机四象印
+    const tempCards: Card[] = selectedCards.map((c) => ({
+      uid: getNextCardId(),
+      suit: c.suit,
+      rank: c.rank,
+      rankLabel: c.rankLabel,
+      isTemp: true,
+      seal: randomFourSeal(),
+    }));
 
-    const drawn: Card[] = [];
-    for (let i = 0; i < count && currentDeck.length > 0; i++) {
-      drawn.push(currentDeck.pop()!);
-    }
-
-    hand.push(...drawn);
-    sortHand(hand);
+    await addCardsToHand(scene, 'player', tempCards);
 
     await new Promise<void>(resolve => {
       scene.tweens.add({

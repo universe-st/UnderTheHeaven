@@ -2,11 +2,16 @@ import Phaser from 'phaser';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
 import { HAND_TYPE_LABELS, HandType } from '../../models/BattleTypes';
 import { getCoefficient } from '../../engine/DamageCalculator';
-import { collectSeals, applySealBonuses, hasBaihu, hasXuanwu } from '../../engine/FourSealEffects';
+import {
+  collectSeals,
+  countSeal,
+  QINGLONG_SCORE_BONUS,
+  ZHUQUE_COEFFICIENT_BONUS,
+} from '../../engine/FourSealEffects';
 import type { FourSeal } from '../../models/FourSeal';
-import { SEAL_LABELS, SEAL_IMAGE_KEYS, SEAL_SOURCE_SIZE } from '../../models/FourSeal';
 import { GameAudioManager } from '../../utils/GameAudioManager';
-import { waitForDelay, waitForTween, waitForCounterTween } from '../../utils/AnimationUtils';
+import { waitForDelay, waitForTween, waitForCounterTween, animateCoefficientUpdate } from '../../utils/AnimationUtils';
+import { ensureVfxTextures, VFX_TEX } from '../../utils/VfxTextures';
 import { JuiceManager } from './JuiceManager';
 import { FONT_FAMILY, DEPTH_DAMAGE, DEPTH_CENTER_BASE } from '../../constants/Layout';
 import { SkillTiming, type SkillContext, type SkillEventBus } from '../../skills';
@@ -64,16 +69,13 @@ export class DamageSettlementManager {
 
     const damageInfo = { sumRanks, coefficient, baseCoefficient, damageMultiplier, finalDamage };
 
-    // 四象印：仅玩家打出时生效（敌方牌库无印）。
-    // 青龙 +10 得分、朱雀 系数 +1，必须在卜辞加成与任何技能事件之前应用，
-    // 保证后续按 damageInfo 重算的技能（章邯「绝守」等）包含四印加成。
-    const seals: FourSeal[] = target === 'enemy' ? collectSeals(pattern.cards) : [];
-    if (seals.length > 0) {
-      applySealBonuses(damageInfo, seals);
-      damageInfo.finalDamage = Math.round(
-        damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
-      );
-    }
+    // 四象印：按牌面判定，敌我双方打出的带印牌都生效（敌方牌库常规无印，
+    // 测试模式可给敌方塞印验证）。各印在各自时机触发（不再预先加成）：
+    //   - 青龙：单牌伤害得分计算时（stage1），该牌数字 +10；
+    //   - 朱雀：系数亮出时（stage2），系数 +1/张（先于技能事件，保证章邯「绝守」等重算不丢失）；
+    //   - 玄武：单牌伤害结算动画完成后（stage1），回复打出方等同该牌得分的气数；
+    //   - 白虎：单牌伤害结算后（stage1），额外触发一次该牌的单牌结算动画（该牌伤害 ×2）。
+    const seals: FourSeal[] = collectSeals(pattern.cards);
 
     // 卜辞牌加成（仅局外循环中玩家造成伤害时）：匹配牌型的 coefficientBonus
     // 全部加法叠加进系数；同时抬升 baseCoefficient，保证后续技能（如章邯「绝守」）
@@ -113,12 +115,6 @@ export class DamageSettlementManager {
     if (this.host.damageSettlementCancelled) return;
     await waitForDelay(this.scene, 180);
 
-    // 四象印提示标签（青龙/朱雀的数值加成已在 damageInfo 中生效）
-    if (seals.length > 0) {
-      await this.showSealLabels(seals);
-      if (this.host.damageSettlementCancelled) return;
-    }
-
     damageInfo.finalDamage = Math.round(
       damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
     );
@@ -127,11 +123,6 @@ export class DamageSettlementManager {
       counterText, pattern, damageInfo, damageInfo.baseCoefficient, isEmptyHand, target, sourceCharId, seals,
     );
     if (this.host.damageSettlementCancelled) return;
-
-    // 玄武印：打出时回复等同得分的气数（满血不触发）
-    if (hasXuanwu(seals) && this.host.battle.player.vitality < this.host.battle.player.vitalityMax) {
-      await this.healPlayer(damageInfo.sumRanks);
-    }
   }
 
   private async stage1RevealCards(
@@ -147,6 +138,7 @@ export class DamageSettlementManager {
       const card = cards[i]!;
       const consideredAsRank = card.getData('consideredAsRank') as number | undefined;
       const rank = consideredAsRank ?? (card.getData('rank') as number ?? 0);
+      const cardSeal = card.getData('seal') as FourSeal | undefined;
 
       GameAudioManager.playSfx(this.scene, 'sfx_card_reveal');
 
@@ -198,12 +190,47 @@ export class DamageSettlementManager {
       await this.host.skillEventBus.emit(SkillTiming.ON_SINGLE_CARD_SETTLEMENT, singleCardCtx);
       if (this.host.damageSettlementCancelled) break;
 
+      // 青龙印：单牌伤害得分计算时触发（技能之后无条件 +10），
+      // 印金光闪烁一下（伴金光音效），然后弹出的单牌伤害数字增加 10。
+      if (cardSeal === 'qinglong') {
+        GameAudioManager.playSfx(this.scene, 'sfx_seal_trigger');
+        await this.flashSealGlow(card);
+        singleCard.scoreBonus += QINGLONG_SCORE_BONUS;
+        const shownNow = parseInt(floatText.text.replace('+', ''), 10) || rank;
+        await waitForCounterTween(this.scene, {
+          from: shownNow,
+          to: rank + singleCard.scoreBonus,
+          duration: 300,
+          ease: 'Cubic.easeOut',
+          onUpdate: (val) => floatText.setText(`+${Math.round(val)}`),
+        });
+      }
+
       const cardScore = rank + singleCard.scoreBonus;
       currentSum += cardScore;
       counterText.setText(`${currentSum}`);
       damageInfo.sumRanks += singleCard.scoreBonus;
 
       await this.host.skillEventBus.emit(SkillTiming.AFTER_SINGLE_CARD_SETTLEMENT, singleCardCtx);
+      if (this.host.damageSettlementCancelled) break;
+
+      // 白虎印：单牌伤害结算后触发，额外结算一次该牌（该牌伤害 ×2）。
+      // 印金光闪烁一下（伴金光音效），并重放一次单牌结算动画（数字再跳一次）。
+      if (cardSeal === 'baihu') {
+        GameAudioManager.playSfx(this.scene, 'sfx_seal_trigger');
+        await this.flashSealGlow(card);
+        await this.extraCardSettlement(card, cardScore, counterText, currentSum);
+        currentSum += cardScore;
+        damageInfo.sumRanks += cardScore;
+      }
+
+      // 玄武印：单牌伤害结算动画播放完成后触发。
+      // 印金光闪烁一下（伴金光音效），然后跳出与刚才分数相同的绿色数字（前面带加号），回复打出方等量气数。
+      if (cardSeal === 'xuanwu') {
+        GameAudioManager.playSfx(this.scene, 'sfx_seal_trigger');
+        await this.flashSealGlow(card);
+        await this.healFromCard(card, cardScore, target);
+      }
 
       this.host.tweens.add({
         targets: floatText,
@@ -266,6 +293,26 @@ export class DamageSettlementManager {
       ease: 'Sine.easeOut',
     });
 
+    // 朱雀印：系数亮出时机触发，优先级高于技能 ——
+    // 所有牌上朱雀印的金光闪一下，然后系数增加（每张 +1，同时抬 baseCoefficient）。
+    // 先于 ON_COEFFICIENT_REVEALED 技能事件应用，保证章邯「绝守」等以 baseCoefficient
+    // 为基准重算的技能不丢失朱雀加成。
+    const zhuqueCount = countSeal(seals, 'zhuque');
+    if (zhuqueCount > 0) {
+      GameAudioManager.playSfx(this.scene, 'sfx_seal_trigger');
+      await this.flashAllZhuqueSeals();
+      const zhuqueBonus = ZHUQUE_COEFFICIENT_BONUS * zhuqueCount;
+      const fromCoeff = damageInfo.baseCoefficient;
+      damageInfo.baseCoefficient += zhuqueBonus;
+      damageInfo.coefficient += zhuqueBonus;
+      damageInfo.finalDamage = Math.round(
+        damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
+      );
+      await animateCoefficientUpdate(
+        this.scene, coeffText, typeLabel, fromCoeff, damageInfo.baseCoefficient, 500,
+      );
+    }
+
     const multiplierText = this.host.add.text(
       coeffText.x + coeffText.width + 16,
       centerY,
@@ -325,12 +372,6 @@ export class DamageSettlementManager {
       { emitEvents: true, fadeLabels: true },
     );
     if (this.host.damageSettlementCancelled) return;
-
-    // 白虎印：伤害数字结算两次（每次等额，观感连击；总伤 = 单次 ×2）。
-    // 第二次为纯扣血结算，不再触发技能事件，避免技能/卜辞效果重复叠加。
-    if (hasBaihu(seals) && target === 'enemy' && this.host.battle.enemy.vitality > 0) {
-      await this.secondBaihuSettlement(pattern, damageInfo, target);
-    }
   }
 
   private async stage3ApplyDamage(
@@ -441,154 +482,187 @@ export class DamageSettlementManager {
   }
 
   /**
-   * 四象印提示：居中显示「四象·青龙 ×N」等标签（含印徽标小图）。
+   * 四象印金光闪烁：金色光晕自印下亮起 + 冲击环扩散 + 星形火花迸溅，
+   * 印徽标 tint 金色并做带回弹的放大脉冲，模拟「金光一闪」。
+   * 卡面印徽标引用在 CardVisual.createPokerCardVisual 中存入 card.getData('sealImg')。
    */
-  private async showSealLabels(seals: readonly FourSeal[]): Promise<void> {
-    const { width, height } = this.host.scale;
-    const centerX = width / 2;
-    const centerY = height / 2;
+  private async flashSealGlow(card: Phaser.GameObjects.Container): Promise<void> {
+    const sealImg = card.getData('sealImg') as Phaser.GameObjects.Image | undefined;
+    if (!sealImg) return;
+    ensureVfxTextures(this.scene);
+    const depth = card.depth + 60;
 
-    const counts = new Map<FourSeal, number>();
-    for (const s of seals) {
-      counts.set(s, (counts.get(s) ?? 0) + 1);
-    }
-    const items: Array<{ seal: FourSeal; count: number }> = [];
-    for (const [seal, count] of counts) {
-      items.push({ seal, count });
-    }
+    // 1) 金色光晕：自印下亮起后缓缓消散
+    const glow = this.host.add.image(card.x, card.y, VFX_TEX.softGlow)
+      .setDepth(depth)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setTint(0xffc94d)
+      .setScale(0.3)
+      .setAlpha(0);
+    this.host.tweens.add({
+      targets: glow,
+      alpha: 0.95,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      duration: 130,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        this.host.tweens.add({
+          targets: glow,
+          alpha: 0,
+          scaleX: 2.1,
+          scaleY: 2.1,
+          duration: 380,
+          ease: 'Sine.easeIn',
+          onComplete: () => glow.destroy(),
+        });
+      },
+    });
 
-    const labelObjs: Phaser.GameObjects.GameObject[] = [];
-    const startY = centerY - 190;
-    const yStep = 54;
-    for (let i = 0; i < items.length; i++) {
-      const { seal, count } = items[i]!;
-      const y = startY + i * yStep;
-      const key = SEAL_IMAGE_KEYS[seal];
-      if (this.scene.textures.exists(key)) {
-        const img = this.scene.add.image(centerX - 112, y, key);
-        img.setScale(40 / SEAL_SOURCE_SIZE);
-        img.setDepth(DEPTH_DAMAGE + 2);
-        labelObjs.push(img);
+    // 2) 冲击环：金色圆环向外扩散
+    const ring = this.host.add.image(card.x, card.y, VFX_TEX.ring)
+      .setDepth(depth)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setTint(0xffd45c)
+      .setScale(0.3)
+      .setAlpha(0.9);
+    this.host.tweens.add({
+      targets: ring,
+      scaleX: 2.0,
+      scaleY: 2.0,
+      alpha: 0,
+      duration: 420,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+
+    // 3) 星形火花：金光迸溅
+    const emitter = this.host.add.particles(card.x, card.y, VFX_TEX.spark, {
+      speed: { min: 60, max: 260 },
+      angle: { min: 0, max: 360 },
+      gravityY: 40,
+      lifespan: { min: 300, max: 520 },
+      scale: { start: 0.9, end: 0 },
+      alpha: { start: 1, end: 0 },
+      rotate: { min: 0, max: 180 },
+      tint: [0xffe08a, 0xffc94d, 0xfff3c4],
+      blendMode: Phaser.BlendModes.ADD,
+      quantity: 10,
+      emitting: false,
+    });
+    emitter.setDepth(depth + 1);
+    emitter.explode(10);
+    emitter.once('complete', () => emitter.destroy());
+
+    // 4) 印徽标本体：金光染色 + 带回弹的放大脉冲
+    const baseScale = sealImg.scaleX;
+    sealImg.setTint(0xffd45c);
+    sealImg.setAlpha(1);
+    await waitForTween(this.scene, {
+      targets: sealImg,
+      scaleX: baseScale * 1.85,
+      scaleY: baseScale * 1.85,
+      duration: 120,
+      ease: 'Back.easeOut',
+    });
+    await waitForTween(this.scene, {
+      targets: sealImg,
+      scaleX: baseScale,
+      scaleY: baseScale,
+      alpha: 0.92,
+      duration: 300,
+      ease: 'Sine.easeInOut',
+      onComplete: () => sealImg.clearTint(),
+    });
+  }
+
+  /** 朱雀印触发：当前打出的所有带朱雀印的牌同时金光闪烁。 */
+  private async flashAllZhuqueSeals(): Promise<void> {
+    const flashTasks: Promise<void>[] = [];
+    for (const card of this.host.centerCards) {
+      if (card.getData('seal') === 'zhuque') {
+        flashTasks.push(this.flashSealGlow(card));
       }
-      const txt = this.scene.add.text(
-        centerX - 80, y,
-        `四象·${SEAL_LABELS[seal]}${count > 1 ? ` ×${count}` : ''}`,
-        {
-          fontSize: '28px',
-          fontFamily: FONT_FAMILY,
-          color: '#e8d5a3',
-          stroke: '#1a0800',
-          strokeThickness: 3,
-        },
-      ).setOrigin(0, 0.5).setDepth(DEPTH_DAMAGE + 2).setAlpha(0);
-      labelObjs.push(txt);
-      this.scene.tweens.add({
-        targets: txt,
-        alpha: 1,
-        duration: 250,
-        ease: 'Sine.easeOut',
-      });
     }
-
-    await waitForDelay(this.scene, 900);
-    await Promise.all(labelObjs.map((obj) => new Promise<void>((resolve) => {
-      this.scene.tweens.add({
-        targets: obj,
-        alpha: 0,
-        duration: 250,
-        ease: 'Sine.easeIn',
-        onComplete: () => {
-          obj.destroy();
-          resolve();
-        },
-      });
-    })));
+    if (flashTasks.length > 0) {
+      await Promise.all(flashTasks);
+    }
   }
 
   /**
-   * 白虎印：伤害数字第二次结算（每次等额，观感连击）。
-   * 纯扣血结算，不触发技能事件。
+   * 白虎印：额外触发一次单牌结算动画 —— 该牌位置再弹一次 +N 数字，
+   * 计数器同步滚动累加，观感为该牌又结算了一次（数值上该牌伤害 ×2）。
    */
-  private async secondBaihuSettlement(
-    pattern: HandPattern,
-    damageInfo: NonNullable<SkillContext['damageInfo']>,
-    target: 'enemy' | 'player',
+  private async extraCardSettlement(
+    card: Phaser.GameObjects.Container,
+    cardScore: number,
+    counterText: Phaser.GameObjects.Text,
+    beforeSum: number,
   ): Promise<void> {
-    if (this.host.damageSettlementCancelled) return;
-    const { width, height } = this.host.scale;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const finalDamage = damageInfo.finalDamage;
-
-    const label = this.scene.add.text(centerX, centerY - 80, '白虎·再击', {
-      fontSize: '30px',
+    const floatText = this.host.add.text(card.x, card.y, `+${cardScore}`, {
+      fontSize: '36px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      color: '#b08030',
       stroke: '#1a0800',
       strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(DEPTH_DAMAGE + 1).setAlpha(0);
-    this.scene.tweens.add({
-      targets: label,
-      alpha: 1,
-      duration: 200,
-      ease: 'Sine.easeOut',
-    });
+    }).setOrigin(0.5).setDepth(DEPTH_DAMAGE + 1).setAlpha(0).setScale(0.5);
 
-    const counterText = this.scene.add.text(centerX, centerY, '0', {
-      fontSize: '72px',
-      fontFamily: FONT_FAMILY,
-      fontStyle: 'bold',
-      color: '#cc3333',
-    }).setOrigin(0.5).setDepth(DEPTH_DAMAGE).setShadow(0, 0, '#ff8800', 14, true, true);
-
-    const battleObj = target === 'enemy' ? this.host.battle.enemy : this.host.battle.player;
-    // 剩余血量不足时按实际扣血显示，避免数字超出剩余血量
-    const displayDamage = Math.min(finalDamage, battleObj.vitality);
+    await Promise.all([
+      waitForTween(this.scene, {
+        targets: floatText,
+        alpha: 1,
+        scaleX: 1.15,
+        scaleY: 1.15,
+        y: floatText.y - 40,
+        duration: 180,
+        ease: 'Back.easeOut',
+      }),
+      waitForTween(this.scene, {
+        targets: card,
+        scaleX: 1.25,
+        scaleY: 1.25,
+        duration: 180,
+        ease: 'Sine.easeIn',
+      }),
+    ]);
 
     await waitForCounterTween(this.scene, {
-      from: 0,
-      to: displayDamage,
-      duration: 500,
+      from: beforeSum,
+      to: beforeSum + cardScore,
+      duration: 320,
       ease: 'Cubic.easeOut',
       onUpdate: (val) => counterText.setText(`${Math.round(val)}`),
     });
 
-    GameAudioManager.playSfx(this.scene, 'sfx_hurt');
-
-    const barX = 120;
-    const barW = 420;
-    const barH = 34;
-    const barTargetY = target === 'enemy' ? 56 : height - 374;
-    const barCenterX = barX + barW / 2;
-    const barCenterY = barTargetY + barH / 2;
+    this.host.tweens.add({
+      targets: floatText,
+      alpha: 0,
+      y: floatText.y - 90,
+      duration: 380,
+      ease: 'Sine.easeIn',
+      onComplete: () => floatText.destroy(),
+    });
 
     await waitForTween(this.scene, {
-      targets: counterText,
-      x: barCenterX,
-      y: barCenterY,
-      scaleX: 2.0,
-      scaleY: 2.0,
-      duration: 300,
-      ease: 'Cubic.easeIn',
+      targets: card,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 180,
+      ease: 'Sine.easeOut',
     });
-    counterText.destroy();
-    label.destroy();
-
-    const newVitality = Math.max(0, battleObj.vitality - displayDamage);
-    const isBomb = pattern.type === HandType.Bomb || pattern.type === HandType.Rocket;
-    this.juice.hitstop(60);
-    this.juice.shakeForDamage(displayDamage, isBomb);
-    await Promise.all([
-      this.juice.flashVictimSide(target),
-      this.host.animateHealthBarDepletionAsync(target, newVitality, 300),
-    ]);
   }
 
   /**
-   * 玄武印：回复玩家气数（上限 vitalityMax），绿色 +N 数字 + sfx_heal。
+   * 玄武印：单牌伤害结算动画播放完成后触发 —— 回复打出方等同该牌得分的气数
+   * （上限 vitalityMax，满血不触发），并从该牌位置跳出绿色 +N 数字。
+   * target 为本次伤害结算的受伤方；玄武回复的是打出方（玩家打敌方回玩家，敌方打玩家回敌方）。
    */
-  private async healPlayer(amount: number): Promise<void> {
-    const battleObj = this.host.battle.player;
+  private async healFromCard(
+    card: Phaser.GameObjects.Container,
+    amount: number,
+    target: 'enemy' | 'player',
+  ): Promise<void> {
+    const battleObj = target === 'enemy' ? this.host.battle.player : this.host.battle.enemy;
     const before = battleObj.vitality;
     battleObj.vitality = Math.min(battleObj.vitalityMax, before + amount);
     const actual = battleObj.vitality - before;
@@ -597,14 +671,7 @@ export class DamageSettlementManager {
     GameAudioManager.playSfx(this.scene, 'sfx_heal');
     this.host.updateVitalityBars();
 
-    const { height } = this.host.scale;
-    const barX = 120;
-    const barW = 420;
-    const barH = 34;
-    const barCenterX = barX + barW / 2;
-    const barCenterY = height - 374 + barH / 2;
-
-    const text = this.scene.add.text(barCenterX, barCenterY, `+${actual}`, {
+    const text = this.scene.add.text(card.x, card.y, `+${actual}`, {
       fontSize: '36px',
       fontFamily: FONT_FAMILY,
       color: '#00ff44',
@@ -614,7 +681,7 @@ export class DamageSettlementManager {
 
     await waitForTween(this.scene, {
       targets: text,
-      y: barCenterY - 60,
+      y: text.y - 80,
       alpha: 0,
       duration: 800,
       ease: 'Sine.easeOut',

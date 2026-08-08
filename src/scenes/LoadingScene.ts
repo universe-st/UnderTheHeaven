@@ -108,6 +108,8 @@ export class LoadingScene extends Phaser.Scene {
     this.load.audio('sfx_card_reveal', 'sfx_card_reveal.mp3');
     this.load.audio('sfx_skill_trigger', 'sfx_skill_trigger.mp3');
     this.load.audio('sfx_heal', 'sfx_heal.mp3');
+    this.load.audio('sfx_glass_break', 'sfx_glass_break.mp3');
+    this.load.audio('sfx_seal_trigger', 'sfx_seal_trigger.mp3');
     this.load.image('game_background', 'background_under_the_heaven.jpg');
     this.load.image('battle_bg', 'battle_bg.png');
     this.load.image('card_back', 'card_back.png');
