@@ -102,6 +102,8 @@ export class GameScene extends Phaser.Scene {
 
   characterSlotContainers: Phaser.GameObjects.Container[] = [];
   characterSlotTexts: Phaser.GameObjects.Text[] = [];
+  characterMarkerCircles: (Phaser.GameObjects.Graphics | null)[] = [];
+  characterMarkerTexts: (Phaser.GameObjects.Text | null)[] = [];
 
   characterBarContainer: Phaser.GameObjects.Container | null = null;
   characterBarMaskShape: Phaser.GameObjects.Graphics | null = null;
@@ -180,6 +182,8 @@ export class GameScene extends Phaser.Scene {
 
     this.characterSlotContainers = [];
     this.characterSlotTexts = [];
+    this.characterMarkerCircles = [];
+    this.characterMarkerTexts = [];
     this.characterInfoManager?.destroy();
     this.skillTriggeredCharacters = new Set();
     this.characterSlotGlows = [];
@@ -336,10 +340,11 @@ export class GameScene extends Phaser.Scene {
     const enemyDeck = shuffleDeck(createDeck());
 
     const runMode = this.testConfig?.runMode;
+    const run = runMode ? getRun() : null;
 
     // 融合购买的卡牌（仅加入玩家牌组）：测试模式优先，局外循环从存档牌池取
     const purchased = this.testConfig?.purchasedCards
-      ?? (runMode ? getRun()?.cardPool : undefined);
+      ?? (runMode ? run?.cardPool : undefined);
     if (purchased && purchased.length > 0) {
       for (const card of purchased) {
         playerDeck.push({ ...card, uid: getNextCardId() });
@@ -370,6 +375,12 @@ export class GameScene extends Phaser.Scene {
         vitalityMax: playerVit,
         name: playerChar.name,
         characterId: this.playerCharacterIds[0] ?? 'hanxin',
+        // 跨战斗保留的角色标记（如蓝玉「骜」）：从对局状态读入
+        aoMarkers: run?.characterMarkers?.['lanyu'] ?? 0,
+        // 跨战斗保留的角色技能状态（如周处「除害」进度）：从对局状态读入
+        skillFlags: run ? { ...run.characterSkillFlags } : {},
+        // 本场战斗中玩家获得自对方的牌（如周处「除害」获得的红桃），战斗结束进入玩家牌库
+        acquiredCards: [],
       },
       enemy: {
         hand: enemyHand,
@@ -469,6 +480,11 @@ export class GameScene extends Phaser.Scene {
     this.cardDisplayManager.renderPlayerHand(animateEntry);
   }
 
+  /** CardActions 增量布局变更后刷新手牌溢出渐隐提示 */
+  updateHandOverflowHints(): void {
+    this.cardDisplayManager.updateHandOverflowHints();
+  }
+
   renderEnemyHand(animateEntry: boolean = false, baseDelay: number = 700, onComplete?: () => void): void {
     this.cardDisplayManager.renderEnemyHand(animateEntry, baseDelay, onComplete);
   }
@@ -542,7 +558,8 @@ export class GameScene extends Phaser.Scene {
         this.btnPlay.setVisible(this.playerHasPlayablePattern());
         this.btnPassText.setColor('#8a7a5a');
         this.btnPass.setVisible(false);
-        if (this.btnSkill) this.btnSkill.setVisible(false);
+        // 主动技按钮由 updateActiveSkillButton 决定（含无需选牌的改制）
+        this.updateActiveSkillButton();
         break;
       case 'player_respond':
         this.turnIndicatorManager.showPlayerTurn('跟牌或不出');
@@ -683,6 +700,21 @@ export class GameScene extends Phaser.Scene {
     this.damageSettlementManager.cancelDamageSettlement();
   }
 
+  /** 更新角色框左上角标记区数字（技能经由 SkillVisualManager 调用） */
+  updateCharacterMarker(characterId: string, count: number): void {
+    this.characterBarManager.setMarkerCount(characterId, count);
+  }
+
+  /** 标记角色失去角色牌（技能经由 SkillVisualManager 调用） */
+  markCharacterLost(characterId: string): void {
+    this.characterBarManager.markCharacterLost(characterId);
+  }
+
+  /** 显示角色对话框台词（技能经由 SkillVisualManager 调用） */
+  showDialog(characterId: string, text: string): void {
+    this.characterBarManager.showDialog(characterId, text);
+  }
+
   // ═══════════════════════════════════════════════
   //  Settings Button & Panel
   // ═══════════════════════════════════════════════
@@ -705,6 +737,10 @@ export class GameScene extends Phaser.Scene {
 
   initActiveSkills(): void {
     this.activeSkillManager.initActiveSkills();
+  }
+
+  resetActiveSkillUses(mode?: 'all' | 'gain-turn'): void {
+    this.activeSkillManager.resetActiveSkillUses(mode);
   }
 
   updateActiveSkillButton(): void {

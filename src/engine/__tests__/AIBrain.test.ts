@@ -6,6 +6,7 @@ import { HandType, type HandPattern } from '../../models/BattleTypes';
 import { decidePlay } from '../AIBrain';
 import type { EnemyCharacterId } from '../../models/Character';
 import { NanmanJunTengJiaBlack } from '../../skills/NanmanJunTengJia';
+import { BLOCKED_ALL_BUT_ROCKET } from '../../skills/LiBaiShiXian';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade', uid?: string): Card {
   return { uid: uid ?? getNextCardId(), suit, rank, rankLabel: String(rank) };
@@ -93,6 +94,54 @@ describe('decidePlay - 接牌 (phase=respond)', () => {
     const result = decidePlay(state);
     expect(result).not.toBeNull();
     expect(result![0]!.rank).toBeGreaterThan(5);
+  });
+});
+
+describe('decidePlay - 响应封锁（李白「诗仙」5/7 张只能被王炸响应）', () => {
+  function straight5(): HandPattern {
+    return {
+      type: HandType.Straight,
+      cards: [makeCard(3), makeCard(4), makeCard(5), makeCard(6), makeCard(7)],
+      mainValue: 7,
+      length: 5,
+    };
+  }
+
+  it('炸弹被封锁时 AI 无法响应（返回 null）', () => {
+    resetCardIdCounter();
+    const state = makeBattle({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: { hand: makeCardSet([8, 8, 8, 8]), deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人' },
+      lastPlay: straight5(),
+      phase: 'respond',
+    });
+    const result = decidePlay(state, undefined, [HandType.Bomb]);
+    expect(result).toBeNull();
+  });
+
+  it('可压过上家的同类型顺子被封锁时 AI 无法响应', () => {
+    resetCardIdCounter();
+    const state = makeBattle({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: { hand: makeCardSet([8, 9, 10, 11, 12]), deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人' },
+      lastPlay: straight5(),
+      phase: 'respond',
+    });
+    const result = decidePlay(state, undefined, [HandType.Straight]);
+    expect(result).toBeNull();
+  });
+
+  it('王炸不被封锁，AI 用王炸响应 5 张牌', () => {
+    resetCardIdCounter();
+    const state = makeBattle({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: { hand: makeCardSet([25, 30]), deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人' },
+      lastPlay: straight5(),
+      phase: 'respond',
+    });
+    const result = decidePlay(state, undefined, BLOCKED_ALL_BUT_ROCKET);
+    expect(result).not.toBeNull();
+    expect(result!.map(c => c.rank).sort((a, b) => a - b)).toEqual([25, 30]);
   });
 });
 

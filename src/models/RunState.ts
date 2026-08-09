@@ -34,6 +34,19 @@ export interface RunState {
   layers: MapNode[][];
   bossKills: number;
   battlesWon: number;
+  /**
+   * 角色跨战斗标记（如蓝玉「骜」）：角色 id → 标记数量。
+   * 战斗开始时读入 BattleState，战斗结束后写回；角色失去（如桀骜反噬）时清零。
+   */
+  characterMarkers?: Record<string, number>;
+  /**
+   * 角色跨战斗技能状态（如周处「除害」：已移除过大王/小王、是否已获得「励心」）。
+   * 键为 `角色id_状态名`，值为 boolean / number；战斗开始时读入 BattleState，
+   * 战斗结束后合并写回。技能的失去与获得均永久生效。
+   * 注：除害「移出」的牌本身仅本场战斗生效（敌方每场战斗牌库重建），
+   * 持久化的只是移除进度与转换结果。
+   */
+  characterSkillFlags?: Record<string, boolean | number>;
 }
 
 /** 玩家气数（单场战斗） */
@@ -71,6 +84,8 @@ export function createNewRun(rng: () => number): RunState {
     layers: generateMap(rng),
     bossKills: 0,
     battlesWon: 0,
+    characterMarkers: {},
+    characterSkillFlags: {},
   };
 }
 

@@ -36,6 +36,7 @@ interface DamageSettlementHost {
   playerCharacterIds: PlayerCharacterId[];
   skillEventBus: SkillEventBus;
   initActiveSkills(): void;
+  resetActiveSkillUses(mode?: 'all' | 'gain-turn'): void;
   updateUIForPhase(): void;
   updateVitalityBars(): void;
   animateHealthBarDepletionAsync(target: 'enemy' | 'player', newVitality: number, duration: number): Promise<void>;
@@ -133,7 +134,6 @@ export class DamageSettlementManager {
     target: 'enemy' | 'player',
     sourceCharId: string,
   ): Promise<void> {
-    let currentSum = 0;
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i]!;
       const consideredAsRank = card.getData('consideredAsRank') as number | undefined;
@@ -186,6 +186,8 @@ export class DamageSettlementManager {
         enemyCharacterId: this.host.battle.enemyCharacterId,
         centerCardContainers: this.host.centerCards,
         singleCard,
+        // 中央累计伤害计数器：结算类技能（如周处「励心」）可读取/改写
+        damageCounterText: counterText,
       };
       await this.host.skillEventBus.emit(SkillTiming.ON_SINGLE_CARD_SETTLEMENT, singleCardCtx);
       if (this.host.damageSettlementCancelled) break;
@@ -207,8 +209,11 @@ export class DamageSettlementManager {
       }
 
       const cardScore = rank + singleCard.scoreBonus;
-      currentSum += cardScore;
-      counterText.setText(`${currentSum}`);
+      // 以中央计数器当前显示值为基准继续累加：AFTER 类技能（如周处「励心」）
+      // 可能已放大显示值（含 delta），直接基于显示值累加才能保持后续一致；
+      // damageInfo.sumRanks 由各技能与下方 scoreBonus 累加同步到同一终值。
+      const newSum = (parseInt(counterText.text, 10) || 0) + cardScore;
+      counterText.setText(`${newSum}`);
       damageInfo.sumRanks += singleCard.scoreBonus;
 
       await this.host.skillEventBus.emit(SkillTiming.AFTER_SINGLE_CARD_SETTLEMENT, singleCardCtx);
@@ -219,8 +224,9 @@ export class DamageSettlementManager {
       if (cardSeal === 'baihu') {
         GameAudioManager.playSfx(this.scene, 'sfx_seal_trigger');
         await this.flashSealGlow(card);
-        await this.extraCardSettlement(card, cardScore, counterText, currentSum);
-        currentSum += cardScore;
+        // 以当前显示值为起点重放（AFTER 技能如励心可能已放大显示值）
+        const beforeSum = parseInt(counterText.text, 10) || 0;
+        await this.extraCardSettlement(card, cardScore, counterText, beforeSum);
         damageInfo.sumRanks += cardScore;
       }
 
@@ -737,6 +743,8 @@ export class DamageSettlementManager {
     this.host.battle.turnHolder = 'player';
     this.host.phase = 'player_init';
     this.host.initActiveSkills();
+    // 取消结算后玩家获得牌权：重置「每次获得牌权限一次」类主动技次数
+    this.host.resetActiveSkillUses('gain-turn');
     this.host.updateUIForPhase();
     this.host.respondChainDepth = 0;
   }

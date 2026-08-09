@@ -26,7 +26,8 @@ export class DragInputManager {
   private dragStartY = 0;
   private dragActive = false;
   private scrollActive = false;
-  private lastPointerX = 0;
+  private lastScrollMidX = 0;
+  private activePointers: Map<number, { x: number; y: number }> = new Map();
   private dragSelectMode: 'add' | 'remove' | null = null;
   private dragTouchedIndices: Set<number> = new Set();
   private dragSnapshot: Set<number> = new Set();
@@ -39,7 +40,25 @@ export class DragInputManager {
   setup(): void {
     const input = this.host.input;
 
+    // 支持双指触控（默认只有 1 个触摸 pointer）
+    input.addPointer(2);
+
     input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.activePointers.set(pointer.id, { x: pointer.x, y: pointer.y });
+
+      // 双指落下：取消进行中的框选（恢复快照），进入手牌滑动模式
+      if (this.activePointers.size >= 2) {
+        if (this.dragStartIndex !== null) {
+          this.applyDragRange(null);
+          this.resetDragState();
+        }
+        if (this.cardDisplay.isHandScrollable()) {
+          this.scrollActive = true;
+          this.lastScrollMidX = this.scrollMidpointX();
+        }
+        return;
+      }
+
       if (!this.isPlayerTurn()) return;
       const idx = this.getCardIndexAtPosition(pointer.x, pointer.y);
       if (idx === null) return;
@@ -47,14 +66,27 @@ export class DragInputManager {
       this.dragStartIndex = idx;
       this.dragStartX = pointer.x;
       this.dragStartY = pointer.y;
-      this.lastPointerX = pointer.x;
       this.dragActive = false;
-      this.scrollActive = false;
       this.dragSelectMode = null;
       this.dragSnapshot = new Set(this.host.selectedIndices);
     });
 
     input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (this.activePointers.has(pointer.id)) {
+        this.activePointers.set(pointer.id, { x: pointer.x, y: pointer.y });
+      }
+
+      if (this.scrollActive) {
+        if (this.activePointers.size < 2) {
+          this.scrollActive = false;
+          return;
+        }
+        const midX = this.scrollMidpointX();
+        this.cardDisplay.scrollHandBy(midX - this.lastScrollMidX);
+        this.lastScrollMidX = midX;
+        return;
+      }
+
       if (this.dragStartIndex === null) return;
       if (!pointer.isDown) {
         this.resetDragState();
@@ -65,20 +97,10 @@ export class DragInputManager {
       const dy = pointer.y - this.dragStartY;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (!this.dragActive && !this.scrollActive) {
+      if (!this.dragActive) {
         if (dist < 8) return;
-        if (this.cardDisplay.isHandScrollable() && Math.abs(dx) > Math.abs(dy) * 2) {
-          this.scrollActive = true;
-        } else {
-          this.dragActive = true;
-          this.dragSelectMode = this.host.selectedIndices.has(this.dragStartIndex) ? 'remove' : 'add';
-        }
-      }
-
-      if (this.scrollActive) {
-        this.cardDisplay.scrollHandBy(pointer.x - this.lastPointerX);
-        this.lastPointerX = pointer.x;
-        return;
+        this.dragActive = true;
+        this.dragSelectMode = this.host.selectedIndices.has(this.dragStartIndex) ? 'remove' : 'add';
       }
 
       const currentIdx = this.getCardIndexAtPosition(pointer.x, pointer.y);
@@ -86,9 +108,19 @@ export class DragInputManager {
     });
 
     input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      this.activePointers.delete(pointer.id);
+
+      if (this.scrollActive) {
+        if (this.activePointers.size < 2) {
+          this.scrollActive = false;
+        }
+        this.resetDragState();
+        return;
+      }
+
       if (this.dragStartIndex === null) return;
 
-      if (!this.dragActive && !this.scrollActive) {
+      if (!this.dragActive) {
         const idx = this.getCardIndexAtPosition(pointer.x, pointer.y);
         if (idx !== null && idx === this.dragStartIndex) {
           this.onCardClick(idx);
@@ -97,12 +129,24 @@ export class DragInputManager {
 
       this.resetDragState();
     });
+
+    // 电脑端：鼠标滚轮滑动手牌
+    input.on('wheel', (_pointer: Phaser.Input.Pointer, _over: unknown, deltaX: number, deltaY: number) => {
+      if (!this.cardDisplay.isHandScrollable()) return;
+      const d = deltaX !== 0 ? deltaX : deltaY;
+      this.cardDisplay.scrollHandBy(-d);
+    });
+  }
+
+  private scrollMidpointX(): number {
+    let sum = 0;
+    for (const p of this.activePointers.values()) sum += p.x;
+    return sum / Math.max(1, this.activePointers.size);
   }
 
   resetDragState(): void {
     this.dragStartIndex = null;
     this.dragActive = false;
-    this.scrollActive = false;
     this.dragSelectMode = null;
     this.dragTouchedIndices.clear();
     this.dragSnapshot.clear();

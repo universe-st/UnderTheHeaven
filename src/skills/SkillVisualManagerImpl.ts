@@ -7,6 +7,9 @@ interface SceneHandle {
   battle: BattleState;
   updateVitalityBars(): void;
   cancelDamageSettlement(): void;
+  updateCharacterMarker(characterId: string, count: number): void;
+  markCharacterLost(characterId: string): void;
+  showDialog(characterId: string, text: string): void;
 }
 
 export class SkillVisualManagerImpl implements SkillVisualManager {
@@ -84,5 +87,17 @@ export class SkillVisualManagerImpl implements SkillVisualManager {
 
   getScene(): Phaser.Scene {
     return this.scene;
+  }
+
+  updateMarker(characterId: string, count: number): void {
+    this.scene.updateCharacterMarker(characterId, count);
+  }
+
+  markCharacterLost(characterId: string): void {
+    this.scene.markCharacterLost(characterId);
+  }
+
+  showDialog(characterId: string, text: string): void {
+    this.scene.showDialog(characterId, text);
   }
 }

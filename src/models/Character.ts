@@ -1,10 +1,25 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army';
 
 export interface CharacterAbility {
   skillId: string;
   name: string;
   description: string;
+  /**
+   * 标记类技能：在角色框左上角显示圆形标记区（中间显示标记数）。
+   * 值为标记名称（如 '骜'），仅带标记技能的角色设置。
+   */
+  markerLabel?: string;
+  /**
+   * 内部技能条目：用于技能注册但不展示在角色信息面板
+   * （一个技能拆分为多个 SkillDefinition 时使用）。
+   */
+  hidden?: boolean;
+  /**
+   * 特殊技能条目：展示在角色信息面板，但用特殊颜色标识
+   * （如周处「励心」——获得角色时尚未拥有，获得后变正常颜色）。
+   */
+  special?: boolean;
 }
 
 export interface PlayerCharacter {
@@ -59,6 +74,11 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     name: '文天祥',
     abilities: [{ skillId: 'wentianxiang_danxin', name: '丹心', description: '你的红桃牌结算伤害+10' }],
   },
+  libai: {
+    id: 'libai',
+    name: '李白',
+    abilities: [{ skillId: 'libai_shixian', name: '诗仙', description: '你打出的牌如果是五张或者七张，只能被"王炸"响应' }],
+  },
   niugao: {
     id: 'niugao',
     name: '牛皋',
@@ -93,6 +113,59 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     id: 'zuchongzhi',
     name: '祖冲之',
     abilities: [{ skillId: 'zuchongzhi_yuanzhou', name: '圆周', description: '（主动技）选择任意张圆周率开头的序列牌弃置，然后创造点数和花色完全相同，并且附带随机四象印的临时牌。每次牌权限一次。' }],
+  },
+  guanyu: {
+    id: 'guanyu',
+    name: '关羽',
+    abilities: [{ skillId: 'guanyu_wusheng', name: '武圣', description: '如果你持有牌权时主动打出的牌对方没有响应，则伤害系数+X。X为本次打出的牌中红色牌的数量' }],
+  },
+  lanyu: {
+    id: 'lanyu',
+    name: '蓝玉',
+    abilities: [
+      {
+        skillId: 'lanyu_jieao_marker', name: '桀骜', markerLabel: '骜',
+        description: '你每次造成伤害后，获得一个"骜"标记。你单牌计算伤害+X，X为"骜"标记的数量。当你一次给对方造成的伤害数量大于自己的气数时，你失去该角色牌（永久，除非之后再次招募）。',
+      },
+      // 以下为「桀骜」拆分的内部技能条目（用于注册，不单独显示）
+      { skillId: 'lanyu_jieao_bonus', name: '桀骜', description: '', hidden: true },
+      { skillId: 'lanyu_jieao_lost', name: '桀骜', description: '', hidden: true },
+    ],
+  },
+  zhaogao: {
+    id: 'zhaogao',
+    name: '赵高',
+    abilities: [{ skillId: 'zhaogao_zhilu', name: '指鹿', description: '你获得牌权时，随机失去一张最大的牌，生成随机花色点数且点数不大于失去牌的临时牌' }],
+  },
+  zhangjuzheng: {
+    id: 'zhangjuzheng',
+    name: '张居正',
+    abilities: [{ skillId: 'zhangjuzheng_gaizhi', name: '改制', description: '（主动技）每局游戏限一次，弃置手上所有的非大小王的牌，生成点数+1的临时牌。失去牌权后重置发动次数。' }],
+  },
+  zhouchu: {
+    id: 'zhouchu',
+    name: '周处',
+    abilities: [
+      { skillId: 'zhouchu_chuhai', name: '除害', description: '（主动技）每次获得牌权限一次。随机展示对方三张牌，其中的大王或小王被移出对方牌库；若三张中没有王，你获得其中的红桃牌。若你移除过至少一张大王和一张小王，你失去技能【除害】，获得【励心】。' },
+      // 特殊技能：获得周处时尚未拥有，通过「除害」转换获得；未获得时在技能列表以特殊颜色显示
+      { skillId: 'zhouchu_lixin', name: '励心', special: true, description: '你的红桃牌在单牌伤害结算后，已经累加的伤害数乘以1.5' },
+    ],
+  },
+  baozheng: {
+    id: 'baozheng',
+    name: '包拯',
+    abilities: [
+      { skillId: 'baozheng_tieduan', name: '铁断', description: '你的单张【大王】、【小王】与【9】可以无视大小和牌型，响应对方打出的任何牌，并且对方无法使用任何牌应对。你使用单张【大王】、【小王】与【9】结算伤害时系数+5。' },
+      // 铁断拆分的内部技能条目（系数+5，用于注册，不单独显示）
+      { skillId: 'baozheng_tieduan_coeff', name: '铁断', description: '', hidden: true },
+    ],
+  },
+  lvbuwei: {
+    id: 'lvbuwei',
+    name: '吕不韦',
+    abilities: [
+      { skillId: 'lvbuwei_juqi', name: '居奇', description: '你每次选择不出后，生成一张点数为3的随机花色并带有青龙印的牌。' },
+    ],
   },
 };
 
@@ -145,7 +218,7 @@ export const ENEMY_CHARACTERS: Record<EnemyCharacterId, EnemyCharacter> = {
 export const PLAYER_CHARACTER_LIST: PlayerCharacter[] = Object.values(PLAYER_CHARACTERS);
 export const ENEMY_CHARACTER_LIST: EnemyCharacter[] = Object.values(ENEMY_CHARACTERS);
 
-const DEFAULT_PLAYER_CHARACTER_IDS: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao', 'zuchongzhi'];
+const DEFAULT_PLAYER_CHARACTER_IDS: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao', 'zuchongzhi', 'guanyu', 'lanyu', 'zhangjuzheng', 'zhouchu', 'baozheng'];
 
 export function randomPlayerCharacter(rng: () => number = Math.random): PlayerCharacterId {
   return DEFAULT_PLAYER_CHARACTER_IDS[Math.floor(rng() * DEFAULT_PLAYER_CHARACTER_IDS.length)]!;

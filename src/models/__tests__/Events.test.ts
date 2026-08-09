@@ -3,6 +3,7 @@ import { createNewRun } from '../RunState';
 import { GAME_EVENTS, applyEventChoice, randomEvent } from '../Events';
 import type { GameEvent } from '../Events';
 import { createRng } from '../../engine/MapGenerator';
+import { PLAYER_CHARACTER_LIST } from '../Character';
 
 function eventById(id: string): GameEvent {
   const event = GAME_EVENTS.find((e) => e.id === id);
@@ -153,10 +154,7 @@ describe('流浪武士', () => {
 
   it('全部角色已招募时返回失败', () => {
     const run = createNewRun(createRng(1));
-    run.roster = [
-      'bianque', 'hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang',
-      'niugao', 'luocheng', 'xuewanche', 'gaoshun', 'zhangfei', 'zhanghan', 'zuchongzhi',
-    ];
+    run.roster = PLAYER_CHARACTER_LIST.map((c) => c.id);
     const result = applyEventChoice(run, eventById('liulang_wushi'), 0, createRng(2));
     expect(result.success).toBe(false);
     expect(result.shopItem).toBeUndefined();

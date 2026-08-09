@@ -48,6 +48,23 @@ export interface PlayerState {
   name: string;
   characterId?: PlayerCharacterId;
   reviveUsed?: boolean;
+  /**
+   * 关羽「武圣」判定依据：玩家最近一次「持有牌权主动出牌」时打出的红色牌数量。
+   * 跟牌（player_respond）或非主动出牌时为 0；出完牌直接结算时也会被清零。
+   */
+  pendingRedCount?: number;
+  /** 蓝玉「桀骜」：当前持有的"骜"标记数量 */
+  aoMarkers?: number;
+  /** 战斗中失去的角色牌（技能失效 + 角色栏变灰），如蓝玉「桀骜」负面效果 */
+  lostCharacters?: PlayerCharacterId[];
+  /**
+   * 角色技能跨战斗状态（战斗内副本）：如周处「除害」移除大小王进度、
+   * 是否已获得「励心」（同时失去「除害」）。战斗开始从 run.characterSkillFlags
+   * 读入，结束写回。
+   */
+  skillFlags?: Record<string, boolean | number>;
+  /** 本场战斗中玩家获得自对方的牌（如周处「除害」获得的红桃），战斗结束进入玩家牌库 */
+  acquiredCards?: Card[];
 }
 
 export interface BattleState {

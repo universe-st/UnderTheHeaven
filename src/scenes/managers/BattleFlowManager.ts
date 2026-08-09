@@ -9,7 +9,7 @@ import { GameAudioManager } from '../../utils/GameAudioManager';
 import { VoiceManager, getVoiceKeyForPlay, getRandomPassVoice } from '../../utils/VoiceManager';
 import type { PlayerCharacterId } from '../../models/Character';
 
-import { canPlayerBeat } from '../../engine/CharacterAbilities';
+import { canPlayerRosterBeat } from '../../engine/CharacterAbilities';
 import { SkillTiming } from '../../skills';
 import type { SkillContext, SkillEventBus, SkillRunner } from '../../skills';
 import { getBlockedResponseTypes } from '../../skills/PassiveSkillUtils';
@@ -20,7 +20,7 @@ import type { DamageSettlementManager } from './DamageSettlementManager';
 import type { BattleConfig, RunModeConfig } from '../../models/BattleTypes';
 import type { NodeType } from '../../models/RunState';
 import { tongbaoReward, calcDestinyLoss, isRunOver, isRunComplete } from '../../models/RunState';
-import { applyBattleResult, consumePendingInterest } from '../../models/RunManager';
+import { applyBattleResult, consumePendingInterest, getRun, save } from '../../models/RunManager';
 import { UIFactory } from '../../utils/UIFactory';
 import {
   FONT_FAMILY, CARD_W, CARD_H,
@@ -52,6 +52,7 @@ export interface BattleFlowHost {
   updateUIForPhase(): void;
   updateTurnIndicator(who: 'player' | 'enemy'): void;
   initActiveSkills(): void;
+  resetActiveSkillUses(mode?: 'all' | 'gain-turn'): void;
   updatePatternHint(): void;
 }
 
@@ -115,8 +116,8 @@ export class BattleFlowManager {
         this.host.battle.lastPlay,
       );
       if (blockedTypes.includes(pattern.type)) return;
-      const canBeatPlay = canPlayerBeat(
-        this.host.battle.player.characterId,
+      const canBeatPlay = canPlayerRosterBeat(
+        this.host.playerCharacterIds,
         pattern,
         this.host.battle.lastPlay,
       );
@@ -148,7 +149,7 @@ export class BattleFlowManager {
     const candidates = findHintPlays(hand, lastPlay, (p) => {
       if (blockedTypes.includes(p.type)) return false;
       if (!lastPlay) return true;
-      return canPlayerBeat(this.host.battle.player.characterId, p, lastPlay);
+      return canPlayerRosterBeat(this.host.playerCharacterIds, p, lastPlay);
     });
     if (candidates.length === 0) return;
 
@@ -253,6 +254,11 @@ export class BattleFlowManager {
 
     this.host.battle.lastPlay = pattern;
     this.host.battle.turnHolder = 'player';
+    // 关羽「武圣」判定依据：仅持有牌权（player_init）主动出牌时记录红牌数，
+    // 跟牌（player_respond）时为 0；对方放弃响应而结算该牌时由技能消费。
+    this.host.battle.player.pendingRedCount = prevPhase === 'player_init'
+      ? playedCards.filter(c => c.suit === 'heart' || c.suit === 'diamond').length
+      : 0;
 
     this.cardDisplay.clearCenterCards();
     sortHand(playerHand);
@@ -322,6 +328,8 @@ export class BattleFlowManager {
 
   async handlePostPlayEmptyHandCheck(hand: Card[], pattern: HandPattern): Promise<void> {
     if (hand.length === 0) {
+      // 出完牌直接结算：对方没有响应机会，关羽「武圣」不触发
+      this.host.battle.player.pendingRedCount = 0;
       await this.damageSettlement.playDamageSettlement(pattern, 'enemy', true);
       if (this.host.battle.enemy.vitality <= 0) {
         this.showGameOver(true);
@@ -332,6 +340,7 @@ export class BattleFlowManager {
       await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.battle.turnHolder = 'enemy';
       this.host.phase = 'ai_init';
+      this.host.resetActiveSkillUses();
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
       await this.aiInitiatePlay();
@@ -351,17 +360,28 @@ export class BattleFlowManager {
     await this.showPassAnimation(who);
     VoiceManager.play(this.scene, getRandomPassVoice(), who);
 
+    // 玩家选择不出后：广播 ON_PASS（触发吕不韦「居奇」等「不出后」类技能）
+    if (who === 'player') {
+      await this.emitPlayerPass();
+    }
+
     if (!this.host.battle.lastPlay) {
+      // 新一轮开局（无人出牌）：无待结算牌，清掉遗留的武圣判定依据
+      this.host.battle.player.pendingRedCount = 0;
       if (who === 'player') {
         this.host.battle.turnHolder = 'enemy';
         this.host.phase = 'ai_init';
+        this.host.resetActiveSkillUses();
         this.host.updateUIForPhase();
         this.host.respondChainDepth = 0;
         await this.aiInitiatePlay();
       } else {
+        // 对方无牌可出（新一轮开局），玩家获得牌权：重置「每次获得牌权限一次」类主动技次数
         this.host.battle.turnHolder = 'player';
+        await this.emitPlayerGainTurn();
         this.host.phase = 'player_init';
         this.host.initActiveSkills();
+        this.host.resetActiveSkillUses('gain-turn');
         await this.refillIfEmpty('player');
         this.host.updateUIForPhase();
         this.host.respondChainDepth = 0;
@@ -372,6 +392,8 @@ export class BattleFlowManager {
     const lastPlay = this.host.battle.lastPlay;
 
     if (who === 'player') {
+      // 玩家不出：结算敌方牌，武圣判定依据不再有效
+      this.host.battle.player.pendingRedCount = 0;
       this.host.battle.turnHolder = 'enemy';
       this.cardDisplay.renderPlayerHand();
       this.host.updatePatternHint();
@@ -385,6 +407,7 @@ export class BattleFlowManager {
       this.host.battle.lastPlay = null;
       await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.phase = 'ai_init';
+      this.host.resetActiveSkillUses();
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
       await this.aiInitiatePlay();
@@ -398,12 +421,44 @@ export class BattleFlowManager {
       }
       this.host.battle.lastPlay = null;
       await this.cardDisplay.fadeOutCenterCardsAsync();
+      // 敌方不出，玩家获得牌权：广播 ON_GAIN_TURN（如赵高「指鹿」）；重置获得牌权型主动技次数
+      await this.emitPlayerGainTurn();
       this.host.phase = 'player_init';
       this.host.initActiveSkills();
+      this.host.resetActiveSkillUses('gain-turn');
       await this.refillIfEmpty('player');
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
     }
+  }
+
+  /**
+   * 玩家获得牌权：广播 ON_GAIN_TURN（触发「获得牌权时」类技能，如赵高「指鹿」）。
+   * 与敌方清空手牌路径（aiRespond/aiInitiatePlay 中）的广播保持一致的 context。
+   */
+  private async emitPlayerGainTurn(): Promise<void> {
+    const gainTurnCtx: SkillContext = {
+      gameScene: this.scene,
+      battle: this.host.battle,
+      sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
+      playerCharacterIds: this.host.playerCharacterIds,
+      enemyCharacterId: this.host.battle.enemyCharacterId,
+    };
+    await this.host.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, gainTurnCtx);
+  }
+
+  /**
+   * 玩家选择不出：广播 ON_PASS（触发「不出后」类技能，如吕不韦「居奇」）。
+   */
+  private async emitPlayerPass(): Promise<void> {
+    const passCtx: SkillContext = {
+      gameScene: this.scene,
+      battle: this.host.battle,
+      sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
+      playerCharacterIds: this.host.playerCharacterIds,
+      enemyCharacterId: this.host.battle.enemyCharacterId,
+    };
+    await this.host.skillEventBus.emit(SkillTiming.ON_PASS, passCtx);
   }
 
   showPassAnimation(who: 'player' | 'enemy'): Promise<void> {
@@ -479,6 +534,15 @@ export class BattleFlowManager {
   async aiRespond(): Promise<void> {
     await waitForDelay(this.scene, 300 + Math.random() * 300);
     this.host.battle.phase = 'respond';
+    // 玩家侧被动技能封锁敌方响应（李白「诗仙」、包拯「铁断」等）：
+    // 遍历玩家阵容全部角色 id 合并封锁类型，保证任意位置的玩家角色技能都生效
+    const blockedResponseTypes = [
+      ...new Set(
+        this.host.playerCharacterIds.flatMap(id =>
+          getBlockedResponseTypes(id, this.host.battle.lastPlay),
+        ),
+      ),
+    ];
     const cards = decidePlay(this.host.battle, (plays, ctx) => {
       const enemyCharId = this.host.battle.enemyCharacterId;
       if (!enemyCharId) return;
@@ -486,7 +550,7 @@ export class BattleFlowManager {
       for (const skill of enemySkills) {
         skill.onAIDecision?.(plays, ctx);
       }
-    });
+    }, blockedResponseTypes);
     if (!cards || cards.length === 0) {
       await waitForDelay(this.scene, 200 + Math.random() * 300);
       await this.executePass('enemy');
@@ -558,6 +622,8 @@ export class BattleFlowManager {
       };
       await this.host.skillEventBus.emit(SkillTiming.ON_PLAY, aiOnPlayCtx);
 
+      // 敌方出完牌直接结算：玩家非主动出牌，武圣判定依据清零
+      this.host.battle.player.pendingRedCount = 0;
       await this.damageSettlement.playDamageSettlement(pattern, 'player', true);
       if (this.host.damageSettlementCancelled) return;
       if (this.host.battle.player.vitality <= 0) {
@@ -588,9 +654,11 @@ export class BattleFlowManager {
 
       await waitForDelay(this.scene, 100);
       await this.cardDisplay.fadeOutCenterCardsAsync();
+      // 敌方出完牌，玩家获得牌权：重置「每次获得牌权限一次」类主动技次数
       this.host.battle.turnHolder = 'player';
       this.host.phase = 'player_init';
       this.host.initActiveSkills();
+      this.host.resetActiveSkillUses('gain-turn');
       await this.refillIfEmpty('player');
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
@@ -661,8 +729,11 @@ export class BattleFlowManager {
     if (!cards || cards.length === 0) {
       this.host.battle.lastPlay = null;
       this.host.battle.turnHolder = 'player';
+      // AI 无牌可出，玩家获得牌权：广播 ON_GAIN_TURN（如赵高「指鹿」）；重置获得牌权型主动技次数
+      await this.emitPlayerGainTurn();
       this.host.phase = 'player_init';
       this.host.initActiveSkills();
+      this.host.resetActiveSkillUses('gain-turn');
       await this.refillIfEmpty('player');
       this.host.updateUIForPhase();
       return;
@@ -726,6 +797,8 @@ export class BattleFlowManager {
     await this.host.skillEventBus.emit(SkillTiming.ON_PLAY, aiOnPlayCtx);
 
     if (enemyHand.length === 0) {
+      // 敌方出完牌直接结算：玩家非主动出牌，武圣判定依据清零
+      this.host.battle.player.pendingRedCount = 0;
       await this.damageSettlement.playDamageSettlement(pattern, 'player', true);
       if (this.host.damageSettlementCancelled) return;
       if (this.host.battle.player.vitality <= 0) {
@@ -746,9 +819,11 @@ export class BattleFlowManager {
 
       await this.cardDisplay.renderEnemyHandAsync(300);
       await this.cardDisplay.fadeOutCenterCardsAsync();
+      // 敌方出完牌，玩家获得牌权：重置「每次获得牌权限一次」类主动技次数
       this.host.battle.turnHolder = 'player';
       this.host.phase = 'player_init';
       this.host.initActiveSkills();
+      this.host.resetActiveSkillUses('gain-turn');
       await this.refillIfEmpty('player');
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
@@ -849,6 +924,48 @@ export class BattleFlowManager {
     let subText: string;
     let nextSceneKey: string;
     let nextSceneData: { victory: boolean } | undefined;
+
+    // 战斗内角色状态写回对局（跨战斗保留）：
+    // 1) 角色标记（如蓝玉「骜」）累计保存，下次战斗继续生效；
+    // 2) 战斗中失去的角色牌（如蓝玉桀骜反噬）永久移出阵容
+    //    （黄金台可重新招募），其标记一并清零；
+    // 3) 角色技能跨战斗状态（如周处「除害」移除大小王进度、是否已获得「励心」）合并写回；
+    // 4) 本场战斗中玩家获得自对方的牌（如周处「除害」获得的红桃）进入玩家牌库，
+    //    下场战斗发牌时会融合进玩家牌组。
+    const pendingRun = getRun();
+    if (pendingRun) {
+      const markers = { ...pendingRun.characterMarkers };
+      markers.lanyu = this.host.battle.player.aoMarkers ?? 0;
+      if ((this.host.battle.player.lostCharacters ?? []).includes('lanyu')) {
+        pendingRun.roster = pendingRun.roster.filter(id => id !== 'lanyu');
+        markers.lanyu = 0;
+      }
+      pendingRun.characterMarkers = markers;
+
+      // 技能状态写回（合并；周处转换后【除害】不再注册、【励心】生效均由此持久化）
+      const skillFlags = { ...pendingRun.characterSkillFlags };
+      Object.assign(skillFlags, this.host.battle.player.skillFlags ?? {});
+      pendingRun.characterSkillFlags = skillFlags;
+
+      // 获得的牌进入玩家牌库（复制对象，避免与战斗内引用共享）。
+      // 仅写回战斗结束时仍持于玩家手牌的获得牌：被打出/弃置的获得牌按牌库规则
+      // 「弃置不影响牌库」战斗结束清空；被对方抢回的牌同样不再进入玩家牌库。
+      const acquired = this.host.battle.player.acquiredCards ?? [];
+      if (acquired.length > 0) {
+        const handUids = new Set(this.host.battle.player.hand.map(c => c.uid));
+        const stillHeld = acquired.filter(c => handUids.has(c.uid));
+        if (stillHeld.length > 0) {
+          pendingRun.cardPool = [
+            ...pendingRun.cardPool,
+            ...stillHeld.map(c => ({ ...c })),
+          ];
+        }
+      }
+
+      // 角色状态先落盘一次：即使后续 applyBattleResult 因节点缺失返回 null
+      // （异常路径），"失去角色牌/标记"也已持久化，不会因未保存而回滚。
+      save();
+    }
 
     if (playerWin) {
       // 事件节点的战斗胜利按普通战斗发放通宝

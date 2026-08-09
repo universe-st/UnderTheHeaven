@@ -137,6 +137,7 @@ function makeRun(): RunState {
     ],
     bossKills: 0,
     battlesWon: 0,
+    characterMarkers: {},
   };
 }
 

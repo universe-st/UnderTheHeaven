@@ -2,7 +2,8 @@ import type Phaser from 'phaser';
 import type { Card } from '../models/Card';
 import { sortHand, shuffleDeck } from '../models/Card';
 import { waitForTween } from './AnimationUtils';
-import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET } from '../constants/Layout';
+import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET, HAND_AREA_MARGIN } from '../constants/Layout';
+import { calcHandStartX, ENEMY_HAND_MIN_OFFSET } from '../engine/handLayout';
 
 export interface CardActionResult {
   discarded: Card[];
@@ -16,10 +17,13 @@ export interface CardActionsHost {
   };
   cardObjects: Phaser.GameObjects.Container[];
   enemyCardObjects: Phaser.GameObjects.Container[];
+  handScrollX: number;
   renderPlayerHand: (animateEntry?: boolean) => void;
   renderEnemyHand: (animateEntry?: boolean, baseDelay?: number, onComplete?: () => void) => void;
   createCardDisplay: (card: Card, x: number, y: number, isSelected?: boolean) => Phaser.GameObjects.Container;
   add: Phaser.GameObjects.GameObjectFactory;
+  /** 增量布局变更后刷新手牌溢出渐隐提示（可选，由宿主场景提供） */
+  updateHandOverflowHints?: () => void;
 }
 
 function asHost(scene: Phaser.Scene): CardActionsHost {
@@ -207,9 +211,19 @@ async function insertCardsWithAnimation(
   const baseDepth = target === 'player' ? 30 : 1;
   const offscreenX = width + CARD_W;
 
-  // 计算所有牌的目标位置
-  const totalW = CARD_W + (hand.length - 1) * CARD_OVERLAP_OFFSET;
-  const startX = (width - totalW) / 2 + CARD_W / 2;
+  // 计算所有牌的目标位置：与全量渲染（CardDisplayManager）共用同一套三级布局
+  // （常规间距居中 / 压缩间距居中 / 溢出滚动），保证增量插入后手牌区显示一致。
+  const available = width - HAND_AREA_MARGIN * 2;
+  const layoutResult =
+    target === 'player'
+      ? calcHandStartX(hand.length, width, available, CARD_OVERLAP_OFFSET, CARD_W, s.handScrollX, undefined, HAND_AREA_MARGIN)
+      : calcHandStartX(hand.length, width, available, CARD_OVERLAP_OFFSET, CARD_W, 0, ENEMY_HAND_MIN_OFFSET, 0);
+  if (target === 'player') {
+    s.handScrollX = layoutResult.scrollX;
+    s.updateHandOverflowHints?.();
+  }
+  const startX = layoutResult.startX;
+  const offset = layoutResult.offset;
 
   // 构建旧容器查找表：card identity → container
     const identityMap = new Map<string, Phaser.GameObjects.Container[]>();
@@ -238,7 +252,7 @@ async function insertCardsWithAnimation(
   for (let i = 0; i < hand.length; i++) {
     const card = hand[i]!;
     const key = card.uid;
-    const targetX = startX + i * CARD_OVERLAP_OFFSET;
+    const targetX = startX + i * offset;
     const isNew = newIdentitySet.has(key);
 
     let foundContainer: Phaser.GameObjects.Container | undefined;
@@ -378,18 +392,29 @@ function layoutExistingHand(
 ): void {
   const { state, containers } = getHandContext(scene, target);
   const hand = state.hand;
+  const s = asHost(scene);
   const { width } = scene.scale;
 
   const baseDepth = target === 'player' ? 30 : 1;
 
   if (hand.length === 0) return;
 
-  const totalW = CARD_W + (hand.length - 1) * CARD_OVERLAP_OFFSET;
-  const startX = (width - totalW) / 2 + CARD_W / 2;
+  // 与全量渲染共用三级布局（常规/压缩居中/溢出滚动），弃牌后同样正确收拢
+  const available = width - HAND_AREA_MARGIN * 2;
+  const layoutResult =
+    target === 'player'
+      ? calcHandStartX(hand.length, width, available, CARD_OVERLAP_OFFSET, CARD_W, s.handScrollX, undefined, HAND_AREA_MARGIN)
+      : calcHandStartX(hand.length, width, available, CARD_OVERLAP_OFFSET, CARD_W, 0, ENEMY_HAND_MIN_OFFSET, 0);
+  if (target === 'player') {
+    s.handScrollX = layoutResult.scrollX;
+    s.updateHandOverflowHints?.();
+  }
+  const startX = layoutResult.startX;
+  const offset = layoutResult.offset;
 
   for (let i = 0; i < containers.length; i++) {
     const container = containers[i]!;
-    const targetX = startX + i * CARD_OVERLAP_OFFSET;
+    const targetX = startX + i * offset;
     const newDepth = baseDepth + i;
     const card = hand[i]!;
 

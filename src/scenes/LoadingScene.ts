@@ -122,6 +122,14 @@ export class LoadingScene extends Phaser.Scene {
     this.load.image('seal_zhuque', 'seal_zhuque.png');
     this.load.image('seal_xuanwu', 'seal_xuanwu.png');
 
+    // 地图节点图标（古风水墨风格）
+    this.load.image('node_normal', 'nodes/node_normal.png');
+    this.load.image('node_elite', 'nodes/node_elite.png');
+    this.load.image('node_boss', 'nodes/node_boss.png');
+    this.load.image('node_shop', 'nodes/node_shop.png');
+    this.load.image('node_event', 'nodes/node_event.png');
+    this.load.image('node_tongbao', 'nodes/node_tongbao.png');
+
     // 角色头像图片
     this.load.image('char_zhugeliang', 'char_zhugeliang.png');
     this.load.image('char_hanxin', 'char_hanxin.png');
@@ -136,6 +144,14 @@ export class LoadingScene extends Phaser.Scene {
     this.load.image('char_zhanghan', 'char_zhanghan.png');
     this.load.image('char_bianque', 'char_bianque.png');
     this.load.image('char_zuchongzhi', 'char_zuchongzhi.png');
+    this.load.image('char_libai', 'char_libai.png');
+    this.load.image('char_guanyu', 'char_guanyu.png');
+    this.load.image('char_lanyu', 'char_lanyu.png');
+    this.load.image('char_zhaogao', 'char_zhaogao.png');
+    this.load.image('char_zhangjuzheng', 'char_zhangjuzheng.png');
+    this.load.image('char_zhouchu', 'char_zhouchu.png');
+    this.load.image('char_baozheng', 'char_baozheng.png');
+    this.load.image('char_lvbuwei', 'char_lvbuwei.png');
 
     // 敌人头像图片
     this.load.image('char_huangjinjun', 'char_huangjinjun.png');

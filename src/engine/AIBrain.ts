@@ -388,6 +388,7 @@ function selectPlayWithHooks(
 export function decidePlay(
   battleState: BattleState,
   adjustPlayScores?: (plays: { play: HandPattern; score: number }[], ctx: AIDecisionContext) => void,
+  blockedResponseTypes?: HandType[],
 ): Card[] | null {
   const aiHand = battleState.enemy.hand;
   const enemyCharId = battleState.enemyCharacterId;
@@ -399,6 +400,12 @@ export function decidePlay(
 
   const generateBeatingPlays = (hand: Card[], lastPlay: HandPattern): HandPattern[] => {
     return findBeatingPlays(hand, lastPlay);
+  };
+
+  /** 过滤被技能封锁的响应牌型（如李白「诗仙」：5/7 张牌只能被王炸响应） */
+  const filterBlocked = (plays: HandPattern[]): HandPattern[] => {
+    if (!blockedResponseTypes || blockedResponseTypes.length === 0) return plays;
+    return plays.filter(p => !blockedResponseTypes.includes(p.type));
   };
 
   // ---- 主动出牌模式 ----
@@ -433,7 +440,7 @@ export function decidePlay(
   // ---- 接牌模式 ----
   if (!battleState.lastPlay) return null;
 
-  const beating = generateBeatingPlays(aiHand, battleState.lastPlay);
+  const beating = filterBlocked(generateBeatingPlays(aiHand, battleState.lastPlay));
   if (beating.length > 0) {
     // 战略放弃：passThreshold 高于最高评分时放弃接牌
     if (profile && profile.passThreshold > 0) {
@@ -490,9 +497,9 @@ export function decidePlay(
   const lastType = battleState.lastPlay.type;
   if (lastType !== HandType.Bomb && lastType !== HandType.Rocket) {
     const allPlays = generateAllPlays(aiHand);
-    const bombPlays = allPlays.filter(
+    const bombPlays = filterBlocked(allPlays.filter(
       p => p.type === HandType.Bomb || p.type === HandType.Rocket,
-    );
+    ));
 
     const bombCfg = profile?.bombOverride;
     const handSize = aiHand.length;

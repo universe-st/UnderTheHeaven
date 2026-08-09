@@ -2,9 +2,9 @@ import type Phaser from 'phaser';
 import type { Card } from '../../models/Card';
 import { cardDisplayName } from '../../models/Card';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
-import { HAND_TYPE_LABELS } from '../../models/BattleTypes';
+import { HAND_TYPE_LABELS, HandType } from '../../models/BattleTypes';
 import { identifyHand, findAllPlays, findBeatingPlays } from '../../engine/HandRecognizer';
-import { canPlayerBeat } from '../../engine/CharacterAbilities';
+import { canPlayerRosterBeat, isTieDuanSingle } from '../../engine/CharacterAbilities';
 import { getBlockedResponseTypes } from '../../skills/PassiveSkillUtils';
 import type { SkillRunner } from '../../skills/SkillRunner';
 import type { SkillContext } from '../../skills/SkillTypes';
@@ -56,6 +56,14 @@ export class PatternHintManager {
     }
     if (this.host.phase === 'player_respond' && this.host.battle.lastPlay) {
       let beatingPlays = findBeatingPlays(hand, this.host.battle.lastPlay);
+      // 包拯「铁断」：阵容含包拯时，单张 9/小王/大王 无视大小和牌型可响应任何牌
+      if (this.host.playerCharacterIds.includes('baozheng')) {
+        for (const card of hand) {
+          if (isTieDuanSingle({ type: HandType.Single, cards: [card], mainValue: card.consideredAs?.rank ?? card.rank, length: 1 })) {
+            beatingPlays.push({ type: HandType.Single, cards: [card], mainValue: card.consideredAs?.rank ?? card.rank, length: 1 });
+          }
+        }
+      }
       const blockedTypes = getBlockedResponseTypes(this.host.battle.enemyCharacterId, this.host.battle.lastPlay);
       if (blockedTypes.length > 0) {
         beatingPlays = beatingPlays.filter(p => !blockedTypes.includes(p.type));
@@ -70,8 +78,8 @@ export class PatternHintManager {
     const cardsStr = selected.map(c => cardDisplayName(c)).join('');
 
     if (this.host.battle.lastPlay && this.host.phase === 'player_respond') {
-      const canBeatPlay = canPlayerBeat(
-        this.host.battle.player.characterId,
+      const canBeatPlay = canPlayerRosterBeat(
+        this.host.playerCharacterIds,
         pattern,
         this.host.battle.lastPlay,
       );

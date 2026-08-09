@@ -3,7 +3,8 @@ import type { Card } from '../../models/Card';
 import type { BattleState } from '../../models/BattleTypes';
 import type { PlayerCharacterId } from '../../models/Character';
 import type { ActiveSkillDefinition, CharacterSlotManager } from '../../skills';
-import { LiuBoWenChouCe, ZuChongZhiYuanZhou } from '../../skills';
+import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai } from '../../skills';
+import { hasLiXin } from '../../skills/ZhouChuChuHaiLogic';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import type { CardDisplayManager } from './CardDisplayManager';
 import { FONT_FAMILY, DEPTH_UI } from '../../constants/Layout';
@@ -35,9 +36,11 @@ interface ActiveSkillHost {
   getSelectedCards(): Card[];
   updateUIForPhase(): void;
   updatePatternHint(): void;
+  resetActiveSkillUses(mode?: 'all' | 'gain-turn'): void;
 
   getBattle(): BattleState;
   renderPlayerHandAfterSkill(): void;
+  initActiveSkills(): void;
 }
 
 export class ActiveSkillManager {
@@ -75,16 +78,47 @@ export class ActiveSkillManager {
   }
 
   initActiveSkills(): void {
+    // 只做注册：保留已有使用次数（发动次数的清零由 resetActiveSkillUses()
+    // 执行——「获得牌权型」技能在玩家获得牌权时重置，「失去牌权型」（改制）
+    // 在玩家失去牌权（对方获得牌权）时重置，见 resetActiveSkillUses）。
+    const counts = this.host.activeSkillUseCounts;
     this.host.activeSkills = [];
-    this.host.activeSkillUseCounts = new Map();
 
     if (this.host.playerCharacterIds.includes('liubowen')) {
       this.host.activeSkills.push(LiuBoWenChouCe);
-      this.host.activeSkillUseCounts.set(LiuBoWenChouCe.id, 0);
+      if (!counts.has(LiuBoWenChouCe.id)) counts.set(LiuBoWenChouCe.id, 0);
     }
     if (this.host.playerCharacterIds.includes('zuchongzhi')) {
       this.host.activeSkills.push(ZuChongZhiYuanZhou);
-      this.host.activeSkillUseCounts.set(ZuChongZhiYuanZhou.id, 0);
+      if (!counts.has(ZuChongZhiYuanZhou.id)) counts.set(ZuChongZhiYuanZhou.id, 0);
+    }
+    if (this.host.playerCharacterIds.includes('zhangjuzheng')) {
+      this.host.activeSkills.push(ZhangJuZhengGaiZhi);
+      if (!counts.has(ZhangJuZhengGaiZhi.id)) counts.set(ZhangJuZhengGaiZhi.id, 0);
+    }
+    // 周处「除害」：每次获得牌权限一次；已转换（失去除害、获得励心）后不再注册
+    if (this.host.playerCharacterIds.includes('zhouchu')
+        && !hasLiXin(this.host.battle.player.skillFlags)) {
+      this.host.activeSkills.push(ZhouChuChuHai);
+      if (!counts.has(ZhouChuChuHai.id)) counts.set(ZhouChuChuHai.id, 0);
+    }
+
+    this.host.activeSkillUseCounts = counts;
+  }
+
+  /**
+   * 重置主动技发动次数。
+   * - 默认（'all'）：重置全部技能——在玩家「失去牌权」（对方获得牌权）时调用，
+   *   覆盖张居正「改制」等 resetOnLostTurn 技能；
+   * - 'gain-turn'：仅重置「每次获得牌权限一次」类技能（resetOnLostTurn 缺省的，
+   *   如筹策、圆周、除害）——在玩家「获得牌权」（进入出牌阶段）时调用。
+   */
+  resetActiveSkillUses(mode: 'all' | 'gain-turn' = 'all'): void {
+    for (const skill of this.host.activeSkills) {
+      const resetOnGainTurn = skill.resetOnLostTurn !== true;
+      if (mode === 'all' || resetOnGainTurn) {
+        this.host.activeSkillUseCounts.set(skill.id, 0);
+      }
     }
   }
 
@@ -98,18 +132,18 @@ export class ActiveSkillManager {
     }
 
     const selected = this.host.getSelectedCards();
-    if (selected.length === 0) {
-      if (this.host.btnSkill) this.host.btnSkill.setVisible(false);
-      this.closeSkillDropdown();
-      this.updateButtonLayout();
-      return;
-    }
-
     const eligibleIds: string[] = [];
     for (const skill of this.host.activeSkills) {
       const used = this.host.activeSkillUseCounts.get(skill.id) ?? 0;
       if (used >= skill.maxUses) continue;
-      if (skill.cardFilter(selected)) {
+      if (selected.length === 0) {
+        // 无需选牌的主动技（如改制）：未选中牌也可发动
+        if (skill.requiresSelection === false) {
+          if (!skill.canUseWithoutSelection || skill.canUseWithoutSelection(this.host)) {
+            eligibleIds.push(skill.id);
+          }
+        }
+      } else if (skill.cardFilter(selected)) {
         eligibleIds.push(skill.id);
       }
     }
@@ -239,7 +273,11 @@ export class ActiveSkillManager {
     if (!skill) return;
 
     const selected = this.host.getSelectedCards();
-    if (!skill.cardFilter(selected)) return;
+    const usable = selected.length > 0
+      ? skill.cardFilter(selected)
+      : (skill.requiresSelection === false
+          && (!skill.canUseWithoutSelection || skill.canUseWithoutSelection(this.host)));
+    if (!usable) return;
 
     const prevPhase = this.host.phase;
     this.host.phase = 'animating';
@@ -261,6 +299,11 @@ export class ActiveSkillManager {
     await this.slotManager.moveToFront(skill.ownerCharacterId);
     await this.slotManager.shakeAndPulse(skill.ownerCharacterId);
 
+    if (skill.dialogLines && skill.dialogLines.length > 0) {
+      const line = skill.dialogLines[Math.floor(Math.random() * skill.dialogLines.length)]!;
+      this.slotManager.showDialog(skill.ownerCharacterId, line);
+    }
+
     await skill.execute(this.host, selected);
 
     const used = this.host.activeSkillUseCounts.get(skill.id) ?? 0;
@@ -278,6 +321,7 @@ export class ActiveSkillManager {
       await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.battle.turnHolder = 'enemy';
       this.host.phase = 'ai_init';
+      this.host.resetActiveSkillUses();
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
       await this.onAiInitiatePlay();
@@ -292,6 +336,7 @@ export class ActiveSkillManager {
       this.host.battle.lastPlay = null;
       this.host.battle.turnHolder = 'enemy';
       this.host.phase = 'ai_init';
+      this.host.resetActiveSkillUses();
       this.host.updateUIForPhase();
       this.host.respondChainDepth = 0;
       await this.onAiInitiatePlay();

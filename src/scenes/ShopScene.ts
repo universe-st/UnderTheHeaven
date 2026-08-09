@@ -7,7 +7,7 @@ import { generateShopStock, purchase, refreshPrice } from '../models/Shop';
 import { UIFactory } from '../utils/UIFactory';
 import { createPokerCardVisual } from '../utils/CardVisual';
 import { GameAudioManager } from '../utils/GameAudioManager';
-import { FONT_FAMILY, AVATAR_SOURCE_SIZE } from '../constants/Layout';
+import { FONT_FAMILY, AVATAR_SOURCE_SIZE, CURRENCY_ICON_DISPLAY } from '../constants/Layout';
 
 const CARD_W = 500;
 const CARD_H = 620;
@@ -27,6 +27,7 @@ export class ShopScene extends Phaser.Scene {
   private refreshButton: Phaser.GameObjects.Container | null = null;
   private destinyText: Phaser.GameObjects.Text | null = null;
   private tongbaoText: Phaser.GameObjects.Text | null = null;
+  private tongbaoIcon: Phaser.GameObjects.Image | null = null;
   private rosterText: Phaser.GameObjects.Text | null = null;
 
   constructor() {
@@ -47,6 +48,7 @@ export class ShopScene extends Phaser.Scene {
     this.refreshButton = null;
     this.destinyText = null;
     this.tongbaoText = null;
+    this.tongbaoIcon = null;
     this.rosterText = null;
     this.tweens.killAll();
   }
@@ -79,9 +81,15 @@ export class ShopScene extends Phaser.Scene {
     this.destinyText = this.add.text(cx - 420, 172, '', {
       fontSize: '24px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
     }).setOrigin(0.5);
-    this.tongbaoText = this.add.text(cx, 172, '', {
+    // 通宝：铜钱图标 + 数字（Container 居中组合）
+    const tongbaoGroup = this.add.container(cx, 172);
+    const coinIcon = this.add.image(0, 0, 'node_tongbao').setOrigin(0, 0.5);
+    coinIcon.setScale(CURRENCY_ICON_DISPLAY / coinIcon.width);
+    this.tongbaoIcon = coinIcon;
+    this.tongbaoText = this.add.text(CURRENCY_ICON_DISPLAY + 6, 0, '', {
       fontSize: '24px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
-    }).setOrigin(0.5);
+    }).setOrigin(0, 0.5);
+    tongbaoGroup.add([this.tongbaoIcon, this.tongbaoText]);
     this.rosterText = this.add.text(cx + 420, 172, '', {
       fontSize: '24px', fontFamily: FONT_FAMILY, color: '#c8a050',
     }).setOrigin(0.5);
@@ -107,7 +115,7 @@ export class ShopScene extends Phaser.Scene {
     const run = RunManager.getRun();
     if (!run) return;
     this.destinyText?.setText(`❤ 天命 ${run.destiny}/${run.destinyMax}`);
-    this.tongbaoText?.setText(`💰 通宝 ${run.tongbao}`);
+    this.tongbaoText?.setText(`通宝 ${run.tongbao}`);
     this.rosterText?.setText(`阵容 ${run.roster.length}/${ROSTER_MAX}`);
   }
 
@@ -188,9 +196,14 @@ export class ShopScene extends Phaser.Scene {
     const isCardItem = item.kind === 'card';
     const priceY = isCardItem ? cy + 210 : cy + 120;
     const btnY = isCardItem ? cy + CARD_H / 2 - 40 : cy + CARD_H / 2 - 70;
-    container.add(this.add.text(cx, priceY, `💰 ${item.price}`, {
+    const priceGroup = this.add.container(cx, priceY);
+    const coin = this.add.image(0, 0, 'node_tongbao').setOrigin(1, 0.5);
+    coin.setScale(CURRENCY_ICON_DISPLAY / coin.width);
+    const priceTxt = this.add.text(6, 0, `${item.price}`, {
       fontSize: '26px', fontFamily: FONT_FAMILY, color: '#c8a050',
-    }).setOrigin(0.5));
+    }).setOrigin(0, 0.5);
+    priceGroup.add([coin, priceTxt]);
+    container.add(priceGroup);
 
     this.createBuyButton(container, item, index, cx, btnY, bought, affordable);
   }
@@ -274,7 +287,7 @@ export class ShopScene extends Phaser.Scene {
     const run = RunManager.getRun();
     const price = refreshPrice(this.refreshCount);
     const affordable = !!run && run.tongbao >= price;
-    this.refreshButton = UIFactory.button(this, cx - 460, height - 90, '⟳', `刷 新  💰${price}`, () => {
+    this.refreshButton = UIFactory.button(this, cx - 460, height - 90, '⟳', `刷 新  ${price}`, () => {
       GameAudioManager.playSfx(this, 'sfx_button');
       this.refreshStock();
     }, {

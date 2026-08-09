@@ -71,15 +71,19 @@ export function identifyHand(cards: Card[]): HandPattern | null {
     counts.set(c.rank, (counts.get(c.rank) || 0) + 1);
   }
 
-  // Rocket
-  if (n === 2 && sorted[0]!.rank === 25 && sorted[1]!.rank === 30) {
-    return { type: HandType.Rocket, cards: sorted, mainValue: 25, length: 2 };
+  // Rocket: k 对大小王（k ≥ 1），牌数为 2k；对子数越多王炸越大
+  if (n >= 2 && n % 2 === 0) {
+    const smallCount = counts.get(25) || 0;
+    const bigCount = counts.get(30) || 0;
+    if (smallCount === bigCount && smallCount + bigCount === n) {
+      return { type: HandType.Rocket, cards: sorted, mainValue: 25, length: smallCount };
+    }
   }
 
-  // Bomb
-  if (n === 4 && counts.size === 1) {
+  // Bomb: ≥4 张相同牌；牌数越多炸弹越大
+  if (n >= 4 && counts.size === 1) {
     const rank = sorted[0]!.rank;
-    return { type: HandType.Bomb, cards: sorted, mainValue: rank, length: 1 };
+    return { type: HandType.Bomb, cards: sorted, mainValue: rank, length: n };
   }
 
   // Single
@@ -431,27 +435,29 @@ export function findAllPlays(hand: Card[]): HandPattern[] {
     }
   }
 
-  // Bombs
+  // Bombs（≥4 张相同牌，牌数越多炸弹越大；length = 牌数）
   for (const [oRank, cards] of grouped) {
-    if (cards.length === 4) {
+    if (cards.length >= 4) {
       results.push({
         type: HandType.Bomb,
         cards: [...cards],
         mainValue: rankFromOrder(oRank),
-        length: 1,
+        length: cards.length,
       });
     }
   }
 
-  // Rocket
-  const hasSmall = hand.find(c => c.rank === 25);
-  const hasBig = hand.find(c => c.rank === 30);
-  if (hasSmall && hasBig) {
+  // Rocket（k 对大小王，对子数越多王炸越大；length = 对子数）
+  // 王无花色，不同组合会被 deduplicatePatterns 合并
+  const smalls = grouped.get(16) || [];
+  const bigs = grouped.get(17) || [];
+  const maxPairs = Math.min(smalls.length, bigs.length);
+  for (let k = 1; k <= maxPairs; k++) {
     results.push({
       type: HandType.Rocket,
-      cards: [hasSmall, hasBig],
+      cards: [...smalls.slice(0, k), ...bigs.slice(0, k)],
       mainValue: 25,
-      length: 2,
+      length: k,
     });
   }
 
@@ -517,16 +523,19 @@ function deduplicatePatterns(patterns: HandPattern[]): HandPattern[] {
 }
 
 export function canBeat(newPlay: HandPattern, lastPlay: HandPattern): boolean {
-  // Rocket beats everything except another Rocket
+  // Rocket 压一切（含所有炸弹）；王炸之间对子数多者更大
   if (newPlay.type === HandType.Rocket) {
-    if (lastPlay.type === HandType.Rocket) return false;
+    if (lastPlay.type === HandType.Rocket) {
+      return newPlay.length > lastPlay.length;
+    }
     return true;
   }
 
-  // Bomb beats non-bomb, non-rocket
+  // Bomb 压非炸弹、非王炸；炸弹之间先比牌数（多者大），牌数相同再比点数
   if (newPlay.type === HandType.Bomb) {
     if (lastPlay.type === HandType.Rocket) return false;
     if (lastPlay.type === HandType.Bomb) {
+      if (newPlay.length !== lastPlay.length) return newPlay.length > lastPlay.length;
       return newPlay.mainValue > lastPlay.mainValue;
     }
     return true;

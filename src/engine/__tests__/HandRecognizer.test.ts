@@ -79,6 +79,16 @@ describe('identifyHand', () => {
     const cards = makeCards([7, 7, 7, 7]);
     const result = identifyHand(cards);
     expect(result?.type).toBe(HandType.Bomb);
+    expect(result?.length).toBe(4);
+  });
+
+  it('identifies bomb with 5+ same cards (length = card count)', () => {
+    const five = identifyHand(makeCards([7, 7, 7, 7, 7]));
+    expect(five?.type).toBe(HandType.Bomb);
+    expect(five?.length).toBe(5);
+    const eight = identifyHand(makeCards([7, 7, 7, 7, 7, 7, 7, 7]));
+    expect(eight?.type).toBe(HandType.Bomb);
+    expect(eight?.length).toBe(8);
   });
 
   it('identifies rocket', () => {
@@ -87,6 +97,21 @@ describe('identifyHand', () => {
     cards[1]!.rankLabel = '龍';
     const result = identifyHand(cards);
     expect(result?.type).toBe(HandType.Rocket);
+    expect(result?.length).toBe(1);
+  });
+
+  it('identifies multi-pair rocket (length = pair count)', () => {
+    const twoPairs = identifyHand(makeCards([25, 25, 30, 30]));
+    expect(twoPairs?.type).toBe(HandType.Rocket);
+    expect(twoPairs?.length).toBe(2);
+    const threePairs = identifyHand(makeCards([25, 25, 25, 30, 30, 30]));
+    expect(threePairs?.type).toBe(HandType.Rocket);
+    expect(threePairs?.length).toBe(3);
+  });
+
+  it('does not identify uneven joker counts as rocket', () => {
+    expect(identifyHand(makeCards([25, 25, 30]))).toBeNull();
+    expect(identifyHand(makeCards([25, 25, 25, 30]))?.type).toBe(HandType.TripleOne);
   });
 
   it('identifies airplane (2 triples)', () => {
@@ -105,18 +130,47 @@ describe('canBeat', () => {
   });
 
   it('bomb beats non-bomb', () => {
-    const bomb: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 3, length: 1 };
+    const bomb: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 3, length: 4 };
     const single: HandPattern = { type: HandType.Single, cards: [], mainValue: 20, length: 1 };
     expect(canBeat(bomb, single)).toBe(true);
     expect(canBeat(single, bomb)).toBe(false);
   });
 
-  it('rocket beats everything except rocket', () => {
-    const rocket: HandPattern = { type: HandType.Rocket, cards: [], mainValue: 25, length: 2 };
-    const bomb: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 20, length: 1 };
+  it('bigger bomb (more cards) beats smaller bomb regardless of rank', () => {
+    const bomb4: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 20, length: 4 };
+    const bomb5: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 3, length: 5 };
+    const bomb6: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 3, length: 6 };
+    expect(canBeat(bomb5, bomb4)).toBe(true);
+    expect(canBeat(bomb6, bomb4)).toBe(true);
+    expect(canBeat(bomb6, bomb5)).toBe(true);
+    expect(canBeat(bomb4, bomb5)).toBe(false);
+    expect(canBeat(bomb4, bomb6)).toBe(false);
+  });
+
+  it('bombs of equal card count compare by rank', () => {
+    const bomb3: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 3, length: 4 };
+    const bomb20: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 20, length: 4 };
+    expect(canBeat(bomb20, bomb3)).toBe(true);
+    expect(canBeat(bomb3, bomb20)).toBe(false);
+    expect(canBeat(bomb3, bomb3)).toBe(false);
+  });
+
+  it('rocket beats everything; multi-pair rocket beats smaller rocket', () => {
+    const rocket: HandPattern = { type: HandType.Rocket, cards: [], mainValue: 25, length: 1 };
     const rocket2: HandPattern = { type: HandType.Rocket, cards: [], mainValue: 25, length: 2 };
+    const bomb: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 20, length: 8 };
     expect(canBeat(rocket, bomb)).toBe(true);
+    expect(canBeat(rocket2, bomb)).toBe(true);
+    expect(canBeat(rocket2, rocket)).toBe(true);
     expect(canBeat(rocket, rocket2)).toBe(false);
+    expect(canBeat(rocket, rocket)).toBe(false);
+    expect(canBeat(rocket2, rocket2)).toBe(false);
+  });
+
+  it('bomb never beats rocket (rocket > any bomb)', () => {
+    const rocket: HandPattern = { type: HandType.Rocket, cards: [], mainValue: 25, length: 1 };
+    const bomb: HandPattern = { type: HandType.Bomb, cards: [], mainValue: 20, length: 4 };
+    expect(canBeat(bomb, rocket)).toBe(false);
   });
 
   it('different type cannot beat (non-bomb)', () => {
@@ -155,6 +209,23 @@ describe('findAllPlays', () => {
     cards[1]!.rankLabel = '龍';
     const plays = findAllPlays(cards);
     expect(plays.some(p => p.type === HandType.Rocket)).toBe(true);
+  });
+
+  it('finds bomb from 5+ same cards', () => {
+    const plays = findAllPlays(makeCards([7, 7, 7, 7, 7]));
+    const bombs = plays.filter(p => p.type === HandType.Bomb);
+    expect(bombs.length).toBe(1);
+    expect(bombs[0]!.cards.length).toBe(5);
+    expect(bombs[0]!.length).toBe(5);
+  });
+
+  it('finds multi-pair rockets from multiple jokers (deduplicated)', () => {
+    const plays = findAllPlays(makeCards([25, 25, 30, 30]));
+    const rockets = plays.filter(p => p.type === HandType.Rocket);
+    // 1 对（1 虎 1 龍，组合去重后 1 个）+ 2 对（2 虎 2 龍）
+    expect(rockets.length).toBe(2);
+    expect(rockets.some(p => p.length === 1 && p.cards.length === 2)).toBe(true);
+    expect(rockets.some(p => p.length === 2 && p.cards.length === 4)).toBe(true);
   });
 });
 

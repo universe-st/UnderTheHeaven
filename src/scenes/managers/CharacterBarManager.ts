@@ -26,6 +26,9 @@ export interface CharacterBarHost {
 
   characterSlotContainers: Phaser.GameObjects.Container[];
   characterSlotTexts: Phaser.GameObjects.Text[];
+  /** 槽位左上角标记区（圆形 + 数字），无标记技能的角色为 null */
+  characterMarkerCircles: (Phaser.GameObjects.Graphics | null)[];
+  characterMarkerTexts: (Phaser.GameObjects.Text | null)[];
 
   characterBarContainer: Phaser.GameObjects.Container | null;
   characterBarMaskShape: Phaser.GameObjects.Graphics | null;
@@ -135,6 +138,35 @@ export class CharacterBarManager implements CharacterSlotManager {
       }).setOrigin(0.5).setShadow(0, 2, '#1a0800', 4, true, true);
       container.add(slotText);
       this.host.characterSlotTexts.push(slotText);
+
+      // 标记区：仅带标记技能（markerLabel）的角色在槽位左上角显示圆形标记区
+      const markerLabel = char?.abilities.find(a => a.markerLabel)?.markerLabel;
+      let markerCircle: Phaser.GameObjects.Graphics | null = null;
+      let markerText: Phaser.GameObjects.Text | null = null;
+      if (markerLabel) {
+        const markerSize = 34;
+        const mx = -SLOT_SIZE / 2 + markerSize / 2 + 4;
+        const my = -SLOT_SIZE / 2 + markerSize / 2 + 4;
+
+        markerCircle = this.host.add.graphics();
+        markerCircle.fillStyle(0x2a1a0f, 0.95);
+        markerCircle.fillCircle(mx, my, markerSize / 2);
+        markerCircle.lineStyle(2, 0xe8d5a3, 0.9);
+        markerCircle.strokeCircle(mx, my, markerSize / 2);
+        container.add(markerCircle);
+
+        markerText = this.host.add.text(mx, my, `${this.host.battle.player.aoMarkers ?? 0}`, {
+          fontSize: '20px',
+          fontFamily: FONT_FAMILY,
+          fontStyle: 'bold',
+          color: '#e8d5a3',
+          stroke: '#1a0800',
+          strokeThickness: 2,
+        }).setOrigin(0.5);
+        container.add(markerText);
+      }
+      this.host.characterMarkerCircles.push(markerCircle);
+      this.host.characterMarkerTexts.push(markerText);
 
       const zone = this.host.add.zone(0, 0, SLOT_SIZE + 8, SLOT_SIZE + 8)
         .setInteractive({ cursor: 'pointer' });
@@ -521,6 +553,11 @@ export class CharacterBarManager implements CharacterSlotManager {
     const movedText = h.characterSlotTexts.splice(idx, 1)[0]!;
     h.characterSlotTexts.unshift(movedText);
 
+    const movedMarkerCircle = h.characterMarkerCircles.splice(idx, 1)[0] ?? null;
+    h.characterMarkerCircles.unshift(movedMarkerCircle);
+    const movedMarkerText = h.characterMarkerTexts.splice(idx, 1)[0] ?? null;
+    h.characterMarkerTexts.unshift(movedMarkerText);
+
     const slotTweens: Promise<void>[] = [];
     for (let i = 0; i <= idx; i++) {
       const targetPos = this.getSlotPosition(i);
@@ -546,6 +583,39 @@ export class CharacterBarManager implements CharacterSlotManager {
   }
 
   async restoreSlot(_characterId: string): Promise<void> {
+  }
+
+  /**
+   * 更新角色框左上角标记区的数字（仅带标记技能的角色有此区域）。
+   */
+  setMarkerCount(characterId: string, count: number): void {
+    const idx = this.host.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
+    if (idx < 0) return;
+    const text = this.host.characterMarkerTexts[idx];
+    if (text) {
+      text.setText(`${count}`);
+    }
+  }
+
+  /**
+   * 标记角色失去角色牌：头像变灰、名字变暗，技能不再触发（由技能 filter 判定）。
+   */
+  markCharacterLost(characterId: string): void {
+    const idx = this.host.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
+    if (idx < 0) return;
+    const container = this.host.characterSlotContainers[idx];
+    if (!container) return;
+
+    // 槽位子对象顺序：0 光晕容器 / 1 底框 / 2 头像 / 3 名字 / 4 点击区 / 5 角饰
+    const avatar = container.getAt(2);
+    if (avatar instanceof Phaser.GameObjects.Image) {
+      avatar.setTint(0x555555);
+      avatar.setAlpha(0.55);
+    }
+    const slotText = this.host.characterSlotTexts[idx];
+    if (slotText) {
+      slotText.setColor('#5a4a3a');
+    }
   }
 
   private getSlotPosition(index: number): { x: number; y: number } {

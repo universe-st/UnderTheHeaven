@@ -1,9 +1,14 @@
 import Phaser from 'phaser';
 import type { BattleState } from '../../models/BattleTypes';
-import type { PlayerCharacterId } from '../../models/Character';
+import type { PlayerCharacterId, CharacterAbility } from '../../models/Character';
 import { PLAYER_CHARACTERS, ENEMY_CHARACTERS } from '../../models/Character';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import { FONT_FAMILY, DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT } from '../../constants/Layout';
+
+/** 技能列表名称/描述颜色常量 */
+const SKILL_COLOR_NORMAL: { name: string; desc: string } = { name: '#8a6030', desc: '#5a4a30' };
+const SKILL_COLOR_SPECIAL_LOCKED: { name: string; desc: string } = { name: '#c9a227', desc: '#8a7a40' };
+const SKILL_COLOR_LOST: { name: string; desc: string } = { name: '#9a9a9a', desc: '#b0b0b0' };
 
 /**
  * CharacterBarManager 的辅助管理器：负责角色槽点击后的角色信息 tooltip
@@ -61,7 +66,8 @@ export class CharacterInfoManager {
 
     const descLinesList: string[][] = [];
     let tooltipH = 50;
-    for (const ability of char.abilities) {
+    const visibleAbilities = char.abilities.filter(a => !a.hidden);
+    for (const ability of visibleAbilities) {
       tooltipH += 28;
       const lines = this.wrapText(ability.description, tooltipW - 48, '18px');
       descLinesList.push(lines);
@@ -108,11 +114,12 @@ export class CharacterInfoManager {
 
     let abilityY = tooltipY + 72;
     let lineIdx = 0;
-    for (const ability of char.abilities) {
+    for (const ability of visibleAbilities) {
+      const colors = this.skillDisplayColors(ability);
       const skillName = h.add.text(tooltipX - tooltipW / 2 + 22, abilityY, `【${ability.name}】`, {
         fontSize: '20px',
         fontFamily: FONT_FAMILY,
-        color: '#8a6030',
+        color: colors.name,
       }).setDepth(DEPTH_OVERLAY_TEXT);
       container.add(skillName);
 
@@ -122,7 +129,7 @@ export class CharacterInfoManager {
         const descText = h.add.text(tooltipX - tooltipW / 2 + 28, abilityY, line, {
           fontSize: '18px',
           fontFamily: FONT_FAMILY,
-          color: '#5a4a30',
+          color: colors.desc,
         }).setDepth(DEPTH_OVERLAY_TEXT);
         container.add(descText);
       }
@@ -185,7 +192,8 @@ export class CharacterInfoManager {
 
     const descLinesList: string[][] = [];
     let tooltipH = 50;
-    for (const ability of enemy.abilities) {
+    const visibleAbilities = enemy.abilities.filter(a => !a.hidden);
+    for (const ability of visibleAbilities) {
       tooltipH += 28;
       const lines = this.wrapText(ability.description, tooltipW - 48, '18px');
       descLinesList.push(lines);
@@ -236,7 +244,7 @@ export class CharacterInfoManager {
 
     let abilityY = tooltipY + 72;
     let lineIdx = 0;
-    for (const ability of enemy.abilities) {
+    for (const ability of visibleAbilities) {
       const skillName = h.add.text(tooltipX - tooltipW / 2 + 22, abilityY, `【${ability.name}】`, {
         fontSize: '20px',
         fontFamily: FONT_FAMILY,
@@ -295,6 +303,25 @@ export class CharacterInfoManager {
         this.enemyInfoWindow = null;
       },
     });
+  }
+
+  /**
+   * 技能条目显示颜色：
+   * - 普通技能 → 棕色（正常）
+   * - 特殊技能未获得（如周处未获得「励心」）→ 特殊色（金色）
+   * - 失去的技能（如周处失去「除害」）→ 灰色
+   */
+  private skillDisplayColors(ability: CharacterAbility): { name: string; desc: string } {
+    const flags = this.host.battle.player.skillFlags ?? {};
+    if (ability.skillId === 'zhouchu_chuhai') {
+      // 周处已转换（获得励心）即失去除害
+      return flags.zhouchu_has_lixin ? SKILL_COLOR_LOST : SKILL_COLOR_NORMAL;
+    }
+    if (ability.skillId === 'zhouchu_lixin') {
+      // 特殊技能：获得后变正常色，未获得显示特殊色
+      return flags.zhouchu_has_lixin ? SKILL_COLOR_NORMAL : SKILL_COLOR_SPECIAL_LOCKED;
+    }
+    return SKILL_COLOR_NORMAL;
   }
 
   private wrapText(text: string, maxWidth: number, fontSize: string): string[] {

@@ -23,6 +23,9 @@ function makeVisuals(): SkillVisualManager {
     playSfx: vi.fn(),
     getScene: () => ({}) as Phaser.Scene,
     cancelDamageSettlement: vi.fn(),
+    updateMarker: vi.fn(),
+    markCharacterLost: vi.fn(),
+    showDialog: vi.fn(),
   };
 }
 

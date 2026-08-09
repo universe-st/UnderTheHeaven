@@ -5,15 +5,17 @@ import { createPokerCardVisual } from '../../utils/CardVisual';
 import { waitForTween, fadeOutAndDestroy } from '../../utils/AnimationUtils';
 import { UIFactory } from '../../utils/UIFactory';
 import { CardShatterManager } from './CardShatterManager';
-import { calcHandLayout } from '../../engine/handLayout';
+import { calcHandLayout, calcHandStartX, ENEMY_HAND_MIN_OFFSET } from '../../engine/handLayout';
 import {
   FONT_FAMILY, CARD_W, CARD_H, CARD_OVERLAP_OFFSET, SELECTED_OFFSET,
   HAND_AREA_MARGIN,
   DEPTH_PLAYER_HAND, DEPTH_ENEMY_HAND, DEPTH_CENTER_BASE,
 } from '../../constants/Layout';
 
-export interface CardDisplayHost {
-  readonly scale: Phaser.Scale.ScaleManager;
+/** 敌方手牌压缩下限（仅展示、无交互，可比玩家侧压得更小；不启用滑动） */
+const ENEMY_MIN_OFFSET = ENEMY_HAND_MIN_OFFSET;
+
+export interface CardDisplayHost {  readonly scale: Phaser.Scale.ScaleManager;
   readonly tweens: Phaser.Tweens.TweenManager;
   readonly add: Phaser.GameObjects.GameObjectFactory;
   readonly time: Phaser.Time.Clock;
@@ -76,17 +78,18 @@ export class CardDisplayManager {
     const hand = this.host.battle.player.hand;
     const { width } = this.host.scale;
     const available = width - HAND_AREA_MARGIN * 2;
-    const layout = calcHandLayout(hand.length, available, CARD_OVERLAP_OFFSET, CARD_W);
-    let startX: number;
-    if (layout.scrollable) {
-      const minScroll = available - layout.totalWidth;
-      this.host.handScrollX = Phaser.Math.Clamp(this.host.handScrollX, minScroll, 0);
-      startX = HAND_AREA_MARGIN + CARD_W / 2 + this.host.handScrollX;
-    } else {
-      this.host.handScrollX = 0;
-      startX = (width - layout.totalWidth) / 2 + CARD_W / 2;
-    }
-    return { startX, offset: layout.offset, scrollable: layout.scrollable };
+    const result = calcHandStartX(
+      hand.length,
+      width,
+      available,
+      CARD_OVERLAP_OFFSET,
+      CARD_W,
+      this.host.handScrollX,
+      undefined,
+      HAND_AREA_MARGIN,
+    );
+    this.host.handScrollX = result.scrollX;
+    return { startX: result.startX, offset: result.offset, scrollable: result.scrollable };
   }
 
   isHandScrollable(): boolean {
@@ -169,16 +172,23 @@ export class CardDisplayManager {
     this.updateHandOverflowHints();
   }
 
+  /** 敌方手牌布局：超宽时压缩间距（下限 ENEMY_MIN_OFFSET），整列居中 */
+  getEnemyHandLayout(): { startX: number; offset: number } {
+    const hand = this.host.battle.enemy.hand;
+    const { width } = this.host.scale;
+    const available = width - HAND_AREA_MARGIN * 2;
+    const layout = calcHandLayout(hand.length, available, CARD_OVERLAP_OFFSET, CARD_W, ENEMY_MIN_OFFSET);
+    const startX = (width - layout.totalWidth) / 2 + CARD_W / 2;
+    return { startX, offset: layout.offset };
+  }
+
   renderEnemyHand(animateEntry: boolean = false, baseDelay: number = 700, onComplete?: () => void): void {
     this.host.enemyCardObjects.forEach(c => c.destroy());
     this.host.enemyCardObjects = [];
 
     const hand = this.host.battle.enemy.hand;
-    const { width } = this.host.scale;
     const baseY = 220;
-    const overlapOffset = CARD_OVERLAP_OFFSET;
-    const totalW = CARD_W + (hand.length - 1) * overlapOffset;
-    const startX = (width - totalW) / 2 + CARD_W / 2;
+    const { startX, offset: overlapOffset } = this.getEnemyHandLayout();
 
     const revealedIndices = this.getRevealedEnemyCardIndices();
 
@@ -457,11 +467,8 @@ export class CardDisplayManager {
           x = this.host.enemyCardObjects[idx]!.x;
           y = this.host.enemyCardObjects[idx]!.y;
         } else {
-          const { width } = this.host.scale;
-          const overlapOffset = CARD_OVERLAP_OFFSET;
-          const totalW = CARD_W + (this.host.battle.enemy.hand.length - 1) * overlapOffset;
-          const startX = (width - totalW) / 2 + CARD_W / 2;
-          x = startX + idx * overlapOffset;
+          const { startX, offset } = this.getEnemyHandLayout();
+          x = startX + idx * offset;
           y = 220;
         }
         entries.push({ card, x, y, isRevealed });

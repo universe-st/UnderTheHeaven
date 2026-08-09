@@ -102,6 +102,11 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
   description: '（主动技）选择两张点数差大于1的牌（大王、小王、2除外），创造一张点数在两者之间的临时牌，创造的牌花色与点数较大的牌一致。每次牌权限一次。',
   maxUses: 1,
   ownerCharacterId: 'liubowen',
+  dialogLines: [
+    '人算不如天算，天算不如我算！',
+    '运筹帷幄，决胜千里！',
+    '天机在手，妙手偶得！',
+  ],
 
   cardFilter: canUseChouCe,
 

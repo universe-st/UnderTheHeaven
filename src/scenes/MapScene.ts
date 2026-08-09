@@ -6,7 +6,7 @@ import { enemyVitalityFor, isRunComplete, MAP_FLOORS } from '../models/RunState'
 import * as RunManager from '../models/RunManager';
 import { UIFactory } from '../utils/UIFactory';
 import { GameAudioManager } from '../utils/GameAudioManager';
-import { FONT_FAMILY, AVATAR_SOURCE_SIZE, DEPTH_OVERLAY, DEPTH_UI, DEPTH_OVERLAY_TEXT } from '../constants/Layout';
+import { FONT_FAMILY, AVATAR_SOURCE_SIZE, DEPTH_OVERLAY, DEPTH_UI, DEPTH_OVERLAY_TEXT, NODE_ICON_DISPLAY, CURRENCY_ICON_DISPLAY } from '../constants/Layout';
 import { MapEventModal } from './managers/MapEventModal';
 
 /** 与 GameScene 的 runMode 契约负载 */
@@ -24,12 +24,13 @@ const CONTENT_PAD_BOTTOM = 210;
 const NODE_RADIUS = 46;
 const TOP_BAR_H = 96;
 
+/** 节点图标：加载键（古风水墨 PNG，见 LoadingScene.loadAssets） */
 const NODE_ICONS: Record<NodeType, string> = {
-  normal: '⚔',
-  elite: '⚡',
-  boss: '👑',
-  shop: '🏛',
-  event: '❓',
+  normal: 'node_normal',
+  elite: 'node_elite',
+  boss: 'node_boss',
+  shop: 'node_shop',
+  event: 'node_event',
 };
 
 const NODE_LABELS: Record<NodeType, string> = {
@@ -55,6 +56,7 @@ export class MapScene extends Phaser.Scene {
   private eventModal: MapEventModal;
   private destinyText: Phaser.GameObjects.Text | null = null;
   private tongbaoText: Phaser.GameObjects.Text | null = null;
+  private tongbaoIcon: Phaser.GameObjects.Image | null = null;
   private floorText: Phaser.GameObjects.Text | null = null;
   private isDragging = false;
   private dragMoved = false;
@@ -76,6 +78,7 @@ export class MapScene extends Phaser.Scene {
     this.eventModal.close();
     this.destinyText = null;
     this.tongbaoText = null;
+    this.tongbaoIcon = null;
     this.floorText = null;
     this.isDragging = false;
     this.dragMoved = false;
@@ -187,14 +190,13 @@ export class MapScene extends Phaser.Scene {
     g.strokeCircle(0, 0, r);
     nc.add(g);
 
-    const iconColor = isPast
-      ? (node.cleared ? '#7a6a50' : '#4a3c28')
-      : (selectable ? '#e8d5a3' : '#8a7040');
-    nc.add(this.add.text(0, -2, NODE_ICONS[node.type], {
-      fontSize: '38px',
-      fontFamily: FONT_FAMILY,
-      color: iconColor,
-    }).setOrigin(0.5));
+    // 图标：古风 PNG，按状态调节明暗（已过层压暗、可选层与未来层原色——未来层由容器整体调暗）
+    const icon = this.add.image(0, -2, NODE_ICONS[node.type]).setOrigin(0.5);
+    icon.setScale(NODE_ICON_DISPLAY / icon.width);
+    if (isPast) {
+      icon.setAlpha(node.cleared ? 0.55 : 0.4);
+    }
+    nc.add(icon);
 
     if (isPast) {
       nc.add(this.add.text(r - 6, -r + 6, node.cleared ? '✓' : '✗', {
@@ -394,7 +396,7 @@ export class MapScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const cx = width / 2;
 
-    const txt = this.add.text(cx, height * 0.34, `💰 利息 +${interest}`, {
+    const txt = this.add.text(cx, height * 0.34, `利息 +${interest}`, {
       fontSize: '46px',
       fontFamily: FONT_FAMILY,
       color: '#ffd700',
@@ -439,13 +441,16 @@ export class MapScene extends Phaser.Scene {
     this.destinyText = this.add.text(60, TOP_BAR_H / 2, '', {
       fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
     }).setOrigin(0, 0.5);
-    this.tongbaoText = this.add.text(440, TOP_BAR_H / 2, '', {
+    const coinIcon = this.add.image(440, TOP_BAR_H / 2, 'node_tongbao').setOrigin(0, 0.5);
+    coinIcon.setScale(CURRENCY_ICON_DISPLAY / coinIcon.width);
+    this.tongbaoIcon = coinIcon;
+    this.tongbaoText = this.add.text(440 + CURRENCY_ICON_DISPLAY + 6, TOP_BAR_H / 2, '', {
       fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
     }).setOrigin(0, 0.5);
     this.floorText = this.add.text(width / 2, TOP_BAR_H / 2, '', {
       fontSize: '26px', fontFamily: FONT_FAMILY, color: '#c8a050',
     }).setOrigin(0.5);
-    bar.add([this.destinyText, this.tongbaoText, this.floorText]);
+    bar.add([this.destinyText, this.tongbaoIcon, this.tongbaoText, this.floorText]);
 
     const rosterBtn = UIFactory.button(this, width - 170, TOP_BAR_H / 2, '☰', '阵 容', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
@@ -463,7 +468,7 @@ export class MapScene extends Phaser.Scene {
     const run = RunManager.getRun();
     if (!run) return;
     this.destinyText?.setText(`❤ 天命 ${run.destiny}/${run.destinyMax}`);
-    this.tongbaoText?.setText(`💰 通宝 ${run.tongbao}`);
+    this.tongbaoText?.setText(`通宝 ${run.tongbao}`);
     this.floorText?.setText(`第 ${Math.min(run.floor, MAP_FLOORS)} / ${MAP_FLOORS} 层`);
   }
 

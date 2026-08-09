@@ -45,6 +45,11 @@ export const ZuChongZhiYuanZhou: ActiveSkillDefinition = {
   description: '（主动技）选择任意张圆周率开头的序列牌弃置，然后创造点数和花色完全相同，并且附带随机四象印的临时牌。每次牌权限一次。',
   maxUses: 1,
   ownerCharacterId: 'zuchongzhi',
+  dialogLines: [
+    '圆径相参，得数无穷！',
+    '缀术精微，算无遗策！',
+    '祖率在手，谁与争锋！',
+  ],
 
   cardFilter: (selectedCards: Card[]): boolean => {
     if (selectedCards.length === 0) return false;

@@ -13,10 +13,17 @@ import { GaoShunXianZhen } from './GaoShunXianZhen';
 import { ZhangFeiDuanHe } from './ZhangFeiDuanHe';
 import { ZhangHanJueShou } from './ZhangHanJueShou';
 import { BianQueHuiSheng } from './BianQueHuiSheng';
+import { LiBaiShiXian } from './LiBaiShiXian';
 import { BannerArmyQiShe } from './BannerArmyQiShe';
 import { MongolArmyQiangLve } from './MongolArmyQiangLve';
 import { XiliangArmyHanYong } from './XiliangArmyHanYong';
 import { XiongnuArmyLangShou } from './XiongnuArmyLangShou';
+import { GuanYuWuSheng } from './GuanYuWuSheng';
+import { LanYuJieAoMarker, LanYuJieAoBonus, LanYuJieAoLost } from './LanYuJieAo';
+import { ZhaoGaoZhiLu } from './ZhaoGaoZhiLu';
+import { ZhouChuLiXin } from './ZhouChuLiXin';
+import { BaozhengTieDuan, BaozhengTieDuanCoefficient } from './BaozhengTieDuan';
+import { LvBuWeiJuQi } from './LvBuWeiJuQi';
 import type { SkillDefinition } from './SkillTypes';
 import type { SkillRegistry } from './SkillRegistry';
 
@@ -27,6 +34,12 @@ export { SkillRunner } from './SkillRunner';
 export { SkillVisualManagerImpl } from './SkillVisualManagerImpl';
 export { LiuBoWenChouCe } from './LiuBoWenChouSuan';
 export { ZuChongZhiYuanZhou } from './ZuChongZhiYuanZhou';
+export { ZhangJuZhengGaiZhi } from './ZhangJuZhengGaiZhi';
+export { LiBaiShiXian, LiBaiShiXianBlock } from './LiBaiShiXian';
+export { BaozhengTieDuan, BaozhengTieDuanBlock } from './BaozhengTieDuan';
+export { ZhouChuChuHai } from './ZhouChuChuHai';
+export { ZhouChuLiXin } from './ZhouChuLiXin';
+export { LvBuWeiJuQi } from './LvBuWeiJuQi';
 
 export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   HanxinDianBing,
@@ -45,10 +58,20 @@ export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   ZhangFeiDuanHe,
   ZhangHanJueShou,
   BianQueHuiSheng,
+  LiBaiShiXian,
   BannerArmyQiShe,
   MongolArmyQiangLve,
   XiliangArmyHanYong,
   XiongnuArmyLangShou,
+  GuanYuWuSheng,
+  LanYuJieAoMarker,
+  LanYuJieAoBonus,
+  LanYuJieAoLost,
+  ZhaoGaoZhiLu,
+  ZhouChuLiXin,
+  BaozhengTieDuan,
+  BaozhengTieDuanCoefficient,
+  LvBuWeiJuQi,
 ];
 
 export function registerAllSkills(registry: SkillRegistry): void {

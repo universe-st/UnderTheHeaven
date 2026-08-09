@@ -8,6 +8,10 @@ export const HAND_AREA_MARGIN = 60;
 
 export const AVATAR_SOURCE_SIZE = 512;
 
+// 地图节点 / 货币图标（public/nodes/*.png）
+export const NODE_ICON_DISPLAY = 60;
+export const CURRENCY_ICON_DISPLAY = 34;
+
 export const SLOT_SIZE = 120;
 export const SLOT_GAP = 10;
 export const SLOT_STRIDE = SLOT_SIZE + SLOT_GAP;

@@ -300,7 +300,7 @@ export class TestSelectScene extends Phaser.Scene {
       color: isSelected ? '#e8d5a3' : '#c8a050',
     }).setOrigin(0.5).setData('_nameText', true);
 
-    const abilitiesStr = char.abilities.map(a => a.name).join(' · ');
+    const abilitiesStr = char.abilities.filter(a => !a.hidden).map(a => a.name).join(' · ');
     const abiTxt = this.add.text(cx + textOffsetX - 10, cy + 14, abilitiesStr, {
       fontSize: '16px',
       fontFamily: FONT_FAMILY,

@@ -107,6 +107,8 @@ export function load(): boolean {
     // 兼容旧存档：补充后加入的字段默认值
     data.run.cardPool ??= [];
     data.run.buciCards ??= [];
+    data.run.characterMarkers ??= {};
+    data.run.characterSkillFlags ??= {};
     currentRun = data.run;
     return true;
   } catch {
