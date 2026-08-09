@@ -26,6 +26,8 @@ import { BaozhengTieDuan, BaozhengTieDuanCoefficient } from './BaozhengTieDuan';
 import { LvBuWeiJuQi } from './LvBuWeiJuQi';
 import { HuaMulanCongJun } from './HuaMulanCongJun';
 import { ShangguanWanErChengLiang } from './ShangguanWanErChengLiang';
+import { LiQingZhaoYouYuan } from './LiQingZhaoYouYuan';
+import { LiQingZhaoHaoFang } from './LiQingZhaoHaoFang';
 import type { SkillDefinition } from './SkillTypes';
 import type { SkillRegistry } from './SkillRegistry';
 
@@ -44,6 +46,8 @@ export { ZhouChuLiXin } from './ZhouChuLiXin';
 export { LvBuWeiJuQi } from './LvBuWeiJuQi';
 export { HuaMulanCongJun } from './HuaMulanCongJun';
 export { ShangguanWanErChengLiang } from './ShangguanWanErChengLiang';
+export { LiQingZhaoYouYuan } from './LiQingZhaoYouYuan';
+export { LiQingZhaoHaoFang } from './LiQingZhaoHaoFang';
 
 export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   HanxinDianBing,
@@ -78,6 +82,8 @@ export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   LvBuWeiJuQi,
   HuaMulanCongJun,
   ShangguanWanErChengLiang,
+  LiQingZhaoYouYuan,
+  LiQingZhaoHaoFang,
 ];
 
 export function registerAllSkills(registry: SkillRegistry): void {

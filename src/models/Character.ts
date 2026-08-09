@@ -1,4 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army';
 
 export interface CharacterAbility {
@@ -179,6 +179,14 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     name: '上官婉儿',
     abilities: [
       { skillId: 'shangguanwaner_chengliang', name: '称量', description: '你每有一个角色牌，结算伤害时每张牌分数+5。' },
+    ],
+  },
+  liqingzhao: {
+    id: 'liqingzhao',
+    name: '李清照',
+    abilities: [
+      { skillId: 'liqingzhao_youyuan', name: '幽怨', description: '若你打出的牌均为黑色且不小于五张，结算后将点数最大的牌收回手牌' },
+      { skillId: 'liqingzhao_haofang', name: '豪放', description: '若你打出的牌均为红色且不小于五张，每张牌额外结算一次伤害' },
     ],
   },
 };

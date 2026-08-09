@@ -54,6 +54,7 @@ export const CHARACTER_PRICES: Record<PlayerCharacterId, number> = {
   lvbuwei: 120,
   huamulan: 75,
   shangguanwaner: 120,
+  liqingzhao: 120,
 };
 
 /** 黄金台刷新费用：基础 5 通宝，每刷新一次 +1 */
