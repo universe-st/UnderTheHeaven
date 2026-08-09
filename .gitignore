@@ -10,3 +10,4 @@ cordova/jks/
 .DS_Store
 *.log
 .codegraph/
+.reasonix/
