@@ -221,6 +221,15 @@ export interface ActiveSkillDefinition {
    */
   canUseWithoutSelection?: (scene: Phaser.Scene & ActiveSkillSceneAccess) => boolean;
   /**
+   * 选中牌时判定可否发动（需访问 scene 状态，如项羽「破釜」检查气数足够）。
+   * cardFilter 只接收 selectedCards 无法访问 scene，此钩子在 cardFilter 通过后叠加检查；
+   * 返回 false 则技能按钮不显示（也不会在点击时消耗次数）。
+   */
+  canUseWithSelection?: (
+    scene: Phaser.Scene & ActiveSkillSceneAccess,
+    selectedCards: Card[],
+  ) => boolean;
+  /**
    * 次数重置时机：默认（false/缺省）在玩家「获得牌权」时重置（每次获得牌权限一次，
    * 如筹策、圆周、除害）；true 时改为在玩家「失去牌权」（对方获得牌权）时重置
    * （如张居正「改制」——描述明确"失去牌权后重置"）。

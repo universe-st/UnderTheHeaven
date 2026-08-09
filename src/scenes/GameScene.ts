@@ -700,6 +700,11 @@ export class GameScene extends Phaser.Scene {
     this.damageSettlementManager.cancelDamageSettlement();
   }
 
+  /** 游戏结束（主动技如项羽「破釜」直伤致死时调用，转发给 BattleFlowManager） */
+  showGameOver(playerWin: boolean): void {
+    this.battleFlowManager.showGameOver(playerWin);
+  }
+
   /** 更新角色框左上角标记区数字（技能经由 SkillVisualManager 调用） */
   updateCharacterMarker(characterId: string, count: number): void {
     this.characterBarManager.setMarkerCount(characterId, count);

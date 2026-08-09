@@ -28,6 +28,9 @@ import { HuaMulanCongJun } from './HuaMulanCongJun';
 import { ShangguanWanErChengLiang } from './ShangguanWanErChengLiang';
 import { LiQingZhaoYouYuan } from './LiQingZhaoYouYuan';
 import { LiQingZhaoHaoFang } from './LiQingZhaoHaoFang';
+import { QiJiGuangDangKou } from './QiJiGuangDangKou';
+import { ZhuangZhouXiaoYao } from './ZhuangZhouXiaoYao';
+import { ZhangLiangYunChou } from './ZhangLiangYunChou';
 import type { SkillDefinition } from './SkillTypes';
 import type { SkillRegistry } from './SkillRegistry';
 
@@ -48,6 +51,11 @@ export { HuaMulanCongJun } from './HuaMulanCongJun';
 export { ShangguanWanErChengLiang } from './ShangguanWanErChengLiang';
 export { LiQingZhaoYouYuan } from './LiQingZhaoYouYuan';
 export { LiQingZhaoHaoFang } from './LiQingZhaoHaoFang';
+export { QiJiGuangDangKou } from './QiJiGuangDangKou';
+export { ZhuangZhouXiaoYao } from './ZhuangZhouXiaoYao';
+export { ZhangLiangYunChou } from './ZhangLiangYunChou';
+export { WeiZhengZhiJian } from './WeiZhengZhiJian';
+export { XiangYuPoFu } from './XiangYuPoFu';
 
 export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   HanxinDianBing,
@@ -84,6 +92,9 @@ export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   ShangguanWanErChengLiang,
   LiQingZhaoYouYuan,
   LiQingZhaoHaoFang,
+  QiJiGuangDangKou,
+  ZhuangZhouXiaoYao,
+  ZhangLiangYunChou,
 ];
 
 export function registerAllSkills(registry: SkillRegistry): void {

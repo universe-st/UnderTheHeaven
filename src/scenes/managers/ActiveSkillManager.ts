@@ -3,7 +3,7 @@ import type { Card } from '../../models/Card';
 import type { BattleState } from '../../models/BattleTypes';
 import type { PlayerCharacterId } from '../../models/Character';
 import type { ActiveSkillDefinition, CharacterSlotManager } from '../../skills';
-import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai } from '../../skills';
+import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai, WeiZhengZhiJian, XiangYuPoFu } from '../../skills';
 import { hasLiXin } from '../../skills/ZhouChuChuHaiLogic';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import type { CardDisplayManager } from './CardDisplayManager';
@@ -102,6 +102,16 @@ export class ActiveSkillManager {
       this.host.activeSkills.push(ZhouChuChuHai);
       if (!counts.has(ZhouChuChuHai.id)) counts.set(ZhouChuChuHai.id, 0);
     }
+    // 魏征「直谏」：每次获得牌权限一次，弃置一张手牌
+    if (this.host.playerCharacterIds.includes('weizheng')) {
+      this.host.activeSkills.push(WeiZhengZhiJian);
+      if (!counts.has(WeiZhengZhiJian.id)) counts.set(WeiZhengZhiJian.id, 0);
+    }
+    // 项羽「破釜」：每次获得牌权限一次，直伤爆发
+    if (this.host.playerCharacterIds.includes('xiangyu')) {
+      this.host.activeSkills.push(XiangYuPoFu);
+      if (!counts.has(XiangYuPoFu.id)) counts.set(XiangYuPoFu.id, 0);
+    }
 
     this.host.activeSkillUseCounts = counts;
   }
@@ -144,7 +154,11 @@ export class ActiveSkillManager {
           }
         }
       } else if (skill.cardFilter(selected)) {
-        eligibleIds.push(skill.id);
+        // cardFilter 通过后，若技能提供了 canUseWithSelection（需访问 scene 状态），
+        // 叠加检查（如项羽「破釜」气数足够才能发动，否则按钮不显示）
+        if (!skill.canUseWithSelection || skill.canUseWithSelection(this.host, selected)) {
+          eligibleIds.push(skill.id);
+        }
       }
     }
 
@@ -274,7 +288,8 @@ export class ActiveSkillManager {
 
     const selected = this.host.getSelectedCards();
     const usable = selected.length > 0
-      ? skill.cardFilter(selected)
+      ? (skill.cardFilter(selected)
+          && (!skill.canUseWithSelection || skill.canUseWithSelection(this.host, selected)))
       : (skill.requiresSelection === false
           && (!skill.canUseWithoutSelection || skill.canUseWithoutSelection(this.host)));
     if (!usable) return;

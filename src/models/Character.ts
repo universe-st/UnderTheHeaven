@@ -1,4 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army';
 
 export interface CharacterAbility {
@@ -187,6 +187,41 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     abilities: [
       { skillId: 'liqingzhao_youyuan', name: '幽怨', description: '若你打出的牌均为黑色且不小于五张，结算后将点数最大的牌收回手牌' },
       { skillId: 'liqingzhao_haofang', name: '豪放', description: '若你打出的牌均为红色且不小于五张，每张牌额外结算一次伤害' },
+    ],
+  },
+  qijiguang: {
+    id: 'qijiguang',
+    name: '戚继光',
+    abilities: [
+      { skillId: 'qijiguang_dangkou', name: '荡寇', description: '若你打出的牌数量超出对方手牌数，结算伤害时所有牌额外结算一次' },
+    ],
+  },
+  zhuangzhou: {
+    id: 'zhuangzhou',
+    name: '庄周',
+    abilities: [
+      { skillId: 'zhuangzhou_xiaoyao', name: '逍遥', description: '敌方对你结算伤害时，你进行一次判定，若结果为黑色，伤害无效' },
+    ],
+  },
+  weizheng: {
+    id: 'weizheng',
+    name: '魏征',
+    abilities: [
+      { skillId: 'weizheng_zhijian', name: '直谏', description: '（主动技）每次牌权限一次，你可以弃置一张牌（自己的一张手牌）。' },
+    ],
+  },
+  zhangliang: {
+    id: 'zhangliang',
+    name: '张良',
+    abilities: [
+      { skillId: 'zhangliang_yunchou', name: '运筹', description: '获得牌权时，从牌堆随机抽五张牌，选择最多两张获得，剩余的牌弃置' },
+    ],
+  },
+  xiangyu: {
+    id: 'xiangyu',
+    name: '项羽',
+    abilities: [
+      { skillId: 'xiangyu_pofu', name: '破釜', description: '（主动技）每次牌权限一次。气数足够时可发动，失去30%的气数，弃置任意合法牌型直接对对方造成十倍分数乘以牌型系数的伤害。' },
     ],
   },
 };
