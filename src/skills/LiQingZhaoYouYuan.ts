@@ -8,7 +8,8 @@ import { waitForDelay } from '../utils/AnimationUtils';
  *
  * - 黑色 = suit 为 'spade'（黑桃）或 'club'（梅花）；王（suit 为 null）不满足"均为黑色"，自动排除。
  * - 时机 AFTER_DAMAGE：伤害结算完成后触发，此时打出牌已进入玩家弃牌堆。
- * - 收回规则：从打出牌中找点数（rank）最大的牌；若多张并列最大点数（如两张 K），全部收回。
+ * - 收回规则：从打出牌中找点数（rank）最大的牌；若多张并列最大点数（如两张 K），
+ *   随机收回其中一张。
  * - uid 系统（4.27）：pattern.cards 与 ctx.battle.player.discardPile 中的牌是不同引用但 uid 相同，
  *   必须按 uid 从弃牌堆中移除后再收回，禁止直接 addCardsToHand(pattern.cards 原引用) 造成复制牌。
  */
@@ -32,32 +33,26 @@ export const LiQingZhaoYouYuan: SkillDefinition = {
     const pattern = ctx.pattern;
     if (!pattern) return;
 
-    // 找最大点数；多张并列最大点数时全部收回
+    // 找最大点数；若多张并列最大点数，随机收回其中一张
     let maxRank = 0;
     for (const c of pattern.cards) {
       if (c.rank > maxRank) maxRank = c.rank;
     }
-    const maxRankUids = new Set(
-      pattern.cards.filter((c) => c.rank === maxRank).map((c) => c.uid),
-    );
+    const maxRankCards = pattern.cards.filter((c) => c.rank === maxRank);
+    const chosen = maxRankCards[Math.floor(Math.random() * maxRankCards.length)]!;
 
     visuals.playSkillTriggerSound();
     await waitForDelay(ctx.gameScene, 300);
 
     // 按 uid 从玩家弃牌堆中移除（pattern.cards 与 discardPile 中为不同引用、uid 相同）
     const discardPile = ctx.battle.player.discardPile;
-    const reclaimed: Card[] = [];
-    for (let i = discardPile.length - 1; i >= 0; i--) {
-      const card = discardPile[i]!;
-      if (maxRankUids.has(card.uid)) {
-        discardPile.splice(i, 1);
-        reclaimed.push(card);
-      }
-    }
+    const idx = discardPile.findIndex((card) => card.uid === chosen.uid);
+    if (idx < 0) return;
 
-    if (reclaimed.length > 0) {
+    const [reclaimed] = discardPile.splice(idx, 1);
+    if (reclaimed) {
       // addCardsToHand 内部自带飞入手牌动画
-      await addCardsToHand(ctx.gameScene, 'player', reclaimed);
+      await addCardsToHand(ctx.gameScene, 'player', [reclaimed]);
     }
   },
 };

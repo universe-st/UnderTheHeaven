@@ -152,7 +152,7 @@ describe('LiQingZhaoYouYuan execute（幽怨收回最大点数牌）', () => {
     expect(visuals.playSkillTriggerSound).toHaveBeenCalled();
   });
 
-  it('多张并列最大点数时全部收回', async () => {
+  it('多张并列最大点数时随机收回一张', async () => {
     const visuals = makeVisuals();
     // 打出 5 张全黑：两张 13 并列最大
     const played = [card(13, 'spade'), card(13, 'club'), card(5, 'spade'), card(6, 'club'), card(9, 'spade')];
@@ -164,10 +164,13 @@ describe('LiQingZhaoYouYuan execute（幽怨收回最大点数牌）', () => {
 
     await LiQingZhaoYouYuan.execute(ctx, visuals);
 
-    const maxUids = played.filter((c) => c.rank === 13).map((c) => c.uid);
-    expect(battle.player.discardPile.some((c) => maxUids.includes(c.uid))).toBe(false);
-    expect(battle.player.hand.length).toBe(2);
-    expect(battle.player.hand.map((c) => c.uid).sort()).toEqual([...maxUids].sort());
+    // 恰好收回一张：弃牌堆剩 4 张，手牌 1 张，且收回的是最大点数（rank 13）之一
+    expect(battle.player.discardPile.length).toBe(4);
+    expect(battle.player.hand.length).toBe(1);
+    const reclaimed = battle.player.hand[0]!;
+    expect(reclaimed.rank).toBe(13);
+    // 弃牌堆中不再包含被收回的那张 uid
+    expect(battle.player.discardPile.some((c) => c.uid === reclaimed.uid)).toBe(false);
   });
 
   it('弃牌堆中不存在对应 uid 时安静返回，不改变手牌', async () => {
