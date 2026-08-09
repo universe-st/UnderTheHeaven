@@ -1,4 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army';
 
 export interface CharacterAbility {
@@ -165,6 +165,20 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     name: '吕不韦',
     abilities: [
       { skillId: 'lvbuwei_juqi', name: '居奇', description: '你每次选择不出后，生成一张点数为3的随机花色并带有青龙印的牌。' },
+    ],
+  },
+  huamulan: {
+    id: 'huamulan',
+    name: '花木兰',
+    abilities: [
+      { skillId: 'huamulan_congjun', name: '从军', description: '你打出的牌若包含四种花色，每张牌结算伤害时分数+20。' },
+    ],
+  },
+  shangguanwaner: {
+    id: 'shangguanwaner',
+    name: '上官婉儿',
+    abilities: [
+      { skillId: 'shangguanwaner_chengliang', name: '称量', description: '你每有一个角色牌，结算伤害时每张牌分数+5。' },
     ],
   },
 };
