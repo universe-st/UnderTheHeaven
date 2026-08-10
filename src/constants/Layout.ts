@@ -12,6 +12,10 @@ export const AVATAR_SOURCE_SIZE = 512;
 export const NODE_ICON_DISPLAY = 60;
 export const CURRENCY_ICON_DISPLAY = 34;
 
+// 名人堂图标（public/icons/*.png，显示缩放用 setScale(DISPLAY / img.width)）
+export const HALL_OF_FAME_ICON_DISPLAY = 44;
+export const HALL_OF_FAME_CLOSE_DISPLAY = 40;
+
 export const SLOT_SIZE = 120;
 export const SLOT_GAP = 10;
 export const SLOT_STRIDE = SLOT_SIZE + SLOT_GAP;

@@ -130,6 +130,10 @@ export class LoadingScene extends Phaser.Scene {
     this.load.image('node_event', 'nodes/node_event.png');
     this.load.image('node_tongbao', 'nodes/node_tongbao.png');
 
+    // 名人堂图标（古风水墨风格）
+    this.load.image('icon_hall_of_fame', 'icons/icon_hall_of_fame.png');
+    this.load.image('icon_hall_of_fame_close', 'icons/icon_hall_of_fame_close.png');
+
     // 角色头像图片
     this.load.image('char_zhugeliang', 'char_zhugeliang.png');
     this.load.image('char_hanxin', 'char_hanxin.png');

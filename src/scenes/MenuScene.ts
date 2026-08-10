@@ -3,7 +3,7 @@ import { loadAudioSettings, saveAudioSettings } from '../AudioSettings';
 import { GameAudioManager } from '../utils/GameAudioManager';
 import { VoiceManager } from '../utils/VoiceManager';
 import { UIFactory } from '../utils/UIFactory';
-import { FONT_FAMILY, DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT } from '../constants/Layout';
+import { FONT_FAMILY, DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT, HALL_OF_FAME_ICON_DISPLAY } from '../constants/Layout';
 import * as RunManager from '../models/RunManager';
 
 const SHOW_TEST_BUTTON = true;
@@ -71,6 +71,8 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     UIFactory.divider(this, cx, titleY + 82);
+
+    this.createHallOfFameButton(width);
 
     UIFactory.button(this, cx, height * 0.57, '▸', '开始游戏', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
@@ -142,6 +144,49 @@ export class MenuScene extends Phaser.Scene {
     this.playMenuBgm();
 
     this.input.keyboard!.on('keydown-M', () => this.toggleMute());
+  }
+
+  /** 右上角「名人堂」按钮（古风图标 + 文字，点击淡出进入名人堂） */
+  private createHallOfFameButton(w: number): void {
+    const x = w - 180;
+    const y = 96;
+    const bw = 230;
+    const bh = 84;
+
+    const gfx = this.add.graphics();
+    const draw = (hover: boolean) => {
+      gfx.clear();
+      gfx.fillStyle(hover ? 0x6b3820 : 0x5a3018, 0.95);
+      gfx.fillRoundedRect(x - bw / 2, y - bh / 2, bw, bh, 8);
+      gfx.fillStyle(hover ? 0x8a4a28 : 0x7a4a28, 0.35);
+      gfx.fillRoundedRect(x - bw / 2 + 2, y - bh / 2 + 2, bw - 4, bh / 2 - 2, { tl: 7, tr: 7, bl: 0, br: 0 });
+      gfx.lineStyle(hover ? 2 : 1.5, hover ? 0xe8d5a3 : 0xc8a050, 0.9);
+      gfx.strokeRoundedRect(x - bw / 2, y - bh / 2, bw, bh, 8);
+    };
+    draw(false);
+
+    const icon = this.add.image(x - 42, y, 'icon_hall_of_fame');
+    icon.setScale(HALL_OF_FAME_ICON_DISPLAY / icon.width);
+
+    this.add.text(x + 30, y, '名人堂', {
+      fontSize: '30px',
+      fontFamily: FONT_FAMILY,
+      color: '#e8d5a3',
+      stroke: '#2a1008',
+      strokeThickness: 2,
+    }).setOrigin(0.5);
+
+    const zone = this.add.zone(x, y, bw, bh).setInteractive({ cursor: 'pointer' });
+    zone.on('pointerover', () => draw(true));
+    zone.on('pointerout', () => draw(false));
+    zone.on('pointerdown', () => {
+      GameAudioManager.playSfx(this, 'sfx_button');
+      GameAudioManager.stopBgm(this);
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        this.scene.start('HallOfFameScene');
+      });
+    });
   }
 
   private startNewRunAndGotoMap(): void {
