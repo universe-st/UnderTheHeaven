@@ -53,6 +53,7 @@ export function rollTempCard(lostCard: Card, rng: () => number = Math.random): C
     suit,
     rank,
     rankLabel: rankToLabel(rank),
+    score: rank,
     isTemp: true,
   };
 }

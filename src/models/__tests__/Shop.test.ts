@@ -135,11 +135,11 @@ describe('purchase', () => {
 
 describe('扑克牌商品（四象印）', () => {
   it('cardPrice 按点数定价，带印再加 10', () => {
-    expect(cardPrice({ uid: 'x', suit: 'spade', rank: 7, rankLabel: '7' })).toBe(7);
-    expect(cardPrice({ uid: 'x', suit: null, rank: 25, rankLabel: '虎' })).toBe(25);
-    expect(cardPrice({ uid: 'x', suit: null, rank: 30, rankLabel: '龍' })).toBe(30);
-    expect(cardPrice({ uid: 'x', suit: 'heart', rank: 7, rankLabel: '7', seal: 'qinglong' })).toBe(17);
-    expect(cardPrice({ uid: 'x', suit: null, rank: 30, rankLabel: '龍', seal: 'xuanwu' })).toBe(40);
+    expect(cardPrice({ uid: 'x', suit: 'spade', rank: 7, rankLabel: '7', score: 7 })).toBe(7);
+    expect(cardPrice({ uid: 'x', suit: null, rank: 25, rankLabel: '虎', score: 25 })).toBe(25);
+    expect(cardPrice({ uid: 'x', suit: null, rank: 30, rankLabel: '龍', score: 30 })).toBe(30);
+    expect(cardPrice({ uid: 'x', suit: 'heart', rank: 7, rankLabel: '7', score: 7, seal: 'qinglong' })).toBe(17);
+    expect(cardPrice({ uid: 'x', suit: null, rank: 30, rankLabel: '龍', score: 30, seal: 'xuanwu' })).toBe(40);
   });
 
   it('randomShopCard 生成标准牌（54 张范围内），约 25% 带印', () => {

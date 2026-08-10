@@ -6,12 +6,12 @@ import { pickLargestCardIndex, rollTempCard, isJoker } from '../ZhaoGaoZhiLuLogi
 let idc = 0;
 function card(rank: number, suit: Card['suit'] = 'spade'): Card {
   idc += 1;
-  return { uid: `c${idc}`, suit, rank, rankLabel: rankToLabel(rank) };
+  return { uid: `c${idc}`, suit, rank, rankLabel: rankToLabel(rank), score: rank };
 }
 
 function joker(rank: 25 | 30): Card {
   idc += 1;
-  return { uid: `c${idc}`, suit: null, rank, rankLabel: rankToLabel(rank) };
+  return { uid: `c${idc}`, suit: null, rank, rankLabel: rankToLabel(rank), score: rank };
 }
 
 const R = {

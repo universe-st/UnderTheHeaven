@@ -8,7 +8,7 @@ import { LiQingZhaoHaoFang } from '../LiQingZhaoHaoFang';
 let idc = 0;
 function card(rank: number, suit: Card['suit'] = 'heart'): Card {
   idc += 1;
-  return { uid: `c${idc}`, suit, rank, rankLabel: rankToLabel(rank) };
+  return { uid: `c${idc}`, suit, rank, rankLabel: rankToLabel(rank), score: rank };
 }
 
 function patternWith(...cards: Card[]): HandPattern {

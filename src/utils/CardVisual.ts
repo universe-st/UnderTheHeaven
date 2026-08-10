@@ -172,6 +172,7 @@ export function createPokerCardVisual(
 
   container.setData('uid', card.uid);
   container.setData('rank', card.rank);
+  container.setData('score', card.score);
   container.setData('suit', card.suit ?? '');
   container.setData('isTemp', card.isTemp === true);
 

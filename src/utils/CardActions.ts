@@ -356,6 +356,7 @@ function createEnemyCardBackContainer(
 
     container.setData('uid', _card.uid);
     container.setData('rank', _card.rank);
+    container.setData('score', _card.score);
     container.setData('suit', _card.suit ?? '');
 
     return container;
@@ -377,6 +378,7 @@ function createEnemyCardBackContainer(
       if (card && c && c.getData('uid') === undefined) {
         c.setData('uid', card.uid);
         c.setData('rank', card.rank);
+        c.setData('score', card.score);
         c.setData('suit', card.suit ?? '');
       }
     }
@@ -421,6 +423,7 @@ function layoutExistingHand(
     if (card) {
       container.setData('uid', card.uid);
       container.setData('rank', card.rank);
+      container.setData('score', card.score);
       container.setData('suit', card.suit ?? '');
     }
 

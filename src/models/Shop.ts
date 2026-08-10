@@ -97,6 +97,7 @@ export function randomShopCard(rng: () => number): Card {
       suit: null,
       rank,
       rankLabel: rankToLabel(rank),
+      score: rank,
       seal: randomSeal(rng) ?? undefined,
     };
   }
@@ -107,6 +108,7 @@ export function randomShopCard(rng: () => number): Card {
     suit,
     rank,
     rankLabel: rankToLabel(rank),
+    score: rank,
     seal: randomSeal(rng) ?? undefined,
   };
 }

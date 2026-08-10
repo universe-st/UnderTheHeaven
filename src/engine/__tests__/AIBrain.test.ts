@@ -9,7 +9,7 @@ import { NanmanJunTengJiaBlack } from '../../skills/NanmanJunTengJia';
 import { BLOCKED_ALL_BUT_ROCKET } from '../../skills/LiBaiShiXian';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade', uid?: string): Card {
-  return { uid: uid ?? getNextCardId(), suit, rank, rankLabel: String(rank) };
+  return { uid: uid ?? getNextCardId(), suit, rank, rankLabel: String(rank), score: rank };
 }
 
 function makeBattle(overrides: Partial<BattleState> = {}): BattleState {

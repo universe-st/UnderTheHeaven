@@ -130,6 +130,7 @@ export const LiuBoWenChouCe: ActiveSkillDefinition = {
       suit: inheritedSuit,
       rank: middleRank,
       rankLabel: rankToLabel(middleRank),
+      score: middleRank,
       isTemp: true,
     };
 

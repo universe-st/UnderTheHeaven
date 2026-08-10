@@ -6,7 +6,7 @@ import { canBeat, identifyHand } from '../HandRecognizer';
 import { findHintPlays } from '../findHintPlays';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade'): Card {
-  return { uid: getNextCardId(), suit, rank, rankLabel: String(rank) };
+  return { uid: getNextCardId(), suit, rank, rankLabel: String(rank), score: rank };
 }
 
 beforeEach(() => resetCardIdCounter());

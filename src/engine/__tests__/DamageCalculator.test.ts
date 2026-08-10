@@ -6,7 +6,7 @@ import { HandType } from '../../models/BattleTypes';
 import { calculateDamage, calculateDamageWithEmptyHand, getCoefficient } from '../DamageCalculator';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade'): Card {
-  return { uid: getNextCardId(), suit, rank, rankLabel: String(rank) };
+  return { uid: getNextCardId(), suit, rank, rankLabel: String(rank), score: rank };
 }
 
 describe('getCoefficient', () => {
@@ -57,8 +57,8 @@ describe('calculateDamage', () => {
 
   it('calculates rocket damage', () => {
     const cards = [
-      { uid: getNextCardId(), suit: null, rank: 25, rankLabel: '虎' },
-      { uid: getNextCardId(), suit: null, rank: 30, rankLabel: '龍' },
+      { uid: getNextCardId(), suit: null, rank: 25, rankLabel: '虎', score: 25 },
+      { uid: getNextCardId(), suit: null, rank: 30, rankLabel: '龍', score: 30 },
     ];
     const pattern: HandPattern = {
       type: HandType.Rocket,
@@ -67,6 +67,30 @@ describe('calculateDamage', () => {
       length: 2,
     };
     expect(calculateDamage(pattern)).toBe(Math.round((25 + 30) * 4));
+  });
+
+  it('牌面分数独立于点数：score≠rank 时伤害按 score 计算', () => {
+    const card = makeCard(7);
+    card.score = 12;
+    const pattern: HandPattern = {
+      type: HandType.Single,
+      cards: [card],
+      mainValue: 7,
+      length: 1,
+    };
+    // 点数仍为 7，但伤害得分基准用 score=12
+    expect(calculateDamage(pattern)).toBe(12);
+  });
+
+  it('score 缺失时兜底用 rank（旧数据兼容）', () => {
+    const legacy = { uid: getNextCardId(), suit: 'spade', rank: 7, rankLabel: '7' } as Card;
+    const pattern: HandPattern = {
+      type: HandType.Single,
+      cards: [legacy],
+      mainValue: 7,
+      length: 1,
+    };
+    expect(calculateDamage(pattern)).toBe(7);
   });
 });
 

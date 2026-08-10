@@ -28,6 +28,7 @@ export function createJuQiCard(rng: () => number = Math.random): Card {
     suit,
     rank: JUQI_CARD_RANK,
     rankLabel: rankToLabel(JUQI_CARD_RANK),
+    score: JUQI_CARD_RANK,
     seal: JUQI_SEAL,
   };
 }

@@ -128,6 +128,7 @@ export const ZuChongZhiYuanZhou: ActiveSkillDefinition = {
       suit: c.suit,
       rank: c.rank,
       rankLabel: c.rankLabel,
+      score: c.score,
       isTemp: true,
       seal: randomFourSeal(),
     }));

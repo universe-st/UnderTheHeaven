@@ -11,7 +11,7 @@ function makePattern(type: HandType, mainValue: number = 3): HandPattern {
 function makeCardsPattern(type: HandType, cardCount: number, mainValue: number = 3): HandPattern {
   return {
     type,
-    cards: Array.from({ length: cardCount }, (_, i) => ({ uid: `t${i}`, suit: 'spade' as const, rank: 3, rankLabel: '3' })),
+    cards: Array.from({ length: cardCount }, (_, i) => ({ uid: `t${i}`, suit: 'spade' as const, rank: 3, rankLabel: '3', score: 3 })),
     mainValue,
     length: cardCount,
   };

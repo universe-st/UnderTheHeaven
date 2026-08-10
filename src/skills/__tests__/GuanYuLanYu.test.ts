@@ -8,7 +8,7 @@ import { LanYuJieAoMarker, LanYuJieAoBonus, LanYuJieAoLost } from '../LanYuJieAo
 let idc = 0;
 function card(suit: Card['suit'], rank: number = 10): Card {
   idc += 1;
-  return { uid: `c${idc}`, suit, rank, rankLabel: String(rank) };
+  return { uid: `c${idc}`, suit, rank, rankLabel: String(rank), score: rank };
 }
 
 function patternWith(...cards: Card[]): HandPattern {

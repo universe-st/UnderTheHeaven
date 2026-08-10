@@ -5,7 +5,7 @@ import { ZuChongZhiYuanZhou } from '../ZuChongZhiYuanZhou';
 let idc = 0;
 function card(rank: number): Card {
   idc += 1;
-  return { uid: `c${idc}`, suit: 'spade', rank, rankLabel: String(rank) };
+  return { uid: `c${idc}`, suit: 'spade', rank, rankLabel: String(rank), score: rank };
 }
 
 const R = { THREE: 3, FOUR: 4, FIVE: 5, SIX: 6, SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10, J: 11, Q: 12, K: 13, A: 15, TWO: 20 };

@@ -108,6 +108,7 @@ export const ZhangJuZhengGaiZhi: ActiveSkillDefinition = {
         suit: c.suit,
         rank,
         rankLabel: rankToLabel(rank),
+        score: rank,
         isTemp: true,
       };
     });

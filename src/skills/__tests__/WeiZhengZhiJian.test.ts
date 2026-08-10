@@ -8,7 +8,7 @@ import { WeiZhengZhiJian } from '../WeiZhengZhiJian';
 let idc = 0;
 function card(rank: number, suit: Card['suit'] = 'spade'): Card {
   idc += 1;
-  return { uid: `c${idc}`, suit, rank, rankLabel: rankToLabel(rank) };
+  return { uid: `c${idc}`, suit, rank, rankLabel: rankToLabel(rank), score: rank };
 }
 
 function makeBattle(hand: Card[] = []): BattleState {

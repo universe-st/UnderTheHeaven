@@ -8,7 +8,7 @@ import { ZHOUCHU_FLAG_HAS_LIXIN, ZHOUCHU_FLAG_BIG_JOKER, ZHOUCHU_FLAG_SMALL_JOKE
 let idc = 0;
 function card(rank: number, suit: Card['suit'] = 'spade'): Card {
   idc += 1;
-  return { uid: `c${idc}`, suit, rank, rankLabel: rankToLabel(rank) };
+  return { uid: `c${idc}`, suit, rank, rankLabel: rankToLabel(rank), score: rank };
 }
 
 function baseCtx(overrides: Partial<SkillContext> = {}): SkillContext {

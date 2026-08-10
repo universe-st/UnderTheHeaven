@@ -201,6 +201,7 @@ export class CardDisplayManager {
       const hc = hand[i]!;
       container.setData('uid', hc.uid);
       container.setData('rank', hc.rank);
+      container.setData('score', hc.score);
       container.setData('suit', hc.suit ?? '');
       if (animateEntry) {
         container.setAlpha(0);

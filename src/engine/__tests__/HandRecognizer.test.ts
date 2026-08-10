@@ -6,7 +6,7 @@ import { HandType } from '../../models/BattleTypes';
 import { identifyHand, findAllPlays, canBeat, findBeatingPlays, rankForOrder } from '../HandRecognizer';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade'): Card {
-  return { uid: getNextCardId(), suit, rank, rankLabel: rank <= 13 ? String(rank) : rank < 25 ? ['A', '2'][rank - 15]! : rank === 25 ? '虎' : '龍' };
+  return { uid: getNextCardId(), suit, rank, rankLabel: rank <= 13 ? String(rank) : rank < 25 ? ['A', '2'][rank - 15]! : rank === 25 ? '虎' : '龍', score: rank };
 }
 
 function makeCards(ranks: number[], suits?: Card['suit'][][]): Card[] {

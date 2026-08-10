@@ -7,7 +7,7 @@ import { FONT_FAMILY, DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT, CARD_H } from '../../co
  * 手牌长按信息小窗。
  *
  * 玩家长按手牌（约 500ms）时在牌附近弹出信息面板，展示：
- * 花色 / 点数 / 牌面分数（rank），以及四象印（印图 + 印名 + 效果描述）
+ * 花色 / 点数 / 牌面分数（score），以及四象印（印图 + 印名 + 效果描述）
  * 与临时牌提示。窗口层级不低于 DEPTH_OVERLAY；
  * 点击窗口之外的任意位置（全屏 zone 范式）关闭。
  *
@@ -155,9 +155,9 @@ export class CardInfoManager {
     divider.lineBetween(left + 18, top + 52, left + PANEL_W - 18, top + 52);
     container.add(divider);
 
-    // ── 分数行 ──
+    // ── 分数行（牌面分数 score，与点数独立，可能被技能修改） ──
     let lineY = top + 78;
-    const score = h.add.text(left + 24, lineY, `分数：${card.rank}`, {
+    const score = h.add.text(left + 24, lineY, `分数：${card.score}`, {
       fontSize: '20px',
       fontFamily: FONT_FAMILY,
       color: '#5a4a30',

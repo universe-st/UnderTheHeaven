@@ -17,7 +17,8 @@ const COEFFICIENT_MAP: Record<HandType, (length: number) => number> = {
 };
 
 export function calculateDamage(pattern: HandPattern): number {
-  const sumPoints = pattern.cards.reduce((sum, c) => sum + c.rank, 0);
+  // 伤害得分基准为牌面分数 score（初始等于点数 rank，技能可单独修改；旧数据兜底 c.rank）
+  const sumPoints = pattern.cards.reduce((sum, c) => sum + (c.score ?? c.rank), 0);
   const coeffFn = COEFFICIENT_MAP[pattern.type];
   const coefficient = coeffFn(pattern.length);
   return Math.round(sumPoints * coefficient);

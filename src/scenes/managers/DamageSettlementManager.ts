@@ -62,7 +62,8 @@ export class DamageSettlementManager {
     this.host.damageSettlementCancelled = false;
 
     const cards = [...this.host.centerCards];
-    const sumRanks = pattern.cards.reduce((sum, c) => sum + (c.consideredAs?.rank ?? c.rank), 0);
+    // 伤害得分基准为牌面分数 score（视为牌用视为点数；无视为时取 score，旧数据兜底 rank）
+    const sumRanks = pattern.cards.reduce((sum, c) => sum + (c.consideredAs?.rank ?? c.score ?? c.rank), 0);
     const coefficient = getCoefficient(pattern.type, pattern.length);
     const baseCoefficient = coefficient;
     const damageMultiplier = isEmptyHand ? 5 : 1;
@@ -137,12 +138,14 @@ export class DamageSettlementManager {
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i]!;
       const consideredAsRank = card.getData('consideredAsRank') as number | undefined;
-      const rank = consideredAsRank ?? (card.getData('rank') as number ?? 0);
+      const baseRank = card.getData('rank') as number ?? 0;
+      // 牌面分数基准：视为牌沿用视为点数；无视为时用卡牌 score（初始=点数，技能可单独修改）
+      const score = consideredAsRank ?? (card.getData('score') as number ?? baseRank);
       const cardSeal = card.getData('seal') as FourSeal | undefined;
 
       GameAudioManager.playSfx(this.scene, 'sfx_card_reveal');
 
-      const floatText = this.host.add.text(card.x, card.y, `+${rank}`, {
+      const floatText = this.host.add.text(card.x, card.y, `+${score}`, {
         fontSize: '36px',
         fontFamily: FONT_FAMILY,
         color: '#b08030',
@@ -172,7 +175,7 @@ export class DamageSettlementManager {
       const singleCard = {
         card,
         scoreText: floatText,
-        baseScore: rank,
+        baseScore: score,
         scoreBonus: 0,
       };
       const singleCardCtx: SkillContext = {
@@ -198,17 +201,17 @@ export class DamageSettlementManager {
         GameAudioManager.playSfx(this.scene, 'sfx_seal_trigger');
         await this.flashSealGlow(card);
         singleCard.scoreBonus += QINGLONG_SCORE_BONUS;
-        const shownNow = parseInt(floatText.text.replace('+', ''), 10) || rank;
+        const shownNow = parseInt(floatText.text.replace('+', ''), 10) || score;
         await waitForCounterTween(this.scene, {
           from: shownNow,
-          to: rank + singleCard.scoreBonus,
+          to: score + singleCard.scoreBonus,
           duration: 300,
           ease: 'Cubic.easeOut',
           onUpdate: (val) => floatText.setText(`+${Math.round(val)}`),
         });
       }
 
-      const cardScore = rank + singleCard.scoreBonus;
+      const cardScore = score + singleCard.scoreBonus;
       // 以中央计数器当前显示值为基准继续累加：AFTER 类技能（如周处「励心」）
       // 可能已放大显示值（含 delta），直接基于显示值累加才能保持后续一致；
       // damageInfo.sumRanks 由各技能与下方 scoreBonus 累加同步到同一终值。

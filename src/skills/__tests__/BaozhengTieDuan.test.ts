@@ -10,7 +10,7 @@ import type { SkillContext, SkillVisualManager } from '../SkillTypes';
 function single(rank: number, suit: Card['suit'] = 'spade'): HandPattern {
   return {
     type: HandType.Single,
-    cards: [{ uid: `c${rank}`, suit, rank, rankLabel: String(rank) }],
+    cards: [{ uid: `c${rank}`, suit, rank, rankLabel: String(rank), score: rank }],
     mainValue: rank,
     length: 1,
   };
@@ -20,8 +20,8 @@ function rocket(): HandPattern {
   return {
     type: HandType.Rocket,
     cards: [
-      { uid: 'j1', suit: null, rank: 25, rankLabel: '虎' },
-      { uid: 'j2', suit: null, rank: 30, rankLabel: '龍' },
+      { uid: 'j1', suit: null, rank: 25, rankLabel: '虎', score: 25 },
+      { uid: 'j2', suit: null, rank: 30, rankLabel: '龍', score: 30 },
     ],
     mainValue: 25,
     length: 1,
@@ -31,7 +31,7 @@ function rocket(): HandPattern {
 function bomb(rank: number): HandPattern {
   return {
     type: HandType.Bomb,
-    cards: Array.from({ length: 4 }, (_, i) => ({ uid: `b${rank}_${i}`, suit: 'club' as const, rank, rankLabel: String(rank) })),
+    cards: Array.from({ length: 4 }, (_, i) => ({ uid: `b${rank}_${i}`, suit: 'club' as const, rank, rankLabel: String(rank), score: rank })),
     mainValue: rank,
     length: 4,
   };
@@ -61,7 +61,7 @@ describe('isTieDuanSingle（铁断单张判定）', () => {
     const pattern: HandPattern = {
       type: HandType.Single,
       cards: [{
-        uid: 'tmp', suit: 'heart', rank: 8, rankLabel: '8',
+        uid: 'tmp', suit: 'heart', rank: 8, rankLabel: '8', score: 8,
         consideredAs: { rank: 9, rankLabel: '9', suit: 'spade' },
       }],
       mainValue: 9,

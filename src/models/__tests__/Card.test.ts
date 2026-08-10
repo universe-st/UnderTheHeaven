@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { Card } from '../Card';
-import { sortPlayedCards, cardDisplayName, getNextCardId, resetCardIdCounter } from '../Card';
+import { sortPlayedCards, cardDisplayName, getNextCardId, resetCardIdCounter, createDeck } from '../Card';
 
 function makeCard(rank: number, suit: Card['suit'] = 'spade', rankLabel?: string): Card {
-  return { uid: getNextCardId(), suit, rank, rankLabel: rankLabel ?? String(rank) };
+  return { uid: getNextCardId(), suit, rank, rankLabel: rankLabel ?? String(rank), score: rank };
 }
 
 describe('cardDisplayName', () => {
@@ -57,5 +57,35 @@ describe('sortPlayedCards', () => {
     const sorted = sortPlayedCards([club, spade]);
     expect(sorted[0]!.suit).toBe('spade');
     expect(sorted[1]!.suit).toBe('club');
+  });
+});
+
+describe('createDeck 牌面分数（score）', () => {
+  it('54 张牌初始分数均等于点数 rank', () => {
+    resetCardIdCounter();
+    const deck = createDeck();
+    expect(deck).toHaveLength(54);
+    for (const c of deck) {
+      expect(c.score).toBe(c.rank);
+    }
+  });
+
+  it('虎(25)/龍(30) 初始分数分别为 25/30', () => {
+    resetCardIdCounter();
+    const deck = createDeck();
+    const tiger = deck.find(c => c.rankLabel === '虎')!;
+    const dragon = deck.find(c => c.rankLabel === '龍')!;
+    expect(tiger.score).toBe(25);
+    expect(dragon.score).toBe(30);
+  });
+
+  it('score 与 rank 是两个独立概念：修改 score 不影响 rank', () => {
+    resetCardIdCounter();
+    const deck = createDeck();
+    const card = deck[0]!;
+    const rankBefore = card.rank;
+    card.score += 10;
+    expect(card.rank).toBe(rankBefore);
+    expect(card.score).not.toBe(card.rank);
   });
 });

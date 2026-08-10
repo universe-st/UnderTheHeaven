@@ -17,6 +17,11 @@ export interface Card {
   suit: 'spade' | 'club' | 'heart' | 'diamond' | null;
   rank: number;
   rankLabel: string;
+  /**
+   * 牌面分数（伤害得分基准），与点数 rank 是两个独立概念：
+   * 初始等于点数（createDeck 统一初始化），后续技能可单独修改分数而不影响点数。
+   */
+  score: number;
   consideredAs?: {
     rank: number;
     rankLabel: string;
@@ -52,12 +57,13 @@ export function createDeck(): Card[] {
         suit,
         rank,
         rankLabel: RANK_MAP[rank]!,
+        score: rank,
       });
     }
   }
 
-  deck.push({ uid: getNextCardId(), suit: null, rank: 25, rankLabel: '虎' });
-  deck.push({ uid: getNextCardId(), suit: null, rank: 30, rankLabel: '龍' });
+  deck.push({ uid: getNextCardId(), suit: null, rank: 25, rankLabel: '虎', score: 25 });
+  deck.push({ uid: getNextCardId(), suit: null, rank: 30, rankLabel: '龍', score: 30 });
 
   return deck;
 }
