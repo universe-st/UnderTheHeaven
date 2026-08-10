@@ -221,7 +221,7 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     id: 'xiangyu',
     name: '项羽',
     abilities: [
-      { skillId: 'xiangyu_pofu', name: '破釜', description: '（主动技）每次牌权限一次。气数足够时可发动，失去30%的气数，弃置任意合法牌型直接对对方造成十倍分数乘以牌型系数的伤害。' },
+      { skillId: 'xiangyu_pofu', name: '破釜', description: '（主动技）每个牌权限一次，你可以弃置任意合法牌型，扣减自身分数总和乘以牌型系数的气数给对方造成两倍伤害。如果你的气数无法承担扣减则无法发动。' },
     ],
   },
 };
