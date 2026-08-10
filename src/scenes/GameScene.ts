@@ -23,6 +23,7 @@ import { CardDisplayManager } from './managers/CardDisplayManager';
 import { BattleFlowManager } from './managers/BattleFlowManager';
 import { CharacterBarManager } from './managers/CharacterBarManager';
 import { CharacterInfoManager } from './managers/CharacterInfoManager';
+import { CardInfoManager } from './managers/CardInfoManager';
 import { ActiveSkillManager } from './managers/ActiveSkillManager';
 import { InfoBarManager } from './managers/InfoBarManager';
 import { PatternHintManager } from './managers/PatternHintManager';
@@ -131,6 +132,7 @@ export class GameScene extends Phaser.Scene {
   private battleFlowManager!: BattleFlowManager;
   private characterBarManager!: CharacterBarManager;
   private characterInfoManager!: CharacterInfoManager;
+  private cardInfoManager: CardInfoManager | null = null;
   private activeSkillManager!: ActiveSkillManager;
   private infoBarManager!: InfoBarManager;
   private patternHintManager!: PatternHintManager;
@@ -185,6 +187,8 @@ export class GameScene extends Phaser.Scene {
     this.characterMarkerCircles = [];
     this.characterMarkerTexts = [];
     this.characterInfoManager?.destroy();
+    this.cardInfoManager?.destroy();
+    this.cardInfoManager = null;
     this.skillTriggeredCharacters = new Set();
     this.characterSlotGlows = [];
     for (const [, tweens] of this.characterSlotGlowTweens) {
@@ -254,7 +258,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.cardDisplayManager = new CardDisplayManager(this);
+    this.cardInfoManager = new CardInfoManager(this);
     this.dragInputManager = new DragInputManager(this, this.cardDisplayManager);
+    this.dragInputManager.setCardInfoManager(this.cardInfoManager);
     this.healthBarManager = new HealthBarManager(this);
     this.damageSettlementManager = new DamageSettlementManager(this);
     this.modalManager = new ModalManager(this);

@@ -2,6 +2,10 @@ import type Phaser from 'phaser';
 import type { BattleState } from '../../models/BattleTypes';
 import { SELECTED_OFFSET, CARD_H, CARD_W } from '../../constants/Layout';
 import type { CardDisplayManager } from './CardDisplayManager';
+import type { CardInfoManager } from './CardInfoManager';
+
+/** 长按触发信息窗的时长（毫秒） */
+const LONG_PRESS_DELAY = 500;
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
@@ -9,6 +13,7 @@ interface DragInputHost {
   readonly scale: Phaser.Scale.ScaleManager;
   readonly tweens: Phaser.Tweens.TweenManager;
   readonly input: Phaser.Input.InputPlugin;
+  readonly time: Phaser.Time.Clock;
   battle: BattleState;
   cardObjects: Phaser.GameObjects.Container[];
   selectedIndices: Set<number>;
@@ -32,9 +37,20 @@ export class DragInputManager {
   private dragTouchedIndices: Set<number> = new Set();
   private dragSnapshot: Set<number> = new Set();
 
+  /** 长按信息窗（由 GameScene 注入） */
+  private cardInfo: CardInfoManager | null = null;
+  private longPressTimer: Phaser.Time.TimerEvent | null = null;
+  private longPressCardIndex: number | null = null;
+  private longPressTriggered = false;
+
   constructor(host: DragInputHost, cardDisplay: CardDisplayManager) {
     this.host = host;
     this.cardDisplay = cardDisplay;
+  }
+
+  /** 注入长按信息窗管理器（GameScene 创建后调用） */
+  setCardInfoManager(manager: CardInfoManager | null): void {
+    this.cardInfo = manager;
   }
 
   setup(): void {
@@ -63,12 +79,22 @@ export class DragInputManager {
       const idx = this.getCardIndexAtPosition(pointer.x, pointer.y);
       if (idx === null) return;
 
+      // 信息窗已打开：本次按下只用于关闭窗口（全屏 zone 也处理），不再启动拖拽/长按
+      if (this.cardInfo?.isOpen()) {
+        this.cardInfo.close();
+        this.resetDragState();
+        return;
+      }
+
       this.dragStartIndex = idx;
       this.dragStartX = pointer.x;
       this.dragStartY = pointer.y;
       this.dragActive = false;
       this.dragSelectMode = null;
       this.dragSnapshot = new Set(this.host.selectedIndices);
+
+      // 长按计时：按住约 500ms 且未拖拽/未松开时弹出信息窗
+      this.startLongPressTimer(idx, pointer.x, pointer.y);
     });
 
     input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
@@ -99,9 +125,14 @@ export class DragInputManager {
 
       if (!this.dragActive) {
         if (dist < 8) return;
+        // 拖拽移动：取消长按计时
+        this.cancelLongPressTimer();
         this.dragActive = true;
         this.dragSelectMode = this.host.selectedIndices.has(this.dragStartIndex) ? 'remove' : 'add';
       }
+
+      // 长按已触发信息窗：忽略后续拖拽，避免与窗口交互冲突
+      if (this.longPressTriggered) return;
 
       const currentIdx = this.getCardIndexAtPosition(pointer.x, pointer.y);
       this.applyDragRange(currentIdx);
@@ -121,6 +152,12 @@ export class DragInputManager {
       if (this.dragStartIndex === null) return;
 
       if (!this.dragActive) {
+        if (this.longPressTriggered) {
+          // 长按已弹出信息窗：松开时不再触发点击选中
+          this.longPressTriggered = false;
+          this.resetDragState();
+          return;
+        }
         const idx = this.getCardIndexAtPosition(pointer.x, pointer.y);
         if (idx !== null && idx === this.dragStartIndex) {
           this.onCardClick(idx);
@@ -145,11 +182,39 @@ export class DragInputManager {
   }
 
   resetDragState(): void {
+    this.cancelLongPressTimer();
+    this.longPressTriggered = false;
     this.dragStartIndex = null;
     this.dragActive = false;
     this.dragSelectMode = null;
     this.dragTouchedIndices.clear();
     this.dragSnapshot.clear();
+  }
+
+  /** 启动长按计时：500ms 后弹出对应手牌的信息窗 */
+  private startLongPressTimer(index: number, pointerX: number, pointerY: number): void {
+    this.cancelLongPressTimer();
+    this.longPressCardIndex = index;
+    this.longPressTriggered = false;
+    this.longPressTimer = this.host.time.addEvent({
+      delay: LONG_PRESS_DELAY,
+      callback: () => {
+        this.longPressTriggered = true;
+        const card = this.host.battle.player.hand[this.longPressCardIndex ?? -1];
+        if (card && this.cardInfo) {
+          this.cardInfo.show(card, pointerX, pointerY);
+        }
+      },
+    });
+  }
+
+  /** 取消长按计时（拖拽移动 / 松开 / 双指时调用） */
+  private cancelLongPressTimer(): void {
+    if (this.longPressTimer) {
+      this.longPressTimer.destroy();
+      this.longPressTimer = null;
+    }
+    this.longPressCardIndex = null;
   }
 
   private getCardIndexAtPosition(x: number, y: number): number | null {
