@@ -696,8 +696,8 @@ export class GameScene extends Phaser.Scene {
     this.bgmManager.initBattleBgm();
   }
 
-  cancelDamageSettlement(): void {
-    this.damageSettlementManager.cancelDamageSettlement();
+  cancelDamageSettlement(gainTurn?: boolean): void {
+    this.damageSettlementManager.cancelDamageSettlement(gainTurn);
   }
 
   /** 游戏结束（主动技如项羽「破釜」直伤致死时调用，转发给 BattleFlowManager） */

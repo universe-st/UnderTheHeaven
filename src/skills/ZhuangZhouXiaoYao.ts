@@ -11,7 +11,8 @@ import { FONT_FAMILY, DEPTH_OVERLAY_TEXT, CARD_W, CARD_H } from '../constants/La
  *   那是逐张牌触发的，敌方打出多张牌会判定多次，违背"进行一次判定"）。
  * - 判定机制：从己方牌库随机抽出一张牌亮出（明置展示），按照牌的信息结算后续结果；
  *   判定后牌放进己方弃牌堆。
- * - 黑色（黑桃/梅花）→ 令本次伤害无效（cancelDamageSettlement，与张飞「断喝」一致）；
+ * - 黑色（黑桃/梅花）→ 令本次伤害无效（cancelDamageSettlement(false)：**仅无效伤害，不获得牌权**；
+ *   与张飞「断喝」不同——张飞描述明确「你获得牌权」，故传 true）；
  *   红色（红桃/方片）或王（suit 为 null）→ 伤害照常。
  * - 判定牌是"临时亮出展示"：在屏幕中央用容器绘制（参照周处「除害」drawCardFace），
  *   不进入中央牌区（不 push 进 ctx.centerCardContainers）。
@@ -49,9 +50,9 @@ export const ZhuangZhouXiaoYao: SkillDefinition = {
     // 判定后牌放进己方弃牌堆
     ctx.battle.player.discardPile.push(judgedCard);
 
-    // 黑色（黑桃/梅花）→ 伤害无效
+    // 黑色（黑桃/梅花）→ 伤害无效（仅取消伤害，不获得牌权——与张飞「断喝」不同）
     if (judgedCard.suit === 'spade' || judgedCard.suit === 'club') {
-      visuals.cancelDamageSettlement();
+      visuals.cancelDamageSettlement(false);
       await showNotice(ctx.gameScene, '逍遥：判定黑色，伤害无效！');
     } else {
       // 红色（红桃/方片）或王（suit null）→ 伤害照常

@@ -6,7 +6,7 @@ import { FONT_FAMILY, DEPTH_DAMAGE } from '../constants/Layout';
 interface SceneHandle {
   battle: BattleState;
   updateVitalityBars(): void;
-  cancelDamageSettlement(): void;
+  cancelDamageSettlement(gainTurn?: boolean): void;
   updateCharacterMarker(characterId: string, count: number): void;
   markCharacterLost(characterId: string): void;
   showDialog(characterId: string, text: string): void;
@@ -73,8 +73,8 @@ export class SkillVisualManagerImpl implements SkillVisualManager {
     this.scene.updateVitalityBars();
   }
 
-  cancelDamageSettlement(): void {
-    this.scene.cancelDamageSettlement();
+  cancelDamageSettlement(gainTurn?: boolean): void {
+    this.scene.cancelDamageSettlement(gainTurn);
   }
 
   playSkillTriggerSound(): void {

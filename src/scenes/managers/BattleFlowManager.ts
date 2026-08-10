@@ -399,7 +399,9 @@ export class BattleFlowManager {
       this.host.updatePatternHint();
 
       await this.damageSettlement.playDamageSettlement(lastPlay, 'player', false);
-      if (this.host.damageSettlementCancelled) return;
+      // 张飞「断喝」型取消（cancelDamageSettlement(true) 已把牌权给玩家）→ 直接返回；
+      // 庄周「逍遥」型取消（cancelDamageSettlement(false) 仅无效伤害）→ 继续走正常结算后流程（敌方继续出牌）
+      if (this.host.damageSettlementCancelled && (this.host.phase as GamePhase) === 'player_init') return;
       if (this.host.battle.player.vitality <= 0) {
         this.showGameOver(false);
         return;
@@ -625,7 +627,8 @@ export class BattleFlowManager {
       // 敌方出完牌直接结算：玩家非主动出牌，武圣判定依据清零
       this.host.battle.player.pendingRedCount = 0;
       await this.damageSettlement.playDamageSettlement(pattern, 'player', true);
-      if (this.host.damageSettlementCancelled) return;
+      // 张飞「断喝」型取消（已把牌权给玩家）→ 直接返回；庄周「逍遥」型取消（仅无效伤害）→ 继续正常结算后流程
+      if (this.host.damageSettlementCancelled && this.host.phase === 'player_init') return;
       if (this.host.battle.player.vitality <= 0) {
         this.showGameOver(false);
         return;
@@ -800,7 +803,8 @@ export class BattleFlowManager {
       // 敌方出完牌直接结算：玩家非主动出牌，武圣判定依据清零
       this.host.battle.player.pendingRedCount = 0;
       await this.damageSettlement.playDamageSettlement(pattern, 'player', true);
-      if (this.host.damageSettlementCancelled) return;
+      // 张飞「断喝」型取消（已把牌权给玩家）→ 直接返回；庄周「逍遥」型取消（仅无效伤害）→ 继续正常结算后流程
+      if (this.host.damageSettlementCancelled && this.host.phase === 'player_init') return;
       if (this.host.battle.player.vitality <= 0) {
         this.showGameOver(false);
         return;

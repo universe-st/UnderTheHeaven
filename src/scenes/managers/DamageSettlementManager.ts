@@ -695,7 +695,12 @@ export class DamageSettlementManager {
     });
   }
 
-  cancelDamageSettlement(): void {
+  /**
+   * 取消本次伤害结算（清空伤害数字与中央牌，停止后续扣血）。
+   * @param gainTurn 是否令玩家获得牌权。张飞「断喝」描述明确「你获得牌权」→ true（默认）；
+   *   庄周「逍遥」仅「伤害无效」→ false（牌权维持出牌方，由 BattleFlowManager 走正常结算后流程）。
+   */
+  cancelDamageSettlement(gainTurn: boolean = true): void {
     this.host.damageSettlementCancelled = true;
 
     const texts = this.scene.children.list.filter(
@@ -739,6 +744,10 @@ export class DamageSettlementManager {
     this.host.centerCards = [];
     this.host.centerCardsOwner = null;
     this.host.centerDepthCounter = DEPTH_CENTER_BASE;
+
+    // 仅「获得牌权」型取消（张飞断喝）才转移牌权给玩家；
+    // 庄周逍遥只取消伤害，牌权仍归出牌方（调用方走正常结算后流程）
+    if (!gainTurn) return;
 
     this.host.battle.turnHolder = 'player';
     this.host.phase = 'player_init';

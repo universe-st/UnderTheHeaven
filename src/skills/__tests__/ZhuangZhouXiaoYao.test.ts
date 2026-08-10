@@ -135,8 +135,8 @@ describe('ZhuangZhouXiaoYao execute（逍遥判定）', () => {
     // 判定牌从牌库取出并进入己方弃牌堆
     expect(battle.player.deck.length).toBe(0);
     expect(battle.player.discardPile.map((c) => c.uid)).toContain(blackCard.uid);
-    // 黑色 → 伤害无效
-    expect(visuals.cancelDamageSettlement).toHaveBeenCalled();
+    // 黑色 → 伤害无效（传 false：仅无效伤害，不获得牌权——区别于张飞断喝的 true）
+    expect(visuals.cancelDamageSettlement).toHaveBeenCalledWith(false);
     expect(visuals.playSkillTriggerSound).toHaveBeenCalled();
   });
 
@@ -148,7 +148,8 @@ describe('ZhuangZhouXiaoYao execute（逍遥判定）', () => {
     await ZhuangZhouXiaoYao.execute(ctx, visuals);
 
     expect(battle.player.discardPile.length).toBe(1);
-    expect(visuals.cancelDamageSettlement).toHaveBeenCalled();
+    // 梅花也是黑色 → 伤害无效（不获得牌权）
+    expect(visuals.cancelDamageSettlement).toHaveBeenCalledWith(false);
   });
 
   it('判定牌为红色（红桃）：伤害照常（不取消）', async () => {

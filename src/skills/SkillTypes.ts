@@ -147,7 +147,7 @@ export interface SkillVisualManager {
   playSkillTriggerSound(): void;
   playSfx(key: string): void;
   getScene(): Phaser.Scene;
-  cancelDamageSettlement(): void;
+  cancelDamageSettlement(gainTurn?: boolean): void;
   /**
    * 更新角色框左上角标记区的标记数量（仅带标记技能的角色有此区域）。
    */
