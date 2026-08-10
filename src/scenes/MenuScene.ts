@@ -165,10 +165,22 @@ export class MenuScene extends Phaser.Scene {
     };
     draw(false);
 
-    const icon = this.add.image(x - 42, y, 'icon_hall_of_fame');
+    // 图标浅色衬底（米色圆 + 金描边）：与深檀按钮底拉开对比，普通态与 hover 态均清晰可辨
+    const iconHalo = this.add.graphics();
+    const iconCX = x - 50;
+    const drawIconHalo = (hover: boolean) => {
+      iconHalo.clear();
+      iconHalo.fillStyle(hover ? 0xf0d9a0 : 0xc8a050, hover ? 0.38 : 0.3);
+      iconHalo.fillCircle(iconCX, y, 37);
+      iconHalo.lineStyle(hover ? 2.5 : 1.5, hover ? 0xf0e0b0 : 0xe0c060, hover ? 0.95 : 0.85);
+      iconHalo.strokeCircle(iconCX, y, 37);
+    };
+    drawIconHalo(false);
+
+    const icon = this.add.image(iconCX, y, 'icon_hall_of_fame');
     icon.setScale(HALL_OF_FAME_ICON_DISPLAY / icon.width);
 
-    this.add.text(x + 30, y, '名人堂', {
+    this.add.text(x + 42, y, '名人堂', {
       fontSize: '30px',
       fontFamily: FONT_FAMILY,
       color: '#e8d5a3',
@@ -177,8 +189,8 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const zone = this.add.zone(x, y, bw, bh).setInteractive({ cursor: 'pointer' });
-    zone.on('pointerover', () => draw(true));
-    zone.on('pointerout', () => draw(false));
+    zone.on('pointerover', () => { draw(true); drawIconHalo(true); });
+    zone.on('pointerout', () => { draw(false); drawIconHalo(false); });
     zone.on('pointerdown', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
       GameAudioManager.stopBgm(this);
