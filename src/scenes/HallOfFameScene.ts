@@ -320,9 +320,9 @@ export class HallOfFameScene extends Phaser.Scene {
     draw(false);
     card.add(gfx);
 
-    // 头像底板 + 头像
-    const portraitSize = 184;
-    const avatarY = -56;
+    // 头像底板 + 头像（上缘距卡顶约 22px，避免贴顶；下缘与名字区留间距）
+    const portraitSize = 164;
+    const avatarY = -46;
     const avatarGfx = this.add.graphics();
     avatarGfx.fillStyle(0x120804, 1);
     avatarGfx.fillRoundedRect(-portraitSize / 2, avatarY - portraitSize / 2, portraitSize, portraitSize, 10);
@@ -335,7 +335,7 @@ export class HallOfFameScene extends Phaser.Scene {
     card.add(charImg);
 
     // 名字 + 朝代
-    card.add(this.add.text(0, 52, char.name, {
+    card.add(this.add.text(0, 58, char.name, {
       fontSize: '30px',
       fontFamily: FONT_FAMILY,
       color: '#e8d5a3',
@@ -343,7 +343,7 @@ export class HallOfFameScene extends Phaser.Scene {
       strokeThickness: 2,
     }).setOrigin(0.5));
 
-    card.add(this.add.text(0, 94, `◆ ${char.dynasty} ◆`, {
+    card.add(this.add.text(0, 100, `◆ ${char.dynasty} ◆`, {
       fontSize: '20px',
       fontFamily: FONT_FAMILY,
       color: '#a08040',
@@ -535,10 +535,10 @@ export class HallOfFameScene extends Phaser.Scene {
     if (abilityBlocks.length > 1) skillsH += (abilityBlocks.length - 1) * 22;
 
     const bioLines = wrap(char.bio, textW, '28px');
-    const bioH = 52 + bioLines.length * 38 + 10;
+    const bioH = 92 + bioLines.length * 38 + 10;
 
     const leftH = avatarSize + 24;
-    const rightH = skillsH + bioH + 24;
+    const rightH = skillsH + bioH + 44;
     const contentH = Math.max(leftH, rightH);
     const panelH = Phaser.Math.Clamp(headerH + contentH + contentPadB, 600, sh - 60);
 
@@ -657,7 +657,8 @@ export class HallOfFameScene extends Phaser.Scene {
 
     // ── ⑥ 右列：技能列表 + 小传 ──
     const colX = px + textX0;
-    let ty = contentTop + 4;
+    // 技能区顶部留白 24px，首项技能名不与内容区顶部粘连
+    let ty = contentTop + 24;
 
     for (let i = 0; i < abilityBlocks.length; i++) {
       const block = abilityBlocks[i]!;
@@ -699,10 +700,11 @@ export class HallOfFameScene extends Phaser.Scene {
       }
     }
 
-    // 小传：印章式标题 + 正文
-    ty += 6;
-    this.createSealTitle(container, colX, ty + 26, '小传', MODAL_DEPTH_TEXT);
-    ty += 62;
+    // 小传：印章式标题 + 正文（印章与上方技能区、与下方正文各留约 28px 间距）
+    ty += 28;
+    const sealCY = ty + 26;
+    this.createSealTitle(container, colX, sealCY, '小传', MODAL_DEPTH_TEXT);
+    ty = sealCY + 26 + 28;
     for (const line of bioLines) {
       const bioTxt = this.add.text(colX + 6, ty, line, {
         fontSize: '28px',
