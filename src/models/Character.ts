@@ -1,4 +1,5 @@
 export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin';
+export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army' | 'wokou' | 'qidan' | 'qingzhou';
 
 export interface CharacterAbility {
   skillId: string;
@@ -371,6 +372,27 @@ export const ENEMY_CHARACTERS: Record<EnemyCharacterId, EnemyCharacter> = {
     dynasty: '秦汉',
     bio: '秦汉时期北方游牧骑兵，屡犯边塞、剽掠如风。',
     abilities: [{ skillId: 'xiongnu_army_langshou', name: '狼狩', description: '单牌结算伤害后，若为红桃牌，你回复等同于结算伤害的气数' }],
+  },
+  wokou: {
+    id: 'wokou',
+    name: '倭寇',
+    dynasty: '明',
+    bio: '明代东南沿海的日本海盗集团，勾结奸商劫掠商船、窜犯沿海州县。',
+    abilities: [{ skillId: 'wokou_jiehai', name: '劫海', description: '获得牌权时，若对方手牌数不大于三张，获得这些牌；被击败后，这些牌回归对方牌库' }],
+  },
+  qidan: {
+    id: 'qidan',
+    name: '契丹士兵',
+    dynasty: '辽',
+    bio: '契丹族辽国精锐骑兵，逐水草而居，善骑射，惯以打草谷劫掠边民。',
+    abilities: [{ skillId: 'qidan_dacao', name: '打草', description: '受到伤害后，随机获得对方一张牌；若为梅花牌，回复5%气数' }],
+  },
+  qingzhou: {
+    id: 'qingzhou',
+    name: '青州兵',
+    dynasty: '东汉',
+    bio: '东汉末年曹操收编青州黄巾降卒组建的精锐部队，号为青州兵，能征善战、军纪严明。',
+    abilities: [{ skillId: 'qingzhou_jinghan', name: '精悍', description: '受到伤害后，恢复伤害值20%的气数' }],
   },
 };
 

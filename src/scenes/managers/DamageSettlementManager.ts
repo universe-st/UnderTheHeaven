@@ -501,6 +501,8 @@ export class DamageSettlementManager {
       target,
       playerCharacterIds: this.host.playerCharacterIds,
       enemyCharacterId: this.host.battle.enemyCharacterId,
+      // AFTER_DAMAGE 技能可读取本次伤害信息（如青州兵「精悍」按 finalDamage 回血）
+      damageInfo,
     };
     if (opts.emitEvents) {
       await this.host.skillEventBus.emit(SkillTiming.AFTER_DAMAGE, afterDmgCtx);

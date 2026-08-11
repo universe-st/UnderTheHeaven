@@ -22,6 +22,10 @@ const ALL_ENEMIES: EnemyCharacterId[] = [
   'mongol_army',
   'xiliang_army',
   'xiongnu_army',
+  // 新敌人（当前只进普通敌人池，不进 STRONG_ENEMIES / BOSS_POOLS）
+  'wokou',
+  'qidan',
+  'qingzhou',
 ];
 
 /** 强敌池：精英节点偏向选取，第 36 层最终 Boss 从此池选取 */

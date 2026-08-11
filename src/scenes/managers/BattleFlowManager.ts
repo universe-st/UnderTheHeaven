@@ -1004,6 +1004,19 @@ export class BattleFlowManager {
         }
       }
 
+      // 倭寇「劫海」：被劫走的牌在敌方被击败（玩家胜利）后无条件全量回归玩家牌库。
+      // 与 acquiredCards「仅仍持于手牌」不同，劫海牌无论是否仍被敌方持有都写回
+      // （深拷贝，避免与战斗内引用共享）。
+      if (playerWin) {
+        const stolen = this.host.battle.wokouStolenCards ?? [];
+        if (stolen.length > 0) {
+          pendingRun.cardPool = [
+            ...pendingRun.cardPool,
+            ...stolen.map(c => ({ ...c })),
+          ];
+        }
+      }
+
       // 角色状态先落盘一次：即使后续 applyBattleResult 因节点缺失返回 null
       // （异常路径），"失去角色牌/标记"也已持久化，不会因未保存而回滚。
       save();

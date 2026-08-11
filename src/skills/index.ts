@@ -33,6 +33,9 @@ import { ZhuangZhouXiaoYao } from './ZhuangZhouXiaoYao';
 import { ZhangLiangYunChou } from './ZhangLiangYunChou';
 import { JiangShangChuiDiao, JiangShangFuWang } from './JiangShang';
 import { SunBinJianZao, SunBinJianZaoBonus } from './SunBin';
+import { WokouJieHai } from './WokouJieHai';
+import { QidanDaCao } from './QidanDaCao';
+import { QingZhouJingHan } from './QingZhouJingHan';
 import type { SkillDefinition } from './SkillTypes';
 import type { SkillRegistry } from './SkillRegistry';
 
@@ -58,6 +61,9 @@ export { ZhuangZhouXiaoYao } from './ZhuangZhouXiaoYao';
 export { ZhangLiangYunChou } from './ZhangLiangYunChou';
 export { JiangShangChuiDiao, JiangShangFuWang } from './JiangShang';
 export { SunBinJianZao, SunBinJianZaoBonus } from './SunBin';
+export { WokouJieHai } from './WokouJieHai';
+export { QidanDaCao } from './QidanDaCao';
+export { QingZhouJingHan } from './QingZhouJingHan';
 export { WeiZhengZhiJian } from './WeiZhengZhiJian';
 export { XiangYuPoFu } from './XiangYuPoFu';
 
@@ -103,6 +109,9 @@ export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   JiangShangFuWang,
   SunBinJianZao,
   SunBinJianZaoBonus,
+  WokouJieHai,
+  QidanDaCao,
+  QingZhouJingHan,
 ];
 
 export function registerAllSkills(registry: SkillRegistry): void {

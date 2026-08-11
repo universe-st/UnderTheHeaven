@@ -84,6 +84,12 @@ export interface BattleState {
   jianzaoBonus: number;
   /** 孙膑「减灶」：效果是否生效（发动后 true，玩家打光手牌后 false） */
   jianzaoActive: boolean;
+  /**
+   * 倭寇「劫海」：本场战斗中被劫走的玩家手牌（深拷贝记录，仅记录不移出原数组）。
+   * 敌方被击败（玩家胜利）后，这些牌无条件全量写回玩家牌库（见 BattleFlowManager 结算）。
+   * 可选字段：GameScene.initBattle() 初始化为 []，技能侧读取前兜底初始化。
+   */
+  wokouStolenCards?: Card[];
 }
 
 /** Roguelike 局外循环进入战斗时由 MapScene 传入的节点信息 */

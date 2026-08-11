@@ -176,6 +176,9 @@ export class LoadingScene extends Phaser.Scene {
     this.load.image('char_mongol_army', 'char_mongol_army.png');
     this.load.image('char_xiliang_army', 'char_xiliang_army.png');
     this.load.image('char_xiongnu_army', 'char_xiongnu_army.png');
+    this.load.image('char_wokou', 'char_wokou.png');
+    this.load.image('char_qidan', 'char_qidan.png');
+    this.load.image('char_qingzhou', 'char_qingzhou.png');
 
     for (const voiceKey of VoiceManager.voiceKeys) {
       this.load.audio(voiceKey, `voice/${voiceKey}.mp3`);

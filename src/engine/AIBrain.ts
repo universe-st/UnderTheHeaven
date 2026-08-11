@@ -273,6 +273,36 @@ const BOT_PROFILES: Record<EnemyCharacterId, BotProfile> = {
     passThreshold: 0.3,
     bombOverride: null,
   },
+  // 倭寇「劫海」：高侵略、喜抢牌强攻（类似强盗但更凶猛）
+  wokou: {
+    aggression: 0.65,
+    comboPreference: 0.4,
+    handClearingTendency: 0.4,
+    weights: null,
+    selection: { candidateCount: 3, randomThreshold: 0.12 },
+    passThreshold: 0.05,
+    bombOverride: null,
+  },
+  // 契丹士兵「打草」：中高侵略，边打边抢
+  qidan: {
+    aggression: 0.55,
+    comboPreference: 0.4,
+    handClearingTendency: 0.35,
+    weights: null,
+    selection: { candidateCount: 3, randomThreshold: 0.10 },
+    passThreshold: 0.1,
+    bombOverride: null,
+  },
+  // 青州兵「精悍」：中低侵略、偏防守（回血流拖持久战）
+  qingzhou: {
+    aggression: 0.4,
+    comboPreference: 0.35,
+    handClearingTendency: 0.3,
+    weights: null,
+    selection: { candidateCount: 2, randomThreshold: 0.08 },
+    passThreshold: 0.25,
+    bombOverride: null,
+  },
 };
 
 // ========== 带钩子的评分与选择辅助函数 ==========

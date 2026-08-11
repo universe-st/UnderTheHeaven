@@ -406,6 +406,8 @@ export class GameScene extends Phaser.Scene {
       // 孙膑「减灶」状态：发动后写入弃牌总分并置 active，玩家打光手牌后复位
       jianzaoBonus: 0,
       jianzaoActive: false,
+      // 倭寇「劫海」：被劫走的玩家手牌记录，敌方被击败后回归玩家牌库
+      wokouStolenCards: [],
     };
   }
 

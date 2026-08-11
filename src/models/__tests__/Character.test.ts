@@ -2,15 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { PLAYER_CHARACTER_LIST, ENEMY_CHARACTER_LIST } from '../Character';
 
 /** 名人堂分组展示的朝代（与 HallOfFameScene.DYNASTY_ORDER 保持一致） */
-const KNOWN_DYNASTIES = new Set(['战国', '秦', '秦汉', '东汉', '三国', '西晋', '南北朝', '隋唐', '宋', '元', '明', '清', '敌军']);
+const KNOWN_DYNASTIES = new Set(['周', '战国', '秦', '秦汉', '东汉', '三国', '西晋', '南北朝', '隋唐', '宋', '辽', '元', '明', '清', '敌军']);
 
 describe('Character 名人堂字段（dynasty / bio）', () => {
   const all = [...PLAYER_CHARACTER_LIST, ...ENEMY_CHARACTER_LIST];
 
-  it('全部角色共 37 个（29 玩家 + 8 敌人）', () => {
-    expect(PLAYER_CHARACTER_LIST.length).toBe(29);
-    expect(ENEMY_CHARACTER_LIST.length).toBe(8);
-    expect(all.length).toBe(37);
+  it('全部角色共 42 个（31 玩家 + 11 敌人）', () => {
+    expect(PLAYER_CHARACTER_LIST.length).toBe(31);
+    expect(ENEMY_CHARACTER_LIST.length).toBe(11);
+    expect(all.length).toBe(42);
   });
 
   it('每个角色都有 dynasty 与 bio', () => {
