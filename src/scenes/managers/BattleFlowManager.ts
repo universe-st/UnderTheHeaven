@@ -331,6 +331,10 @@ export class BattleFlowManager {
       // 出完牌直接结算：对方没有响应机会，关羽「武圣」不触发
       this.host.battle.player.pendingRedCount = 0;
       await this.damageSettlement.playDamageSettlement(pattern, 'enemy', true);
+      // 玩家打光手牌：减灶效果周期结束（打出最后一手当次的结算仍在 active 内，故复位须在结算之后）
+      this.host.battle.jianzaoActive = false;
+      // 圈结束：清空这一圈敌方打出的牌记录
+      this.host.battle.roundEnemyCards = [];
       if (this.host.battle.enemy.vitality <= 0) {
         this.showGameOver(true);
         return;
@@ -406,6 +410,8 @@ export class BattleFlowManager {
         this.showGameOver(false);
         return;
       }
+      // 玩家不出结算完成：一圈结束，清空这一圈敌方打出的牌记录
+      this.host.battle.roundEnemyCards = [];
       this.host.battle.lastPlay = null;
       await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.phase = 'ai_init';
@@ -421,6 +427,20 @@ export class BattleFlowManager {
         this.showGameOver(true);
         return;
       }
+      // 敌方选择不出、伤害结算完成：广播 ON_ENEMY_PASS
+      // （姜尚「垂钓」读取这一圈敌方打出的牌；必须在清空 roundEnemyCards 之前）
+      const enemyPassCtx: SkillContext = {
+        gameScene: this.scene,
+        battle: this.host.battle,
+        sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
+        pattern: lastPlay,
+        playerCharacterIds: this.host.playerCharacterIds,
+        enemyCharacterId: this.host.battle.enemyCharacterId,
+        roundEnemyCards: this.host.battle.roundEnemyCards,
+      };
+      await this.host.skillEventBus.emit(SkillTiming.ON_ENEMY_PASS, enemyPassCtx);
+      // 一圈结束：清空这一圈敌方打出的牌记录（须在 ON_ENEMY_PASS emit 之后）
+      this.host.battle.roundEnemyCards = [];
       this.host.battle.lastPlay = null;
       await this.cardDisplay.fadeOutCenterCardsAsync();
       // 敌方不出，玩家获得牌权：广播 ON_GAIN_TURN（如赵高「指鹿」）；重置获得牌权型主动技次数
@@ -524,6 +544,16 @@ export class BattleFlowManager {
       if (this.host.battle.player.hand.length === 0) {
         this.refillPlayerHand();
         this.cardDisplay.renderPlayerHand(true);
+        // 玩家手牌打空补满到上限：广播 ON_HAND_REFILLED
+        // （姜尚「辅王」补大王/3、孙膑「减灶」弃牌发动；敌方摸满不触发）
+        const refillCtx: SkillContext = {
+          gameScene: this.scene,
+          battle: this.host.battle,
+          sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
+          playerCharacterIds: this.host.playerCharacterIds,
+          enemyCharacterId: this.host.battle.enemyCharacterId,
+        };
+        await this.host.skillEventBus.emit(SkillTiming.ON_HAND_REFILLED, refillCtx);
       }
       return;
     }
@@ -589,6 +619,8 @@ export class BattleFlowManager {
       enemyHand.splice(i, 1);
     }
     this.host.battle.enemy.discardPile.push(...playedCards);
+    // 记录敌方这一圈打出的牌（姜尚「垂钓」结算时读取，含临时牌由技能侧过滤）
+    this.host.battle.roundEnemyCards.push(...playedCards);
     sortHand(enemyHand);
 
     this.host.battle.lastPlay = pattern;
@@ -634,6 +666,8 @@ export class BattleFlowManager {
         return;
       }
       this.host.battle.lastPlay = null;
+      // 敌方打光手牌直接结算：圈结束清空这一圈敌方打出的牌记录
+      this.host.battle.roundEnemyCards = [];
       this.refillEnemyHand();
 
       const gainTurnCtx: SkillContext = {
@@ -767,6 +801,8 @@ export class BattleFlowManager {
       enemyHand.splice(i, 1);
     }
     this.host.battle.enemy.discardPile.push(...playedCards);
+    // 记录敌方这一圈打出的牌（姜尚「垂钓」结算时读取，含临时牌由技能侧过滤）
+    this.host.battle.roundEnemyCards.push(...playedCards);
     sortHand(enemyHand);
 
     this.host.battle.lastPlay = pattern;
@@ -810,6 +846,8 @@ export class BattleFlowManager {
         return;
       }
       this.host.battle.lastPlay = null;
+      // 敌方打光手牌直接结算：圈结束清空这一圈敌方打出的牌记录
+      this.host.battle.roundEnemyCards = [];
       await this.refillIfEmpty('enemy');
 
       const gainTurnCtx: SkillContext = {

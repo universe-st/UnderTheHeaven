@@ -75,6 +75,15 @@ export interface BattleState {
   lastPlay: HandPattern | null;
   phase: 'play' | 'respond';
   turnCount: number;
+  /**
+   * 当前一圈敌方打出的所有牌（含临时牌）。敌方每手出牌时 append，
+   * 每圈结算完成清桌时清空（清空点在 ON_ENEMY_PASS emit 之后，姜尚「垂钓」要读）。
+   */
+  roundEnemyCards: Card[];
+  /** 孙膑「减灶」：本手牌周期弃置三张牌的总分数（默认 0） */
+  jianzaoBonus: number;
+  /** 孙膑「减灶」：效果是否生效（发动后 true，玩家打光手牌后 false） */
+  jianzaoActive: boolean;
 }
 
 /** Roguelike 局外循环进入战斗时由 MapScene 传入的节点信息 */

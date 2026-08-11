@@ -1,5 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu';
-export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin';
 
 export interface CharacterAbility {
   skillId: string;
@@ -288,6 +287,27 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     bio: '秦末西楚霸王，力能扛鼎，垓下兵败后乌江自刎。',
     abilities: [
       { skillId: 'xiangyu_pofu', name: '破釜', description: '（主动技）每个牌权限一次，你可以弃置任意合法牌型，扣减自身分数总和乘以牌型系数的气数给对方造成两倍伤害。如果你的气数无法承担扣减则无法发动。' },
+    ],
+  },
+  jiangshang: {
+    id: 'jiangshang',
+    name: '姜尚',
+    dynasty: '周',
+    bio: '周朝开国元勋，垂钓渭水以待明主，辅周伐纣，功成封神。',
+    abilities: [
+      { skillId: 'jiangshang_chuidiao', name: '垂钓', description: '若你打出单张牌型响应后对方无法继续接应，则在伤害结算完成后，你获得这一圈对方打出的所有非临时牌，并将这些牌变成临时牌' },
+      { skillId: 'jiangshang_fuwang', name: '辅王', description: '你摸满手牌后，若手牌中不包含大王或3，你从己方牌堆里获得之' },
+    ],
+  },
+  sunbin: {
+    id: 'sunbin',
+    name: '孙膑',
+    dynasty: '战国',
+    bio: '战国军事家，孙武后裔，著《孙膑兵法》，围魏救赵、减灶诱敌。',
+    abilities: [
+      { skillId: 'sunbin_jianzao', name: '减灶', description: '你摸满手牌后，主动选择三张牌弃置。直到你打完手牌为止，每次你结算伤害时，额外加上这三张牌的总分数' },
+      // 减灶拆分的内部技能条目（伤害累加后加成，用于注册，不单独显示）
+      { skillId: 'sunbin_jianzao_bonus', name: '减灶', description: '', hidden: true },
     ],
   },
 };

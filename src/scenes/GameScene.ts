@@ -401,6 +401,11 @@ export class GameScene extends Phaser.Scene {
       lastPlay: null,
       phase: 'play',
       turnCount: 1,
+      // 当前一圈敌方打出的牌（敌方出牌时由 BattleFlowManager append，圈结束清空）
+      roundEnemyCards: [],
+      // 孙膑「减灶」状态：发动后写入弃牌总分并置 active，玩家打光手牌后复位
+      jianzaoBonus: 0,
+      jianzaoActive: false,
     };
   }
 

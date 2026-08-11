@@ -34,6 +34,9 @@ function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
     lastPlay: null,
     phase: 'play',
     turnCount: 1,
+    roundEnemyCards: [],
+    jianzaoBonus: 0,
+    jianzaoActive: false,
     ...overrides,
   };
 }

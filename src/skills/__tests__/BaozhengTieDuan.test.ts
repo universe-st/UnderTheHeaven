@@ -180,7 +180,7 @@ describe('包拯「铁断」系数+5（ON_COEFFICIENT_REVEALED）', () => {
       battle: {
         player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: 'player' },
         enemy: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: 'enemy' },
-        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1,
+        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1, roundEnemyCards: [], jianzaoBonus: 0, jianzaoActive: false,
       },
       sourceCharacterId: 'baozheng',
       playerCharacterIds: ['baozheng'],
@@ -272,7 +272,7 @@ describe('包拯「铁断」按牌面区分台词', () => {
       battle: {
         player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: 'player' },
         enemy: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: 'enemy' },
-        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1,
+        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1, roundEnemyCards: [], jianzaoBonus: 0, jianzaoActive: false,
       },
       sourceCharacterId: 'baozheng',
       playerCharacterIds: ['baozheng'],

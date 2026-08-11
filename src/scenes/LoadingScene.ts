@@ -164,6 +164,8 @@ export class LoadingScene extends Phaser.Scene {
     this.load.image('char_weizheng', 'char_weizheng.png');
     this.load.image('char_zhangliang', 'char_zhangliang.png');
     this.load.image('char_xiangyu', 'char_xiangyu.png');
+    this.load.image('char_jiangshang', 'char_jiangshang.png');
+    this.load.image('char_sunbin', 'char_sunbin.png');
 
     // 敌人头像图片
     this.load.image('char_huangjinjun', 'char_huangjinjun.png');

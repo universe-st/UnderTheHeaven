@@ -117,6 +117,23 @@ export class DamageSettlementManager {
     if (this.host.damageSettlementCancelled) return;
     await waitForDelay(this.scene, 180);
 
+    // 所有牌伤害累加完成后、系数亮出之前：广播 ON_DAMAGE_ACCUMULATED
+    // （孙膑「减灶」在此增加 sumRanks 与计数器显示，随后 finalDamage 重算自然包含加成）
+    const onAccumulatedCtx: SkillContext = {
+      gameScene: this.scene,
+      battle: this.host.battle,
+      sourceCharacterId: sourceCharId,
+      pattern,
+      target,
+      damageInfo,
+      playerCharacterIds: this.host.playerCharacterIds,
+      enemyCharacterId: this.host.battle.enemyCharacterId,
+      centerCardContainers: this.host.centerCards,
+      damageCounterText: counterText,
+    };
+    await this.host.skillEventBus.emit(SkillTiming.ON_DAMAGE_ACCUMULATED, onAccumulatedCtx);
+    if (this.host.damageSettlementCancelled) return;
+
     damageInfo.finalDamage = Math.round(
       damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
     );

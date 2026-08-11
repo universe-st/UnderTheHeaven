@@ -16,6 +16,12 @@ export enum SkillTiming {
   HAND_VALIDATION = 'hand_validation',
   AFTER_HEALTH_DECREASE = 'after_health_decrease',
   AFTER_SINGLE_CARD_SETTLEMENT = 'after_single_card_settlement',
+  /** 玩家手牌打空后补满到上限的那一刻触发（玩家侧专用；敌方摸满不触发） */
+  ON_HAND_REFILLED = 'on_hand_refilled',
+  /** 所有牌伤害累加完成后、系数亮出之前，整次结算触发一次（孙膑「减灶」加成） */
+  ON_DAMAGE_ACCUMULATED = 'on_damage_accumulated',
+  /** 敌方选择不出、一圈结束且伤害结算完成后触发（姜尚「垂钓」） */
+  ON_ENEMY_PASS = 'on_enemy_pass',
 }
 
 export interface SkillContext {
@@ -34,6 +40,11 @@ export interface SkillContext {
   };
   playerCharacterIds: string[];
   enemyCharacterId?: string;
+  /**
+   * 当前一圈敌方打出的所有牌（ON_ENEMY_PASS 时填充；含临时牌，技能侧自行过滤）。
+   * 每圈结束（结算完成清桌时）由 BattleFlowManager 清空。
+   */
+  roundEnemyCards?: Card[];
   centerCardContainers?: Phaser.GameObjects.Container[];
   playedCards?: Card[];
   /**

@@ -32,6 +32,9 @@ function makeBattle(partial: Partial<PlayerState> = {}): BattleState {
     lastPlay: null,
     phase: 'play',
     turnCount: 1,
+    roundEnemyCards: [],
+    jianzaoBonus: 0,
+    jianzaoActive: false,
   };
 }
 

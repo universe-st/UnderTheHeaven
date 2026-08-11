@@ -25,6 +25,9 @@ function makeBattle(hand: Card[] = []): BattleState {
     lastPlay: null,
     phase: 'play',
     turnCount: 1,
+    roundEnemyCards: [],
+    jianzaoBonus: 0,
+    jianzaoActive: false,
   };
 }
 

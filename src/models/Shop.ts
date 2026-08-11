@@ -60,6 +60,8 @@ export const CHARACTER_PRICES: Record<PlayerCharacterId, number> = {
   weizheng: 75,
   zhangliang: 120,
   xiangyu: 120,
+  jiangshang: 120,
+  sunbin: 120,
 };
 
 /** 黄金台刷新费用：基础 5 通宝，每刷新一次 +1 */

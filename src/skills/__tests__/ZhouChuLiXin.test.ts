@@ -21,6 +21,9 @@ function baseCtx(overrides: Partial<SkillContext> = {}): SkillContext {
       lastPlay: null,
       phase: 'play',
       turnCount: 1,
+      roundEnemyCards: [],
+      jianzaoBonus: 0,
+      jianzaoActive: false,
     },
     sourceCharacterId: 'zhouchu',
     target: 'enemy',
@@ -51,7 +54,7 @@ describe('ZhouChuLiXin filter（励心触发判定）', () => {
           skillFlags: { [ZHOUCHU_FLAG_HAS_LIXIN]: true },
         },
         enemy: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌方' },
-        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1,
+        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1, roundEnemyCards: [], jianzaoBonus: 0, jianzaoActive: false,
       },
     });
     expect(ZhouChuLiXin.filter(ctx)).toBe(true);
@@ -71,7 +74,7 @@ describe('ZhouChuLiXin filter（励心触发判定）', () => {
           skillFlags: { [ZHOUCHU_FLAG_BIG_JOKER]: true, [ZHOUCHU_FLAG_SMALL_JOKER]: false },
         },
         enemy: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌方' },
-        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1,
+        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1, roundEnemyCards: [], jianzaoBonus: 0, jianzaoActive: false,
       },
     });
     expect(ZhouChuLiXin.filter(ctx)).toBe(false);
@@ -91,7 +94,7 @@ describe('ZhouChuLiXin filter（励心触发判定）', () => {
           skillFlags: { [ZHOUCHU_FLAG_HAS_LIXIN]: true },
         },
         enemy: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌方' },
-        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1,
+        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1, roundEnemyCards: [], jianzaoBonus: 0, jianzaoActive: false,
       },
     });
     expect(ZhouChuLiXin.filter(ctx)).toBe(false);
@@ -106,7 +109,7 @@ describe('ZhouChuLiXin filter（励心触发判定）', () => {
           skillFlags: { [ZHOUCHU_FLAG_HAS_LIXIN]: true },
         },
         enemy: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌方' },
-        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1,
+        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1, roundEnemyCards: [], jianzaoBonus: 0, jianzaoActive: false,
       },
     });
     expect(ZhouChuLiXin.filter(ctx)).toBe(false);
@@ -121,7 +124,7 @@ describe('ZhouChuLiXin filter（励心触发判定）', () => {
           skillFlags: { [ZHOUCHU_FLAG_HAS_LIXIN]: true },
         },
         enemy: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌方' },
-        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1,
+        turnHolder: 'player', lastPlay: null, phase: 'play', turnCount: 1, roundEnemyCards: [], jianzaoBonus: 0, jianzaoActive: false,
       },
     });
     expect(ZhouChuLiXin.filter(ctx)).toBe(false);
