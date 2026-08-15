@@ -1,6 +1,7 @@
 import { SkillTiming, type SkillDefinition, type SkillContext, type SkillVisualManager } from './SkillTypes';
 import type { Card } from '../models/Card';
 import { addCardsToHand } from '../utils/CardActions';
+import { createPokerCardVisual } from '../utils/CardVisual';
 import { waitForTween, waitForDelay } from '../utils/AnimationUtils';
 import { FONT_FAMILY, DEPTH_OVERLAY_TEXT, CARD_W, CARD_H } from '../constants/Layout';
 
@@ -99,8 +100,8 @@ async function pickCardsToKeep(scene: Phaser.Scene, cards: Card[]): Promise<Set<
   overlay.add(title);
 
   for (let i = 0; i < cards.length; i++) {
-    const cc = scene.add.container(startX - centerX + i * gap, 0);
-    drawCardFace(scene, cc, cards[i]!);
+    // 使用与手牌区完全相同的卡面样式（createPokerCardVisual）
+    const cc = createPokerCardVisual(scene, cards[i]!, startX - centerX + i * gap, 0);
 
     // 选中金框（默认隐藏）
     const border = scene.add.graphics();
@@ -173,49 +174,6 @@ async function pickCardsToKeep(scene: Phaser.Scene, cards: Card[]): Promise<Set<
   });
 
   return selected;
-}
-
-/** 在容器内绘制一张标准牌面（背景/花色/点数/王牌红框），参照周处「除害」drawCardFace */
-function drawCardFace(
-  scene: Phaser.Scene,
-  container: Phaser.GameObjects.Container,
-  card: Card,
-): void {
-  const cardBg = scene.add.graphics();
-  cardBg.fillStyle(0xf5f0e0, 1);
-  cardBg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
-  cardBg.lineStyle(2, 0x8a6030, 0.8);
-  cardBg.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
-  container.add(cardBg);
-
-  const suitSymbols: Record<string, string> = {
-    spade: '♠', club: '♣', heart: '♥', diamond: '♦',
-  };
-  const suitSymbol = card.suit ? (suitSymbols[card.suit] ?? '') : '';
-  const topColor = card.suit === 'heart' || card.suit === 'diamond' ? '#c04040' : '#1a1a1a';
-
-  const smallSuit = scene.add.text(-CARD_W / 2 + 10, -CARD_H / 2 + 8, suitSymbol, {
-    fontSize: '22px',
-    fontFamily: FONT_FAMILY,
-    color: topColor,
-  });
-  container.add(smallSuit);
-
-  const rankText = scene.add.text(0, 0, card.rankLabel, {
-    fontSize: '64px',
-    fontFamily: FONT_FAMILY,
-    color: '#2a1008',
-    stroke: '#ffd700',
-    strokeThickness: 3,
-  }).setOrigin(0.5);
-  container.add(rankText);
-
-  if (card.suit === null) {
-    const ring = scene.add.graphics();
-    ring.lineStyle(3, 0xdd3300, 0.9);
-    ring.strokeRoundedRect(-CARD_W / 2 + 4, -CARD_H / 2 + 4, CARD_W - 8, CARD_H - 8, 6);
-    container.add(ring);
-  }
 }
 
 /** 屏幕中部提示文字（浮现 → 停留 → 上浮淡出） */

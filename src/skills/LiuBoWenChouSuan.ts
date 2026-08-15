@@ -2,9 +2,10 @@ import type { ActiveSkillDefinition, ActiveSkillSceneAccess } from './SkillTypes
 import type { Card } from '../models/Card';
 import { rankToLabel, sortHand, getNextCardId } from '../models/Card';
 import { canUseChouCe, middleRanksBetween } from './LiuBoWenChouSuanLogic';
+import { createPokerCardVisual } from '../utils/CardVisual';
 import { waitForTween, waitForDelay } from '../utils/AnimationUtils';
 import { UIFactory } from '../utils/UIFactory';
-import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET, FONT_FAMILY } from '../constants/Layout';
+import { CARD_W, CARD_H, CARD_OVERLAP_OFFSET } from '../constants/Layout';
 
 async function createTempCardToHand(
   scene: ActiveSkillSceneAccess & Phaser.Scene,
@@ -16,35 +17,9 @@ async function createTempCardToHand(
 
   const overlay = scene.add.container(centerX, centerY).setDepth(999).setAlpha(0);
 
-  const cardBg = scene.add.graphics();
-  cardBg.fillStyle(0xf5f0e0, 1);
-  cardBg.fillRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
-  cardBg.lineStyle(2, 0x8a6030, 0.8);
-  cardBg.strokeRoundedRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 8);
-  overlay.add(cardBg);
-
-  const suitSymbols: Record<string, string> = {
-    spade: '♠', club: '♣', heart: '♥', diamond: '♦',
-  };
-  const suitSymbol = tempCard.suit ? (suitSymbols[tempCard.suit] ?? '') : '';
-  const topColor =
-    tempCard.suit === 'heart' || tempCard.suit === 'diamond' ? '#c04040' : '#1a1a1a';
-
-  const smallSuit = scene.add.text(-CARD_W / 2 + 10, -CARD_H / 2 + 8, suitSymbol, {
-    fontSize: '22px',
-    fontFamily: FONT_FAMILY,
-    color: topColor,
-  });
-  overlay.add(smallSuit);
-
-  const rankText = scene.add.text(0, 0, tempCard.rankLabel, {
-    fontSize: '64px',
-    fontFamily: FONT_FAMILY,
-    color: '#2a1008',
-    stroke: '#ffd700',
-    strokeThickness: 3,
-  }).setOrigin(0.5);
-  overlay.add(rankText);
+  // 使用与手牌区完全相同的卡面样式（createPokerCardVisual）
+  const cardFace = createPokerCardVisual(scene, tempCard, 0, 0);
+  overlay.add(cardFace);
 
   const spiderGfx = scene.add.graphics();
   UIFactory.drawSpiderWeb(spiderGfx, CARD_W, CARD_H);

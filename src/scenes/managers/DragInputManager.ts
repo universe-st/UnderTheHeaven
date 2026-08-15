@@ -17,6 +17,8 @@ interface DragInputHost {
   battle: BattleState;
   cardObjects: Phaser.GameObjects.Container[];
   selectedIndices: Set<number>;
+  /** 公共事件「选择手牌」激活期间置 true：挂起普通手牌点击/拖拽/长按/滑动 */
+  handSelectActive?: boolean;
   phase: GamePhase;
   updatePatternHint(): void;
   updateActiveSkillButton(): void;
@@ -61,6 +63,9 @@ export class DragInputManager {
 
     input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       this.activePointers.set(pointer.id, { x: pointer.x, y: pointer.y });
+
+      // 选牌模式（公共事件「选择手牌」）：挂起全部手牌输入，避免与选牌交互冲突
+      if (this.host.handSelectActive) return;
 
       // 双指落下：取消进行中的框选（恢复快照），进入手牌滑动模式
       if (this.activePointers.size >= 2) {
@@ -167,8 +172,9 @@ export class DragInputManager {
       this.resetDragState();
     });
 
-    // 电脑端：鼠标滚轮滑动手牌
+    // 电脑端：鼠标滚轮滑动手牌（选牌模式挂起）
     input.on('wheel', (_pointer: Phaser.Input.Pointer, _over: unknown, deltaX: number, deltaY: number) => {
+      if (this.host.handSelectActive) return;
       if (!this.cardDisplay.isHandScrollable()) return;
       const d = deltaX !== 0 ? deltaX : deltaY;
       this.cardDisplay.scrollHandBy(-d);

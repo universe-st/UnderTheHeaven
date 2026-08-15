@@ -5,6 +5,11 @@ import { HandType, type HandPattern, type BattleState } from '../../models/Battl
 import type { SkillContext, SkillVisualManager } from '../SkillTypes';
 import { ZhuangZhouXiaoYao } from '../ZhuangZhouXiaoYao';
 
+// 卡面渲染（createPokerCardVisual）依赖 Phaser 运行时，node 单测环境不可用，mock 掉仅保留纯逻辑
+vi.mock('../../utils/CardVisual', () => ({
+  createPokerCardVisual: () => ({ add: vi.fn() }),
+}));
+
 let idc = 0;
 function card(rank: number, suit: Card['suit'] = 'spade'): Card {
   idc += 1;

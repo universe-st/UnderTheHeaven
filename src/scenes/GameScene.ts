@@ -15,6 +15,8 @@ import {
   DEPTH_BG, DEPTH_BG_BORDER, DEPTH_UI,
   DEPTH_CENTER_BASE, DEPTH_DAMAGE,
 } from '../constants/Layout';
+import { HandSelectManager } from './managers/HandSelectManager';
+import type { HandSelectEvent, HandSelectOptions } from '../skills/HandSelect';
 import { DragInputManager } from './managers/DragInputManager';
 import { HealthBarManager } from './managers/HealthBarManager';
 import { DamageSettlementManager } from './managers/DamageSettlementManager';
@@ -33,11 +35,13 @@ import { TurnIndicatorManager } from './managers/TurnIndicatorManager';
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
-export class GameScene extends Phaser.Scene {
+export class GameScene extends Phaser.Scene implements HandSelectEvent {
   battle!: BattleState;
   phase: GamePhase = 'player_init';
 
   selectedIndices: Set<number> = new Set();
+  /** 公共事件「选择手牌」激活期间置 true：挂起 DragInputManager 的普通手牌输入 */
+  handSelectActive: boolean = false;
   cardObjects: Phaser.GameObjects.Container[] = [];
   handScrollX: number = 0;
   enemyCardObjects: Phaser.GameObjects.Container[] = [];
@@ -137,6 +141,7 @@ export class GameScene extends Phaser.Scene {
   private infoBarManager!: InfoBarManager;
   private patternHintManager!: PatternHintManager;
   private buttonManager!: ButtonManager;
+  private handSelectManager!: HandSelectManager;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -160,6 +165,7 @@ export class GameScene extends Phaser.Scene {
 
     this.phase = 'player_init';
     this.selectedIndices = new Set();
+    this.handSelectActive = false;
     this.cardObjects = [];
     this.handScrollX = 0;
     this.enemyCardObjects = [];
@@ -258,6 +264,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.cardDisplayManager = new CardDisplayManager(this);
+    this.handSelectManager = new HandSelectManager(this, this.cardDisplayManager);
     this.cardInfoManager = new CardInfoManager(this);
     this.dragInputManager = new DragInputManager(this, this.cardDisplayManager);
     this.dragInputManager.setCardInfoManager(this.cardInfoManager);
@@ -327,8 +334,10 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
-    // 战斗开局：通过标准技能事件通道广播 ON_GAIN_TURN，
-    // 是否触发由已注册技能（如诸葛亮「先算」）自身的 filter 判定。
+    // 战斗开局：通过标准技能事件通道依次广播 ON_GAIN_TURN → ON_HAND_REFILLED，
+    // 是否触发由已注册技能（如诸葛亮「先算」、姜尚「辅王」、孙膑「减灶」）自身的 filter 判定。
+    // 开局双方各摸满 17 张手牌，同样满足「摸满手牌后」语义，故补发 ON_HAND_REFILLED，
+    // 否则孙膑「减灶」/姜尚「辅王」只在手牌打空补满时才触发、开局不触发。
     const initCtx: SkillContext = {
       gameScene: this,
       battle: this.battle,
@@ -337,6 +346,7 @@ export class GameScene extends Phaser.Scene {
       enemyCharacterId: this.battle.enemyCharacterId,
     };
     this.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, initCtx)
+      .then(() => this.skillEventBus.emit(SkillTiming.ON_HAND_REFILLED, initCtx))
       .then(() => { this.renderEnemyHand(); })
       .catch((err) => { console.warn('[GameScene] battle start skill error:', err); });
   }
@@ -546,6 +556,28 @@ export class GameScene extends Phaser.Scene {
 
   getSelectedCards(): Card[] {
     return [...this.selectedIndices].sort((a, b) => a - b).map(i => this.battle.player.hand[i]!).filter((c): c is Card => c !== undefined);
+  }
+
+  /**
+   * 公共事件「选择手牌」：玩家在手牌区交互选牌（确认/取消），敌人直接返回 AI 判断。
+   * 技能经由 ctx.gameScene 调用（见 src/skills/HandSelect.ts）。
+   *
+   * 玩家侧选牌期间临时置 phase='animating'，复用 updateUIForPhase 隐藏出牌/不出/提示/
+   * 主动技按钮与「轮到你出牌」回合指示，结束后恢复原 phase 并刷新 UI。
+   */
+  async selectHandCards(options: HandSelectOptions): Promise<Card[] | null> {
+    if (options.side !== 'player') {
+      return this.handSelectManager.selectHandCards(options);
+    }
+    const prevPhase = this.phase;
+    this.phase = 'animating';
+    this.updateUIForPhase();
+    try {
+      return await this.handSelectManager.selectHandCards(options);
+    } finally {
+      this.phase = prevPhase;
+      this.updateUIForPhase();
+    }
   }
 
   updatePatternHint(): void {

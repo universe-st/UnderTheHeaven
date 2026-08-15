@@ -5,6 +5,11 @@ import { HandType, type HandPattern, type BattleState } from '../../models/Battl
 import type { SkillContext, SkillVisualManager } from '../SkillTypes';
 import { SunBinJianZao, SunBinJianZaoBonus } from '../SunBin';
 
+// 卡面渲染（createPokerCardVisual）依赖 Phaser 运行时，node 单测环境不可用，mock 掉仅保留纯逻辑
+vi.mock('../../utils/CardVisual', () => ({
+  createPokerCardVisual: () => ({ add: vi.fn() }),
+}));
+
 let idc = 0;
 function card(rank: number, suit: Card['suit'] = 'spade'): Card {
   idc += 1;
@@ -64,16 +69,8 @@ function makeVisuals(): SkillVisualManager {
   };
 }
 
-interface MockSceneHandle {
-  scene: Phaser.Scene;
-  /** 按创建顺序记录的 zone pointerdown 回调：前 hand.length 个是牌，随后是「确定」「取消」 */
-  zoneHandlers: Array<(e?: unknown) => void>;
-}
-
-/** mock 一个支撑选牌 UI + discardCardsFromHand / showNotice 的 scene；所有 tween/delay 即时完成 */
-function makeMockScene(battle: BattleState): MockSceneHandle {
-  const zoneHandlers: Array<(e?: unknown) => void> = [];
-
+/** mock 一个支撑 selectHandCards（公共事件）+ discardCardsFromHand / showNotice 的 scene；tween/delay 即时完成 */
+function makeMockScene(battle: BattleState): { scene: Phaser.Scene; selectHandCards: ReturnType<typeof vi.fn> } {
   const container = {
     x: 0, y: 0,
     setDepth: vi.fn(() => container),
@@ -101,24 +98,25 @@ function makeMockScene(battle: BattleState): MockSceneHandle {
     fillRoundedRect: vi.fn(() => gfx),
     strokeRoundedRect: vi.fn(() => gfx),
     setVisible: vi.fn(() => gfx),
+    clear: vi.fn(() => gfx),
   };
   const zone = {
     setInteractive: vi.fn(() => zone),
-    on: vi.fn((ev: string, cb: (e?: unknown) => void) => {
-      if (ev === 'pointerdown') zoneHandlers.push(cb);
-      return zone;
-    }),
+    on: vi.fn(() => zone),
     destroy: vi.fn(),
   };
 
+  const selectHandCards = vi.fn();
   const scene = {
     battle,
     cardObjects: [],
     enemyCardObjects: [],
     handScrollX: 0,
+    updateHandOverflowHints: vi.fn(),
     renderPlayerHand: vi.fn(),
     renderEnemyHand: vi.fn(),
     createCardDisplay: vi.fn(() => container),
+    selectHandCards,
     add: {
       container: vi.fn(() => container),
       graphics: vi.fn(() => gfx),
@@ -136,7 +134,7 @@ function makeMockScene(battle: BattleState): MockSceneHandle {
     time: { delayedCall: (_ms: number, cb: () => void) => { cb(); } },
   } as unknown as Phaser.Scene;
 
-  return { scene, zoneHandlers };
+  return { scene, selectHandCards };
 }
 
 describe('SunBinJianZao filter（减灶发动判定）', () => {
@@ -162,32 +160,35 @@ describe('SunBinJianZao filter（减灶发动判定）', () => {
   });
 });
 
-describe('SunBinJianZao execute（减灶弃牌发动）', () => {
-  it('选3张确定：弃3张入弃牌堆、bonus=三张 score 之和、jianzaoActive=true', async () => {
+describe('SunBinJianZao execute（减灶弃牌发动，经由公共事件选择手牌）', () => {
+  it('选3张确定：调用公共事件参数正确、弃3张入弃牌堆、bonus=三张 score 之和、jianzaoActive=true', async () => {
     const visuals = makeVisuals();
     const battle = makeBattle();
-    battle.player.hand = [card(3), card(5), card(10), card(20, 'heart')];
-    const { scene, zoneHandlers } = makeMockScene(battle);
+    const c3 = card(3);
+    const c5 = card(5);
+    const c10 = card(10);
+    battle.player.hand = [c3, c5, c10, card(20, 'heart')];
+    const { scene, selectHandCards } = makeMockScene(battle);
+    selectHandCards.mockResolvedValue([c3, c5, c10]);
     const ctx = makeCtx({ battle, gameScene: scene });
 
-    const p = SunBinJianZao.execute(ctx, visuals);
-    // 让同步部分执行到阻塞等待点（zone 已全部创建：4 张牌 + 确定 + 取消）
-    await Promise.resolve();
-    await Promise.resolve();
+    await SunBinJianZao.execute(ctx, visuals);
 
-    expect(zoneHandlers.length).toBe(6);
-
-    // 选前 3 张牌（3、5、10），点「确定」（index 4）
-    zoneHandlers[0]!();
-    zoneHandlers[1]!();
-    zoneHandlers[2]!();
-    zoneHandlers[4]!();
-    await p;
+    // 公共事件调用参数：玩家侧、恰好 3 张、全牌可选、可取消、提示文案、AI 策略
+    const opts = selectHandCards.mock.calls[0]![0];
+    expect(opts.side).toBe('player');
+    expect(opts.want([c3, c5, c10])).toBe(true);
+    expect(opts.want([c3, c5])).toBe(false);
+    expect(opts.filter()).toBe(true);
+    expect(opts.forced).toBe(false);
+    expect(opts.title).toContain('减灶');
+    expect(typeof opts.aiPick).toBe('function');
+    // AI 策略：分数最低的 3 张
+    expect(opts.aiPick([c10, c5, c3, card(20)])!.map((c: Card) => c.rank)).toEqual([3, 5, 10]);
 
     // 弃 3 张：手牌剩 1 张，弃牌堆 3 张
     expect(battle.player.hand.length).toBe(1);
     expect(battle.player.discardPile.length).toBe(3);
-    // 弃的是选中的 3 张（uid 不在手牌中）
     const handUids = battle.player.hand.map(c => c.uid);
     for (const c of [battle.player.discardPile[0]!, battle.player.discardPile[1]!, battle.player.discardPile[2]!]) {
       expect(handUids).not.toContain(c.uid);
@@ -198,20 +199,15 @@ describe('SunBinJianZao execute（减灶弃牌发动）', () => {
     expect(visuals.playSkillTriggerSound).toHaveBeenCalled();
   });
 
-  it('取消：不弃牌、jianzaoActive 保持 false', async () => {
+  it('取消（返回 null）：不弃牌、jianzaoActive 保持 false', async () => {
     const visuals = makeVisuals();
     const battle = makeBattle();
     battle.player.hand = [card(3), card(5), card(10), card(20, 'heart')];
-    const { scene, zoneHandlers } = makeMockScene(battle);
+    const { scene, selectHandCards } = makeMockScene(battle);
+    selectHandCards.mockResolvedValue(null);
     const ctx = makeCtx({ battle, gameScene: scene });
 
-    const p = SunBinJianZao.execute(ctx, visuals);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    // 点「取消」（index 5）
-    zoneHandlers[5]!();
-    await p;
+    await SunBinJianZao.execute(ctx, visuals);
 
     expect(battle.player.hand.length).toBe(4);
     expect(battle.player.discardPile.length).toBe(0);
@@ -219,25 +215,33 @@ describe('SunBinJianZao execute（减灶弃牌发动）', () => {
     expect(battle.jianzaoActive).toBe(false);
   });
 
-  it('选中不足3张点确定：视为不发动', async () => {
+  it('返回不足 3 张：视为不发动', async () => {
     const visuals = makeVisuals();
     const battle = makeBattle();
-    battle.player.hand = [card(3), card(5), card(10), card(20, 'heart')];
-    const { scene, zoneHandlers } = makeMockScene(battle);
+    const c3 = card(3);
+    battle.player.hand = [c3, card(5), card(10), card(20, 'heart')];
+    const { scene, selectHandCards } = makeMockScene(battle);
+    selectHandCards.mockResolvedValue([c3]);
     const ctx = makeCtx({ battle, gameScene: scene });
 
-    const p = SunBinJianZao.execute(ctx, visuals);
-    await Promise.resolve();
-    await Promise.resolve();
-
-    // 只选 1 张后点确定
-    zoneHandlers[0]!();
-    zoneHandlers[4]!();
-    await p;
+    await SunBinJianZao.execute(ctx, visuals);
 
     expect(battle.player.hand.length).toBe(4);
     expect(battle.player.discardPile.length).toBe(0);
     expect(battle.jianzaoActive).toBe(false);
+  });
+
+  it('敌方拥有孙膑时（sourceCharacterId 非玩家阵容）：公共事件 side = enemy', async () => {
+    const visuals = makeVisuals();
+    const battle = makeBattle();
+    battle.player.hand = [card(3), card(5), card(10), card(20, 'heart')];
+    const { scene, selectHandCards } = makeMockScene(battle);
+    selectHandCards.mockResolvedValue(null);
+    const ctx = makeCtx({ battle, gameScene: scene, playerCharacterIds: ['hanxin'] });
+
+    await SunBinJianZao.execute(ctx, visuals);
+
+    expect(selectHandCards.mock.calls[0]![0].side).toBe('enemy');
   });
 });
 
