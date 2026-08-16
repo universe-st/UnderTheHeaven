@@ -140,9 +140,16 @@ export class CardInfoManager {
     panel.setInteractive(new Phaser.Geom.Rectangle(left, top, PANEL_W, panelH), Phaser.Geom.Rectangle.Contains);
     container.add(panel);
 
-    // ── 标题行：花色 + 点数（王/虎/龍 显示对应文案） ──
-    const suitLabel = card.suit !== null ? SUIT_LABELS[card.suit] : card.rankLabel;
-    const titleText = `${suitLabel} ${card.rankLabel}`;
+    // ── 标题行：花色 + 点数；王牌显示「龍 大王」/「虎 小王」 ──
+    // 王牌的 rankLabel 为「虎」（rank 25，小王）/「龍」（rank 30，大王），
+    // 旧实现直接用 rankLabel 拼标题会产生「虎 虎」「龍 龍」。
+    let titleText: string;
+    if (card.suit !== null) {
+      titleText = `${SUIT_LABELS[card.suit]} ${card.rankLabel}`;
+    } else {
+      const jokerName = card.rank === 30 ? '大王' : '小王';
+      titleText = `${card.rankLabel} ${jokerName}`;
+    }
     const title = h.add.text(px, top + 28, titleText, {
       fontSize: '30px',
       fontFamily: FONT_FAMILY,

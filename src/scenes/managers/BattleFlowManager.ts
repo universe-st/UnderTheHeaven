@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Card } from '../../models/Card';
-import { shuffleDeck, sortHand, sortPlayedCards } from '../../models/Card';
+import { shuffleDeck, sortHand, sortPlayedCards, cardScoreBoostKey } from '../../models/Card';
 import type { BattleState, HandPattern } from '../../models/BattleTypes';
 import { HandType, HAND_TYPE_LABELS } from '../../models/BattleTypes';
 import { identifyHand } from '../../engine/HandRecognizer';
@@ -271,6 +271,8 @@ export class BattleFlowManager {
       sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0]!,
       pattern,
       target: 'enemy',
+      // 是否为响应（跟牌）出牌：韩世忠「忠武」等技能据此判定
+      isRespond: prevPhase === 'player_respond',
       playerCharacterIds: this.host.playerCharacterIds,
       enemyCharacterId: this.host.battle.enemyCharacterId,
       centerCardContainers: this.host.centerCards,
@@ -404,8 +406,11 @@ export class BattleFlowManager {
 
       await this.damageSettlement.playDamageSettlement(lastPlay, 'player', false);
       // 张飞「断喝」型取消（cancelDamageSettlement(true) 已把牌权给玩家）→ 直接返回；
+      // 荆轲「匕现」反杀（敌方被反伤击败，phase 已为 game_over）→ 同样直接返回；
       // 庄周「逍遥」型取消（cancelDamageSettlement(false) 仅无效伤害）→ 继续走正常结算后流程（敌方继续出牌）
-      if (this.host.damageSettlementCancelled && (this.host.phase as GamePhase) === 'player_init') return;
+      const cancelledPhase = this.host.phase as GamePhase;
+      if (this.host.damageSettlementCancelled
+        && (cancelledPhase === 'player_init' || cancelledPhase === 'game_over')) return;
       if (this.host.battle.player.vitality <= 0) {
         this.showGameOver(false);
         return;
@@ -459,6 +464,10 @@ export class BattleFlowManager {
    * 与敌方清空手牌路径（aiRespond/aiInitiatePlay 中）的广播保持一致的 context。
    */
   private async emitPlayerGainTurn(): Promise<void> {
+    // 周瑜「反间」标记过期：玩家获得牌权即失效（「到你下次获得牌权之前」语义）。
+    // 仅玩家获得牌权时清空；敌方获得牌权（aiInitiatePlay 中 sourceCharacterId 为
+    // 敌方的 ON_GAIN_TURN）不清。
+    this.host.battle.fanjianMarkedUid = undefined;
     const gainTurnCtx: SkillContext = {
       gameScene: this.scene,
       battle: this.host.battle,
@@ -539,28 +548,94 @@ export class BattleFlowManager {
     this.refillHand('enemy');
   }
 
+  /**
+   * 摸满玩家手牌（公共事件）：玩家手牌为空时补满至上限、渲染入场动画，
+   * 并广播 ON_HAND_REFILLED（孙膑「减灶」、姜尚「辅王」等「摸满手牌后」技能响应）。
+   *
+   * 所有「玩家摸满手牌」路径统一走此方法：
+   * - 获得牌权补满（refillIfEmpty）
+   * - 主动技弃空手牌（ActiveSkillManager.onSkillClick）
+   * - 海瑞「谏疏」弃空手牌（HaiRuiJianShu）
+   */
+  async refillPlayerHandAndNotify(): Promise<void> {
+    if (this.host.battle.player.hand.length === 0) {
+      this.refillPlayerHand();
+      this.cardDisplay.renderPlayerHand(true);
+      const refillCtx: SkillContext = {
+        gameScene: this.scene,
+        battle: this.host.battle,
+        sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
+        playerCharacterIds: this.host.playerCharacterIds,
+        enemyCharacterId: this.host.battle.enemyCharacterId,
+      };
+      await this.host.skillEventBus.emit(SkillTiming.ON_HAND_REFILLED, refillCtx);
+    }
+  }
+
   async refillIfEmpty(who: 'player' | 'enemy'): Promise<void> {
     if (who === 'player') {
-      if (this.host.battle.player.hand.length === 0) {
-        this.refillPlayerHand();
-        this.cardDisplay.renderPlayerHand(true);
-        // 玩家手牌打空补满到上限：广播 ON_HAND_REFILLED
-        // （姜尚「辅王」补大王/3、孙膑「减灶」弃牌发动；敌方摸满不触发）
-        const refillCtx: SkillContext = {
-          gameScene: this.scene,
-          battle: this.host.battle,
-          sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
-          playerCharacterIds: this.host.playerCharacterIds,
-          enemyCharacterId: this.host.battle.enemyCharacterId,
-        };
-        await this.host.skillEventBus.emit(SkillTiming.ON_HAND_REFILLED, refillCtx);
-      }
+      await this.refillPlayerHandAndNotify();
       return;
     }
     if (this.host.battle.enemy.hand.length === 0) {
       this.refillEnemyHand();
       await this.cardDisplay.renderEnemyHandAsync(300);
     }
+  }
+
+  /**
+   * 周瑜「反间」劫持：敌方刚打出的整手牌（playedCards）中包含被标记的牌时，
+   * 以敌方打出的整手牌对敌方结算伤害（视为周瑜打出），结算完成后周瑜获得牌权。
+   *
+   * - 触发条件：battle.fanjianMarkedUid 存在 && playedCards 中某张 uid === 标记 uid；
+   * - 以敌方刚打出的整手牌 pattern 对敌方结算（target === 'enemy'，玩家阵容伤害
+   *   加成技能如减灶/性善因 target === 'enemy' 自然正常触发，无需额外处理）；
+   * - 敌方已打出的牌（enemy.discardPile / roundEnemyCards）保持现有逻辑不变
+   *   （牌已打出不撤回）；被劫持后本圈直接结束（玩家此前打出的牌被反间覆盖，
+   *   lastPlay 置空、桌面清空）；
+   * - 结算被取消（damageSettlementCancelled && phase 为 'player_init'/'game_over'）
+   *   → 尊重取消语义直接返回；敌方被反间伤害击败 → showGameOver(true)；
+   * - 收尾统一走 emitPlayerGainTurn()（触发「获得牌权时」类技能），不手写重复广播。
+   *
+   * @returns true 表示本次敌方出牌已被劫持，调用方应直接返回。
+   */
+  private async tryFanjianHijack(playedCards: Card[], pattern: HandPattern): Promise<boolean> {
+    const markedUid = this.host.battle.fanjianMarkedUid;
+    if (!markedUid) return false;
+    if (!playedCards.some(c => c.uid === markedUid)) return false;
+
+    // a. 以敌方刚打出的整手牌对敌方结算（视为周瑜打出）
+    await this.damageSettlement.playDamageSettlement(pattern, 'enemy', true);
+    // b. 标记已触发，清空
+    this.host.battle.fanjianMarkedUid = undefined;
+
+    // c. 结算被取消（如张飞「断喝」已把牌权给玩家、荆轲「匕现」反杀 phase 为 game_over）
+    //    → 尊重取消语义直接返回
+    if (this.host.damageSettlementCancelled
+      && (this.host.phase === 'player_init' || this.host.phase === 'game_over')) return true;
+
+    if (this.host.battle.enemy.vitality <= 0) {
+      this.showGameOver(true);
+      return true;
+    }
+
+    // d. 敌方已打出的牌保持现有逻辑不变（不撤回）；反间覆盖本圈：
+    //    清空这一圈敌方打出的牌记录与桌面，本圈直接结束
+    this.host.battle.roundEnemyCards = [];
+    this.host.battle.lastPlay = null;
+    await this.cardDisplay.fadeOutCenterCardsAsync();
+
+    // 周瑜获得牌权：广播 ON_GAIN_TURN（触发「获得牌权时」类技能，含反间标记
+    // 过期清空）并走标准获得牌权收尾
+    await this.emitPlayerGainTurn();
+    this.host.battle.turnHolder = 'player';
+    this.host.phase = 'player_init';
+    this.host.initActiveSkills();
+    this.host.resetActiveSkillUses('gain-turn');
+    await this.refillIfEmpty('player');
+    this.host.updateUIForPhase();
+    this.host.respondChainDepth = 0;
+    return true;
   }
 
   async aiRespond(): Promise<void> {
@@ -634,6 +709,12 @@ export class BattleFlowManager {
     const pos = this.cardDisplay.getCardFanPositions(displayCards.length, 1380, 475);
     await this.cardDisplay.animateCardsToPositionsAsync(displayCards, pos, 120);
 
+    // 周瑜「反间」劫持点：敌方打出的整手牌包含被标记的牌时，以敌方整手牌对敌方
+    // 结算（视为周瑜打出），结算完成后周瑜获得牌权，本圈直接结束
+    this.host.centerCards = displayCards;
+    this.host.centerCardsOwner = 'enemy';
+    if (await this.tryFanjianHijack(playedCards, pattern)) return;
+
     if (enemyHand.length === 0) {
       this.host.centerCards = [...displayCards];
       this.host.centerCardsOwner = 'enemy';
@@ -659,8 +740,10 @@ export class BattleFlowManager {
       // 敌方出完牌直接结算：玩家非主动出牌，武圣判定依据清零
       this.host.battle.player.pendingRedCount = 0;
       await this.damageSettlement.playDamageSettlement(pattern, 'player', true);
-      // 张飞「断喝」型取消（已把牌权给玩家）→ 直接返回；庄周「逍遥」型取消（仅无效伤害）→ 继续正常结算后流程
-      if (this.host.damageSettlementCancelled && this.host.phase === 'player_init') return;
+      // 张飞「断喝」型取消（已把牌权给玩家）→ 直接返回；荆轲「匕现」反杀（phase 为 game_over）→ 直接返回；
+      // 庄周「逍遥」型取消（仅无效伤害）→ 继续正常结算后流程
+      if (this.host.damageSettlementCancelled
+        && (this.host.phase === 'player_init' || this.host.phase === 'game_over')) return;
       if (this.host.battle.player.vitality <= 0) {
         this.showGameOver(false);
         return;
@@ -670,14 +753,8 @@ export class BattleFlowManager {
       this.host.battle.roundEnemyCards = [];
       this.refillEnemyHand();
 
-      const gainTurnCtx: SkillContext = {
-        gameScene: this.scene,
-        battle: this.host.battle,
-        sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
-        playerCharacterIds: this.host.playerCharacterIds,
-        enemyCharacterId: this.host.battle.enemyCharacterId,
-      };
-      await this.host.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, gainTurnCtx);
+      // 敌方出完牌，玩家获得牌权：广播 ON_GAIN_TURN（含反间标记过期清空）
+      await this.emitPlayerGainTurn();
 
       await this.cardDisplay.renderEnemyHandAsync(300);
       await this.cardDisplay.animateShiftAndReplaceAsync(playerCenterCards, displayCards, 150);
@@ -817,6 +894,10 @@ export class BattleFlowManager {
     this.host.centerCards = displayCards;
     this.host.centerCardsOwner = 'enemy';
 
+    // 周瑜「反间」劫持点：敌方打出的整手牌包含被标记的牌时，以敌方整手牌对敌方
+    // 结算（视为周瑜打出），结算完成后周瑜获得牌权，本圈直接结束
+    if (await this.tryFanjianHijack(playedCards, pattern)) return;
+
     this.cardDisplay.showPatternLabel(
       HAND_TYPE_LABELS[pattern.type],
       pattern.type === HandType.Bomb || pattern.type === HandType.Rocket,
@@ -839,8 +920,10 @@ export class BattleFlowManager {
       // 敌方出完牌直接结算：玩家非主动出牌，武圣判定依据清零
       this.host.battle.player.pendingRedCount = 0;
       await this.damageSettlement.playDamageSettlement(pattern, 'player', true);
-      // 张飞「断喝」型取消（已把牌权给玩家）→ 直接返回；庄周「逍遥」型取消（仅无效伤害）→ 继续正常结算后流程
-      if (this.host.damageSettlementCancelled && this.host.phase === 'player_init') return;
+      // 张飞「断喝」型取消（已把牌权给玩家）→ 直接返回；荆轲「匕现」反杀（phase 为 game_over）→ 直接返回；
+      // 庄周「逍遥」型取消（仅无效伤害）→ 继续正常结算后流程
+      if (this.host.damageSettlementCancelled
+        && (this.host.phase === 'player_init' || this.host.phase === 'game_over')) return;
       if (this.host.battle.player.vitality <= 0) {
         this.showGameOver(false);
         return;
@@ -850,14 +933,8 @@ export class BattleFlowManager {
       this.host.battle.roundEnemyCards = [];
       await this.refillIfEmpty('enemy');
 
-      const gainTurnCtx: SkillContext = {
-        gameScene: this.scene,
-        battle: this.host.battle,
-        sourceCharacterId: this.host.battle.player.characterId ?? this.host.playerCharacterIds[0] ?? 'player',
-        playerCharacterIds: this.host.playerCharacterIds,
-        enemyCharacterId: this.host.battle.enemyCharacterId,
-      };
-      await this.host.skillEventBus.emit(SkillTiming.ON_GAIN_TURN, gainTurnCtx);
+      // 敌方出完牌，玩家获得牌权：广播 ON_GAIN_TURN（含反间标记过期清空）
+      await this.emitPlayerGainTurn();
 
       await this.cardDisplay.renderEnemyHandAsync(300);
       await this.cardDisplay.fadeOutCenterCardsAsync();
@@ -978,8 +1055,13 @@ export class BattleFlowManager {
     if (pendingRun) {
       const markers = { ...pendingRun.characterMarkers };
       markers.lanyu = this.host.battle.player.aoMarkers ?? 0;
-      if ((this.host.battle.player.lostCharacters ?? []).includes('lanyu')) {
-        pendingRun.roster = pendingRun.roster.filter(id => id !== 'lanyu');
+      // 战斗中失去的角色牌（蓝玉「桀骜」反噬、海瑞「谏疏」移除等）永久移出阵容，
+      // 黄金台可重新招募；蓝玉的「骜」标记一并清零
+      const lost = this.host.battle.player.lostCharacters ?? [];
+      if (lost.length > 0) {
+        pendingRun.roster = pendingRun.roster.filter(id => !lost.includes(id));
+      }
+      if (lost.includes('lanyu')) {
         markers.lanyu = 0;
       }
       pendingRun.characterMarkers = markers;
@@ -988,6 +1070,28 @@ export class BattleFlowManager {
       const skillFlags = { ...pendingRun.characterSkillFlags };
       Object.assign(skillFlags, this.host.battle.player.skillFlags ?? {});
       pendingRun.characterSkillFlags = skillFlags;
+
+      // 田文「养士」：本场战斗累计的卡牌分数加成合并写回（跨对局继承）。
+      // 每次获得牌权触发技能时已在战斗内累加（battle.player.scoreBoosts），
+      // 这里与存档中的历史加成合并，下场战斗 initBattle 时重新应用。
+      const scoreBoosts = this.host.battle.player.scoreBoosts ?? {};
+      if (Object.keys(scoreBoosts).length > 0) {
+        const mergedBoosts = { ...pendingRun.scoreBoosts };
+        for (const [key, value] of Object.entries(scoreBoosts)) {
+          mergedBoosts[key] = (mergedBoosts[key] ?? 0) + value;
+        }
+        pendingRun.scoreBoosts = mergedBoosts;
+      }
+
+      // 写回 cardPool 的牌扣除本场养士加成：这些牌若被养士 buff 过（进手牌后
+      // 获得牌权、或被劫海劫走），score 快照已含加成；而 scoreBoosts 会在下场
+      // 战斗 initBattle 统一应用到牌组，若不扣除会「快照加成 + 再次应用」重复叠加。
+      // 扣除后 cardPool 存的是「历史加成后的原始分」，加成统一交给 scoreBoosts 应用。
+      const stripScoreBoosts = (cards: Card[]): Card[] =>
+        cards.map(c => {
+          const boost = scoreBoosts[cardScoreBoostKey(c)] ?? 0;
+          return boost > 0 ? { ...c, score: c.score - boost } : { ...c };
+        });
 
       // 获得的牌进入玩家牌库（复制对象，避免与战斗内引用共享）。
       // 仅写回战斗结束时仍持于玩家手牌的获得牌：被打出/弃置的获得牌按牌库规则
@@ -999,7 +1103,7 @@ export class BattleFlowManager {
         if (stillHeld.length > 0) {
           pendingRun.cardPool = [
             ...pendingRun.cardPool,
-            ...stillHeld.map(c => ({ ...c })),
+            ...stripScoreBoosts(stillHeld),
           ];
         }
       }
@@ -1012,7 +1116,7 @@ export class BattleFlowManager {
         if (stolen.length > 0) {
           pendingRun.cardPool = [
             ...pendingRun.cardPool,
-            ...stolen.map(c => ({ ...c })),
+            ...stripScoreBoosts(stolen),
           ];
         }
       }

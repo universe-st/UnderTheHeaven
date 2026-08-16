@@ -36,6 +36,15 @@ import { SunBinJianZao, SunBinJianZaoBonus } from './SunBin';
 import { WokouJieHai } from './WokouJieHai';
 import { QidanDaCao } from './QidanDaCao';
 import { QingZhouJingHan } from './QingZhouJingHan';
+import { SuQinHeZong } from './SuQinHeZong';
+import { JingKeBiXian } from './JingKeBiXian';
+import { HaiRuiJianShu } from './HaiRuiJianShu';
+import { ChengYaoJinMengFu } from './ChengYaoJinMengFu';
+import { HanShiZhongZhongWuMarker, HanShiZhongZhongWuBonus } from './HanShiZhongZhongWu';
+import { ZhouGongDanZhiLi, ZhouGongDanZhiLiNullify } from './ZhouGongDanZhiLi';
+import { TianWenYangShi } from './TianWenYangShi';
+import { DongfangShuoFengJian } from './DongfangShuo';
+import { MengKeQuYi, MengKeXingShan } from './MengKe';
 import type { SkillDefinition } from './SkillTypes';
 import type { SkillRegistry } from './SkillRegistry';
 
@@ -64,8 +73,17 @@ export { SunBinJianZao, SunBinJianZaoBonus } from './SunBin';
 export { WokouJieHai } from './WokouJieHai';
 export { QidanDaCao } from './QidanDaCao';
 export { QingZhouJingHan } from './QingZhouJingHan';
+export { SuQinHeZong } from './SuQinHeZong';
+export { JingKeBiXian } from './JingKeBiXian';
 export { WeiZhengZhiJian } from './WeiZhengZhiJian';
 export { XiangYuPoFu } from './XiangYuPoFu';
+export { YiYinZhiWei } from './YiYinZhiWei';
+export { HaiRuiJianShu } from './HaiRuiJianShu';
+export { ZhouGongDanZhiLiActive } from './ZhouGongDanZhiLi';
+export { TianWenYangShi } from './TianWenYangShi';
+export { ZhouYuFanjian } from './ZhouYu';
+export { DongfangShuoFengJian } from './DongfangShuo';
+export { MengKeQuYi, MengKeXingShan } from './MengKe';
 
 export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   HanxinDianBing,
@@ -112,6 +130,18 @@ export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   WokouJieHai,
   QidanDaCao,
   QingZhouJingHan,
+  SuQinHeZong,
+  JingKeBiXian,
+  HaiRuiJianShu,
+  ChengYaoJinMengFu,
+  HanShiZhongZhongWuMarker,
+  HanShiZhongZhongWuBonus,
+  ZhouGongDanZhiLi,
+  ZhouGongDanZhiLiNullify,
+  TianWenYangShi,
+  DongfangShuoFengJian,
+  MengKeQuYi,
+  MengKeXingShan,
 ];
 
 export function registerAllSkills(registry: SkillRegistry): void {

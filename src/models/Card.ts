@@ -47,6 +47,16 @@ export function rankToLabel(rank: number): string {
   return RANK_MAP[rank] ?? '?';
 }
 
+/**
+ * 卡牌分数加成的持久化键：`花色_点数`（如 `heart_15`），王牌为 `joker_点数`
+ * （`joker_25`=虎/小王、`joker_30`=龍/大王）。
+ * 田文「养士」等跨对局分数加成按此键记录（每场战斗牌组重建、uid 不跨场，
+ * 键是唯一能在战斗间关联同一张牌的身份）。
+ */
+export function cardScoreBoostKey(card: Pick<Card, 'suit' | 'rank'>): string {
+  return card.suit !== null ? `${card.suit}_${card.rank}` : `joker_${card.rank}`;
+}
+
 export function createDeck(): Card[] {
   const deck: Card[] = [];
 

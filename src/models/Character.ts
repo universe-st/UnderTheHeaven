@@ -1,4 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin' | 'suqin' | 'jingke' | 'yiyin' | 'hairui' | 'chengyaojin' | 'hanshizhong' | 'zhougongdan' | 'tianwen' | 'zhouyu' | 'dongfangshuo' | 'mengke';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army' | 'wokou' | 'qidan' | 'qingzhou';
 
 export interface CharacterAbility {
@@ -311,6 +311,110 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
       { skillId: 'sunbin_jianzao_bonus', name: '减灶', description: '', hidden: true },
     ],
   },
+  suqin: {
+    id: 'suqin',
+    name: '苏秦',
+    dynasty: '战国',
+    bio: '战国纵横家，佩六国相印，合纵抗秦，纵横捭阖于列国之间。',
+    abilities: [
+      { skillId: 'suqin_hezong', name: '合纵', description: '若你打出的牌中所有牌均有点数且不大于6，系数+X（X为本次打出的牌数）' },
+    ],
+  },
+  jingke: {
+    id: 'jingke',
+    name: '荆轲',
+    dynasty: '战国',
+    bio: '战国末年刺客，受燕太子丹之托入秦，图穷匕见，刺秦未遂而身殒。',
+    abilities: [
+      { skillId: 'jingke_bixian', name: '匕现', description: '敌方打出的牌进行伤害结算，且结算到最后一张牌时，你进行一次判定，若花色与该牌相同，你对敌方造成此牌分数30倍的伤害，对方结束伤害结算，你获得牌权' },
+    ],
+  },
+  yiyin: {
+    id: 'yiyin',
+    name: '伊尹',
+    dynasty: '商',
+    bio: '商朝开国元勋、辅政名相，以「至味」喻治国之道，被尊为「元圣」。',
+    abilities: [{ skillId: 'yiyin_zhiwei', name: '至味', description: '（主动技）每次牌权限一次，弃置四张有花色且花色不同的牌，恢复等同于分数之和的气数' }],
+  },
+  hairui: {
+    id: 'hairui',
+    name: '海瑞',
+    dynasty: '明',
+    bio: '明代著名清官，刚正不阿、犯颜直谏，人称「海青天」。',
+    abilities: [{ skillId: 'hairui_jianshu', name: '谏疏', description: '你打出牌造成伤害后，若你有手牌，你需弃置一张牌或将本角色移除。若你因此失去了最后一张手牌，你摸满手牌。' }],
+  },
+  chengyaojin: {
+    id: 'chengyaojin',
+    name: '程咬金',
+    dynasty: '隋唐',
+    bio: '隋末唐初名将，瓦岗寨起义首领，使一柄宣花板斧，号称「混世魔王」。',
+    abilities: [{ skillId: 'chengyaojin_mengfu', name: '猛斧', description: '你结算卡牌伤害时，前三张牌的结算伤害+25' }],
+  },
+  hanshizhong: {
+    id: 'hanshizhong',
+    name: '韩世忠',
+    dynasty: '宋',
+    bio: '南宋抗金名将，黄天荡大破金军，与岳飞并称中兴名将，谥号「忠武」。',
+    abilities: [
+      {
+        skillId: 'hanshizhong_zhongwu_marker', name: '忠武', markerLabel: '武',
+        description: '你响应对方的牌时，获得"忠武"标记。你结算卡牌伤害时，消耗所有"忠武"标记增加等量的系数。对局结束时清空"忠武"标记。',
+      },
+      // 以下为「忠武」拆分的内部技能条目（用于注册，不单独显示）
+      { skillId: 'hanshizhong_zhongwu_bonus', name: '忠武', description: '', hidden: true },
+    ],
+  },
+  zhougongdan: {
+    id: 'zhougongdan',
+    name: '周公旦',
+    dynasty: '周',
+    bio: '西周开国元勋，辅佐武王伐纣、摄政成王，制礼作乐，奠定周礼八百年基业。',
+    abilities: [
+      {
+        skillId: 'zhougongdan_zhili', name: '制礼',
+        description: '对局开始时，你弃置1～5张有点数且点数不同的手牌。本次对局中，你与对方打出这些点数的牌不再计算伤害。随后获得主动技：有牌权时可弃置任意张这些点数的手牌摸等量的牌。',
+      },
+      // 制礼拆分的内部技能条目（点数牌伤害归零，用于注册，不单独显示）
+      { skillId: 'zhougongdan_zhili_nullify', name: '制礼', description: '', hidden: true },
+    ],
+  },
+  tianwen: {
+    id: 'tianwen',
+    name: '田文',
+    dynasty: '战国',
+    bio: '战国四公子之首，齐国宗室，号孟尝君，门客三千，鸡鸣狗盗皆为其所用。',
+    abilities: [
+      { skillId: 'tianwen_yangshi', name: '养士', description: '你获得牌权时，令所有手牌分数+1' },
+    ],
+  },
+  zhouyu: {
+    id: 'zhouyu',
+    name: '周瑜',
+    dynasty: '三国',
+    bio: '三国东吴大都督，赤壁火攻大破曹军，精通音律，儒将风范。',
+    abilities: [
+      { skillId: 'zhouyu_fanjian', name: '反间', description: '（主动技）每次牌权限一次，你随机查看并标记对方一张牌。到你下次获得牌权之前，若对方打出的牌中包含你标记的牌，则视为是你打出，并直接对对方结算伤害，随后你获得牌权。' },
+    ],
+  },
+  dongfangshuo: {
+    id: 'dongfangshuo',
+    name: '东方朔',
+    dynasty: '西汉',
+    bio: '西汉名臣，博学多才、滑稽多智，以诙谐言辞讽谏汉武帝。',
+    abilities: [
+      { skillId: 'dongfangshuo_fengjian', name: '讽谏', description: '你获得牌权时，摸一张牌并弃置一张不同的牌' },
+    ],
+  },
+  mengke: {
+    id: 'mengke',
+    name: '孟轲',
+    dynasty: '战国',
+    bio: '战国思想家，儒家亚圣，主张性善论，倡仁义、贬功利。',
+    abilities: [
+      { skillId: 'mengke_quyi', name: '取义', description: '你获得牌权时，查看己方牌堆顶的两张牌，你可以选择获得一张牌，并将另一张牌移除牌库' },
+      { skillId: 'mengke_xingshan', name: '性善', description: '你牌库中红色牌比黑色牌每多一张，你计算伤害分数时+5' },
+    ],
+  },
 };
 
 export const ENEMY_CHARACTERS: Record<EnemyCharacterId, EnemyCharacter> = {
@@ -399,7 +503,7 @@ export const ENEMY_CHARACTERS: Record<EnemyCharacterId, EnemyCharacter> = {
 export const PLAYER_CHARACTER_LIST: PlayerCharacter[] = Object.values(PLAYER_CHARACTERS);
 export const ENEMY_CHARACTER_LIST: EnemyCharacter[] = Object.values(ENEMY_CHARACTERS);
 
-const DEFAULT_PLAYER_CHARACTER_IDS: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao', 'zuchongzhi', 'guanyu', 'lanyu', 'zhangjuzheng', 'zhouchu', 'baozheng'];
+const DEFAULT_PLAYER_CHARACTER_IDS: PlayerCharacterId[] = ['hanxin', 'liubowen', 'lishizhen', 'zhugeliang', 'wentianxiang', 'niugao', 'zuchongzhi', 'guanyu', 'lanyu', 'zhangjuzheng', 'zhouchu', 'baozheng', 'chengyaojin', 'hanshizhong', 'zhougongdan'];
 
 export function randomPlayerCharacter(rng: () => number = Math.random): PlayerCharacterId {
   return DEFAULT_PLAYER_CHARACTER_IDS[Math.floor(rng() * DEFAULT_PLAYER_CHARACTER_IDS.length)]!;

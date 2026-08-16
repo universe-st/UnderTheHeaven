@@ -3,7 +3,7 @@ import type { Card } from '../../models/Card';
 import type { BattleState } from '../../models/BattleTypes';
 import type { PlayerCharacterId } from '../../models/Character';
 import type { ActiveSkillDefinition, CharacterSlotManager } from '../../skills';
-import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai, WeiZhengZhiJian, XiangYuPoFu } from '../../skills';
+import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai, WeiZhengZhiJian, XiangYuPoFu, YiYinZhiWei, ZhouGongDanZhiLiActive, ZhouYuFanjian } from '../../skills';
 import { hasLiXin } from '../../skills/ZhouChuChuHaiLogic';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import type { CardDisplayManager } from './CardDisplayManager';
@@ -49,14 +49,14 @@ export class ActiveSkillManager {
   private slotManager: CharacterSlotManager;
   private cardDisplay: CardDisplayManager;
   private onAiInitiatePlay: () => Promise<void>;
-  private onRefillPlayerHand: () => void;
+  private onRefillPlayerHand: () => Promise<void>;
 
   constructor(
     host: ActiveSkillHost & Phaser.Scene,
     slotManager: CharacterSlotManager,
     cardDisplay: CardDisplayManager,
     onAiInitiatePlay: () => Promise<void>,
-    onRefillPlayerHand: () => void,
+    onRefillPlayerHand: () => Promise<void>,
   ) {
     this.host = host;
     this.scene = host;
@@ -111,6 +111,23 @@ export class ActiveSkillManager {
     if (this.host.playerCharacterIds.includes('xiangyu')) {
       this.host.activeSkills.push(XiangYuPoFu);
       if (!counts.has(XiangYuPoFu.id)) counts.set(XiangYuPoFu.id, 0);
+    }
+    // 伊尹「至味」：每次获得牌权限一次，弃四张异花色牌回气数
+    if (this.host.playerCharacterIds.includes('yiyin')) {
+      this.host.activeSkills.push(YiYinZhiWei);
+      if (!counts.has(YiYinZhiWei.id)) counts.set(YiYinZhiWei.id, 0);
+    }
+    // 周公旦「制礼」（主动技）：每次获得牌权限一次，弃"制礼"点数牌摸等量牌；
+    // 未发动制礼（zhiliRanks 为空）时由 canUseWithSelection 拦截，按钮不显示
+    if (this.host.playerCharacterIds.includes('zhougongdan')) {
+      this.host.activeSkills.push(ZhouGongDanZhiLiActive);
+      if (!counts.has(ZhouGongDanZhiLiActive.id)) counts.set(ZhouGongDanZhiLiActive.id, 0);
+    }
+    // 周瑜「反间」：每次获得牌权限一次，随机标记一张敌方手牌；已有标记时
+    // canUseWithoutSelection 拦截，按钮不显示
+    if (this.host.playerCharacterIds.includes('zhouyu')) {
+      this.host.activeSkills.push(ZhouYuFanjian);
+      if (!counts.has(ZhouYuFanjian.id)) counts.set(ZhouYuFanjian.id, 0);
     }
 
     this.host.activeSkillUseCounts = counts;
@@ -331,8 +348,9 @@ export class ActiveSkillManager {
 
     if (playerHand.length === 0) {
       this.host.battle.lastPlay = null;
-      this.onRefillPlayerHand();
-      this.cardDisplay.renderPlayerHand(true);
+      // 摸满玩家手牌（公共事件）：补满 + 渲染 + 广播 ON_HAND_REFILLED
+      // （孙膑「减灶」/姜尚「辅王」等「摸满手牌后」技能照常触发）
+      await this.onRefillPlayerHand();
       await this.cardDisplay.fadeOutCenterCardsAsync();
       this.host.battle.turnHolder = 'enemy';
       this.host.phase = 'ai_init';

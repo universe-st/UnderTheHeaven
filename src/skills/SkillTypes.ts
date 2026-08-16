@@ -30,6 +30,12 @@ export interface SkillContext {
   sourceCharacterId: string;
   pattern?: HandPattern;
   target?: 'enemy' | 'player';
+  /**
+   * 是否为响应（跟牌）出牌：ON_PLAY 时填充。true = 响应对方打出的牌
+   * （韩世忠「忠武」等"你响应对方的牌时"触发的技能据此判定）；
+   * 先手/主动出牌为 false。
+   */
+  isRespond?: boolean;
   isEmptyHand?: boolean;
   damageInfo?: {
     sumRanks: number;
@@ -57,6 +63,16 @@ export interface SkillContext {
     scoreText: Phaser.GameObjects.Text;
     baseScore: number;
     scoreBonus: number;
+    /**
+     * 是否为本次伤害结算的最后一张牌（逐牌揭示的末张）。
+     * 荆轲「匕现」等「结算到最后一张牌时」触发的技能以此判断。
+     */
+    isLastCard?: boolean;
+    /**
+     * 当前结算牌在本次伤害结算中的序号（0 起）。
+     * 程咬金「猛斧」等「结算前三张牌」触发的技能以此判断。
+     */
+    index?: number;
   };
   /**
    * 单牌伤害结算时的中央累计伤害计数器文本（stage1 中逐牌累加）。

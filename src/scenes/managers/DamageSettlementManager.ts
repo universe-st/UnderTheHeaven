@@ -194,6 +194,10 @@ export class DamageSettlementManager {
         scoreText: floatText,
         baseScore: score,
         scoreBonus: 0,
+        // 是否为本手牌最后一张：荆轲「匕现」等结算末张触发的技能据此判定
+        isLastCard: i === cards.length - 1,
+        // 本次结算中的序号（0 起）：程咬金「猛斧」等"前三张牌"技能据此判定
+        index: i,
       };
       const singleCardCtx: SkillContext = {
         gameScene: this.scene,

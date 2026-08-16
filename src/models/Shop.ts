@@ -62,6 +62,17 @@ export const CHARACTER_PRICES: Record<PlayerCharacterId, number> = {
   xiangyu: 120,
   jiangshang: 120,
   sunbin: 120,
+  suqin: 75,
+  jingke: 120,
+  yiyin: 75,
+  hairui: 45,
+  chengyaojin: 75,
+  hanshizhong: 120,
+  zhougongdan: 120,
+  tianwen: 120,
+  zhouyu: 120,
+  dongfangshuo: 75,
+  mengke: 120,
 };
 
 /** 黄金台刷新费用：基础 5 通宝，每刷新一次 +1 */

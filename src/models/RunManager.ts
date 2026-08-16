@@ -109,6 +109,7 @@ export function load(): boolean {
     data.run.buciCards ??= [];
     data.run.characterMarkers ??= {};
     data.run.characterSkillFlags ??= {};
+    data.run.scoreBoosts ??= {};
     currentRun = data.run;
     return true;
   } catch {

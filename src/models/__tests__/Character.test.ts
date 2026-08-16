@@ -2,15 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { PLAYER_CHARACTER_LIST, ENEMY_CHARACTER_LIST } from '../Character';
 
 /** 名人堂分组展示的朝代（与 HallOfFameScene.DYNASTY_ORDER 保持一致） */
-const KNOWN_DYNASTIES = new Set(['周', '战国', '秦', '秦汉', '东汉', '三国', '西晋', '南北朝', '隋唐', '宋', '辽', '元', '明', '清', '敌军']);
+const KNOWN_DYNASTIES = new Set(['商', '周', '战国', '秦', '秦汉', '西汉', '东汉', '三国', '西晋', '南北朝', '隋唐', '宋', '辽', '元', '明', '清', '敌军']);
 
 describe('Character 名人堂字段（dynasty / bio）', () => {
   const all = [...PLAYER_CHARACTER_LIST, ...ENEMY_CHARACTER_LIST];
 
-  it('全部角色共 42 个（31 玩家 + 11 敌人）', () => {
-    expect(PLAYER_CHARACTER_LIST.length).toBe(31);
-    expect(ENEMY_CHARACTER_LIST.length).toBe(11);
-    expect(all.length).toBe(42);
+  it('玩家/敌人列表数量与去重后的 id 一致', () => {
+    const playerIds = PLAYER_CHARACTER_LIST.map(c => c.id);
+    const enemyIds = ENEMY_CHARACTER_LIST.map(c => c.id);
+    expect(new Set(playerIds).size).toBe(playerIds.length);
+    expect(new Set(enemyIds).size).toBe(enemyIds.length);
+    expect(new Set([...playerIds, ...enemyIds]).size).toBe(all.length);
+    expect(playerIds.length).toBeGreaterThan(0);
+    expect(enemyIds.length).toBeGreaterThan(0);
   });
 
   it('每个角色都有 dynasty 与 bio', () => {

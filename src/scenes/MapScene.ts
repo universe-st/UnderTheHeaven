@@ -8,6 +8,7 @@ import { UIFactory } from '../utils/UIFactory';
 import { GameAudioManager } from '../utils/GameAudioManager';
 import { FONT_FAMILY, AVATAR_SOURCE_SIZE, DEPTH_OVERLAY, DEPTH_UI, DEPTH_OVERLAY_TEXT, NODE_ICON_DISPLAY, CURRENCY_ICON_DISPLAY } from '../constants/Layout';
 import { MapEventModal } from './managers/MapEventModal';
+import { DeckModal } from './managers/DeckModal';
 
 /** 与 GameScene 的 runMode 契约负载 */
 interface RunModePayload {
@@ -54,6 +55,7 @@ export class MapScene extends Phaser.Scene {
   private rosterModal: Phaser.GameObjects.Container | null = null;
   private confirmModal: Phaser.GameObjects.Container | null = null;
   private eventModal: MapEventModal;
+  private deckModal: DeckModal;
   private destinyText: Phaser.GameObjects.Text | null = null;
   private tongbaoText: Phaser.GameObjects.Text | null = null;
   private tongbaoIcon: Phaser.GameObjects.Image | null = null;
@@ -66,6 +68,7 @@ export class MapScene extends Phaser.Scene {
   constructor() {
     super({ key: 'MapScene' });
     this.eventModal = new MapEventModal(this);
+    this.deckModal = new DeckModal(this);
   }
 
   private resetSceneState(): void {
@@ -76,6 +79,7 @@ export class MapScene extends Phaser.Scene {
     this.confirmModal?.destroy();
     this.confirmModal = null;
     this.eventModal.close();
+    this.deckModal.close();
     this.destinyText = null;
     this.tongbaoText = null;
     this.tongbaoIcon = null;
@@ -247,7 +251,8 @@ export class MapScene extends Phaser.Scene {
   // ── 拖拽滚动 ──
 
   private modalOpen(): boolean {
-    return this.rosterModal !== null || this.confirmModal !== null || this.eventModal.isOpen;
+    return this.rosterModal !== null || this.confirmModal !== null
+      || this.eventModal.isOpen || this.deckModal.isOpen;
   }
 
   private setupDragInput(): void {
@@ -428,6 +433,8 @@ export class MapScene extends Phaser.Scene {
 
   private buildTopBar(): void {
     const { width } = this.scale;
+    const run = RunManager.getRun();
+    if (!run) return;
 
     const bar = this.add.container(0, 0).setDepth(DEPTH_UI);
 
@@ -451,6 +458,15 @@ export class MapScene extends Phaser.Scene {
       fontSize: '26px', fontFamily: FONT_FAMILY, color: '#c8a050',
     }).setOrigin(0.5);
     bar.add([this.destinyText, this.tongbaoIcon, this.tongbaoText, this.floorText]);
+
+    const deckBtn = UIFactory.button(this, width - 426, TOP_BAR_H / 2, '牌', '组', () => {
+      GameAudioManager.playSfx(this, 'sfx_button');
+      this.deckModal.open(run);
+    }, {
+      w: 240, h: 64,
+      textStyle: { fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 },
+    });
+    bar.add(deckBtn);
 
     const rosterBtn = UIFactory.button(this, width - 170, TOP_BAR_H / 2, '☰', '阵 容', () => {
       GameAudioManager.playSfx(this, 'sfx_button');

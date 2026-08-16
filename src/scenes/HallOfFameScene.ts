@@ -10,7 +10,7 @@ import {
 } from '../constants/Layout';
 
 /** 朝代分组展示顺序（按历史时间先后），未列出的朝代归最后 */
-const DYNASTY_ORDER = ['周', '战国', '秦', '秦汉', '东汉', '三国', '西晋', '南北朝', '隋唐', '宋', '明'];
+const DYNASTY_ORDER = ['商', '周', '战国', '秦', '秦汉', '西汉', '东汉', '三国', '西晋', '南北朝', '隋唐', '宋', '明'];
 
 /**
  * 详情弹窗三级深度：遮罩 → 面板 → 文字（基于 DEPTH_OVERLAY 向上叠加），
@@ -31,6 +31,8 @@ const COL_GAP = 44;
 const COLS = 5;
 const GROUP_TITLE_H = 66;
 const GROUP_GAP = 36;
+/** 组内行间距（超过一行时行与行之间的垂直间距，与组间距一致） */
+const ROW_GAP = 36;
 
 /** 拖动超过该像素数判定为滚动（而非点击） */
 const DRAG_THRESHOLD = 10;
@@ -199,10 +201,12 @@ export class HallOfFameScene extends Phaser.Scene {
       .map(d => ({ dynasty: d, chars: groups.get(d) ?? [] }))
       .filter(g => g.chars.length > 0);
 
-    // 计算内容总高度
+    // 计算内容总高度（组内支持多行：行数 × CARD_H + 行间 ROW_GAP，组间 GROUP_GAP）
     let totalH = 24;
     for (let i = 0; i < ordered.length; i++) {
-      totalH += GROUP_TITLE_H + CARD_H + (i < ordered.length - 1 ? GROUP_GAP : 0);
+      const rows = Math.ceil(ordered[i]!.chars.length / COLS);
+      totalH += GROUP_TITLE_H + rows * CARD_H + Math.max(0, rows - 1) * ROW_GAP
+        + (i < ordered.length - 1 ? GROUP_GAP : 0);
     }
     totalH += 24;
 
@@ -233,13 +237,16 @@ export class HallOfFameScene extends Phaser.Scene {
     for (const group of ordered) {
       this.addGroupTitle(container, group.dynasty, clipX + 6, y + GROUP_TITLE_H / 2);
       y += GROUP_TITLE_H;
-      const rowY = y;
+      const rows = Math.ceil(group.chars.length / COLS);
       for (let i = 0; i < group.chars.length; i++) {
         const col = i % COLS;
+        const row = Math.floor(i / COLS);
         const cardX = gridStartX + col * (CARD_W + COL_GAP) + CARD_W / 2;
-        this.createCharacterCard(container, group.chars[i]!, cardX, rowY + CARD_H / 2);
+        // 超过一行的组换行排布（rowY 基础上按行下移），避免卡片重叠导致点击命中错误角色
+        const cardY = y + row * (CARD_H + ROW_GAP) + CARD_H / 2;
+        this.createCharacterCard(container, group.chars[i]!, cardX, cardY);
       }
-      y += CARD_H + GROUP_GAP;
+      y += rows * CARD_H + Math.max(0, rows - 1) * ROW_GAP + GROUP_GAP;
     }
   }
 

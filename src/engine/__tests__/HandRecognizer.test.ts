@@ -239,43 +239,38 @@ describe('findBeatingPlays', () => {
   });
 });
 
-describe('A-2-3-4-5 special straight (A as 1)', () => {
-  it('identifies A-2-3-4-5 as a straight with mainValue 1', () => {
-    const result = identifyHand(makeCards([15, 20, 3, 4, 5]));
+describe('straights do not include 2 (min 3, max A)', () => {
+  it('does not identify 3-4-5-A-2 as a straight (2 cannot be in a straight)', () => {
+    expect(identifyHand(makeCards([3, 4, 5, 15, 20]))).toBeNull();
+  });
+
+  it('does not identify A-2-3-4-5 as a straight', () => {
+    expect(identifyHand(makeCards([15, 20, 3, 4, 5]))).toBeNull();
+  });
+
+  it('identifies 3-4-5-6-7 as the smallest straight (mainValue 3)', () => {
+    const result = identifyHand(makeCards([3, 4, 5, 6, 7]));
     expect(result?.type).toBe(HandType.Straight);
-    expect(result?.length).toBe(5);
-    expect(result?.mainValue).toBe(1);
+    expect(result?.mainValue).toBe(3);
   });
 
-  it('is the weakest 5-card straight: 5-6-7-8-9 beats it, it beats no other straight', () => {
-    const special = identifyHand(makeCards([15, 20, 3, 4, 5]))!;
-    const straight56789 = identifyHand(makeCards([5, 6, 7, 8, 9]))!;
-    const straight34567 = identifyHand(makeCards([3, 4, 5, 6, 7]))!;
-    expect(canBeat(straight56789, special)).toBe(true);
-    expect(canBeat(straight34567, special)).toBe(true);
-    expect(canBeat(special, straight56789)).toBe(false);
-    expect(canBeat(special, straight34567)).toBe(false);
+  it('identifies 10-J-Q-K-A as the largest straight (mainValue 10)', () => {
+    const result = identifyHand(makeCards([10, 11, 12, 13, 15]));
+    expect(result?.type).toBe(HandType.Straight);
+    expect(result?.mainValue).toBe(10);
   });
 
-  it('findAllPlays finds A-2-3-4-5 from a hand containing A, 2, 3, 4, 5', () => {
+  it('10-J-Q-K-A beats 3-4-5-6-7', () => {
+    const high = identifyHand(makeCards([10, 11, 12, 13, 15]))!;
+    const low = identifyHand(makeCards([3, 4, 5, 6, 7]))!;
+    expect(canBeat(high, low)).toBe(true);
+    expect(canBeat(low, high)).toBe(false);
+  });
+
+  it('findAllPlays does not produce a straight from A, 2, 3, 4, 5', () => {
     const hand = makeCards([15, 20, 3, 4, 5, 9]);
     const plays = findAllPlays(hand);
-    const special = plays.filter(p => p.type === HandType.Straight && p.mainValue === 1);
-    expect(special.length).toBe(1);
-    expect(special[0]!.length).toBe(5);
-    expect(special[0]!.cards.length).toBe(5);
-  });
-
-  it('findBeatingPlays can beat it with a normal straight, and it cannot beat a normal straight', () => {
-    const special = identifyHand(makeCards([15, 20, 3, 4, 5]))!;
-    const beaterHand = makeCards([5, 6, 7, 8, 9]);
-    const beating = findBeatingPlays(beaterHand, special);
-    expect(beating.some(p => p.type === HandType.Straight && p.mainValue === 5)).toBe(true);
-
-    const normal = identifyHand(makeCards([3, 4, 5, 6, 7]))!;
-    const specialHand = makeCards([15, 20, 3, 4, 5]);
-    const specialBeating = findBeatingPlays(specialHand, normal);
-    expect(specialBeating.some(p => p.type === HandType.Straight)).toBe(false);
+    expect(plays.some(p => p.type === HandType.Straight && p.cards.some(c => c.rank === 20))).toBe(false);
   });
 
   it('does not identify 2-3-4-5-6 as a straight (2 cannot lead)', () => {

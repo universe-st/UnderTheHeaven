@@ -47,6 +47,11 @@ export interface RunState {
    * 持久化的只是移除进度与转换结果。
    */
   characterSkillFlags?: Record<string, boolean | number>;
+  /**
+   * 田文「养士」：卡牌分数跨战斗加成，键见 cardScoreBoostKey（`花色_点数`/`joker_点数`）。
+   * 获得牌权时手牌分数 +1 并累计于此；每场战斗开始应用到玩家牌组（永久生效）。
+   */
+  scoreBoosts?: Record<string, number>;
 }
 
 /** 玩家气数（单场战斗） */
@@ -86,6 +91,7 @@ export function createNewRun(rng: () => number): RunState {
     battlesWon: 0,
     characterMarkers: {},
     characterSkillFlags: {},
+    scoreBoosts: {},
   };
 }
 

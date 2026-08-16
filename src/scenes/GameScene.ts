@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Card} from '../models/Card';
-import { createDeck, shuffleDeck, sortHand, resetCardIdCounter, getNextCardId } from '../models/Card';
+import { createDeck, shuffleDeck, sortHand, resetCardIdCounter, getNextCardId, cardScoreBoostKey } from '../models/Card';
 import type { BattleState, HandPattern, BattleConfig } from '../models/BattleTypes';
 import { GameAudioManager } from '../utils/GameAudioManager';
 import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
@@ -282,7 +282,7 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
       this.characterBarManager,
       this.cardDisplayManager,
       () => this.battleFlowManager.aiInitiatePlay(),
-      () => this.battleFlowManager.refillPlayerHand(),
+      () => this.battleFlowManager.refillPlayerHandAndNotify(),
     );
     this.bgmManager = new BgmManager(this);
 
@@ -366,6 +366,17 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
         playerDeck.push({ ...card, uid: getNextCardId() });
       }
       shuffleDeck(playerDeck);
+    }
+
+    // 田文「养士」：历史分数加成应用到本场玩家牌组（标准牌 + 购买牌）。
+    // 分数加成按卡牌身份键（花色_点数 / joker_点数）持久化于对局存档，
+    // 每场战斗重建牌组时重新应用，实现「永久、跨对局继承」。
+    const boosts = run?.scoreBoosts;
+    if (boosts) {
+      for (const card of playerDeck) {
+        const boost = boosts[cardScoreBoostKey(card)];
+        if (boost) card.score += boost;
+      }
     }
 
     const playerHand = playerDeck.splice(0, 17);
@@ -779,6 +790,14 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
 
   getBattle(): BattleState {
     return this.activeSkillManager.getBattle();
+  }
+
+  /**
+   * 摸满玩家手牌（公共事件）：补满 + 渲染 + 广播 ON_HAND_REFILLED。
+   * 供技能层（如海瑞「谏疏」弃空手牌）与主动技路径复用，转发给 BattleFlowManager。
+   */
+  async refillPlayerHandAndNotify(): Promise<void> {
+    await this.battleFlowManager.refillPlayerHandAndNotify();
   }
 
   renderPlayerHandAfterSkill(): void {

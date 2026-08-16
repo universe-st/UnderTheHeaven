@@ -537,8 +537,12 @@ export class CharacterBarManager implements CharacterSlotManager {
       for (const t of tweens) t.stop();
     }
     h.characterSlotGlowTweens.clear();
-    for (const c of h.characterSlotContainers) {
-      h.tweens.killTweensOf(c);
+    // 清理上一技能的位移 tween；已失去的角色（lostCharacters）保留其淡出动画不被中断
+    const lostChars = new Set<PlayerCharacterId>(h.battle.player.lostCharacters ?? []);
+    for (let i = 0; i < h.characterSlotContainers.length; i++) {
+      const cid = h.playerCharacterIds[i];
+      if (cid && lostChars.has(cid)) continue;
+      h.tweens.killTweensOf(h.characterSlotContainers[i]!);
     }
 
     h.playerCharacterIds.splice(idx, 1);
@@ -598,7 +602,8 @@ export class CharacterBarManager implements CharacterSlotManager {
   }
 
   /**
-   * 标记角色失去角色牌：头像变灰、名字变暗，技能不再触发（由技能 filter 判定）。
+   * 标记角色失去角色牌：角色框淡出、从角色区消失（槽位保留占位避免重排），
+   * 点击失效，技能不再触发（由技能 filter 判定）。
    */
   markCharacterLost(characterId: string): void {
     const idx = this.host.playerCharacterIds.indexOf(characterId as PlayerCharacterId);
@@ -606,16 +611,19 @@ export class CharacterBarManager implements CharacterSlotManager {
     const container = this.host.characterSlotContainers[idx];
     if (!container) return;
 
-    // 槽位子对象顺序：0 光晕容器 / 1 底框 / 2 头像 / 3 名字 / 4 点击区 / 5 角饰
-    const avatar = container.getAt(2);
-    if (avatar instanceof Phaser.GameObjects.Image) {
-      avatar.setTint(0x555555);
-      avatar.setAlpha(0.55);
+    // 点击区失效（槽位内查找 Zone，不可见后不可再交互；注意 cornerGfx 在 zone 之后添加）
+    const zone = container.list.find((o) => o instanceof Phaser.GameObjects.Zone);
+    if (zone) {
+      zone.disableInteractive();
     }
-    const slotText = this.host.characterSlotTexts[idx];
-    if (slotText) {
-      slotText.setColor('#5a4a3a');
-    }
+
+    // 角色框整体淡出消失（光晕/底框/头像/名字/标记区一并不可见；保留占位，index 映射不变）
+    this.host.tweens.add({
+      targets: container,
+      alpha: 0,
+      duration: 400,
+      ease: 'Sine.easeOut',
+    });
   }
 
   private getSlotPosition(index: number): { x: number; y: number } {
