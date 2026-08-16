@@ -931,7 +931,9 @@ export class BattleFlowManager {
       this.host.battle.lastPlay = null;
       // 敌方打光手牌直接结算：圈结束清空这一圈敌方打出的牌记录
       this.host.battle.roundEnemyCards = [];
-      await this.refillIfEmpty('enemy');
+      // 只补牌不播动画（动画由下方 renderEnemyHandAsync 统一播放一次，
+      // 2026-08-16 修复：此前用 refillIfEmpty 内部已播一次动画导致补牌动画执行两次）
+      this.refillEnemyHand();
 
       // 敌方出完牌，玩家获得牌权：广播 ON_GAIN_TURN（含反间标记过期清空）
       await this.emitPlayerGainTurn();
