@@ -98,6 +98,7 @@ export class LoadingScene extends Phaser.Scene {
     this.load.audio('bgm_battle_4', '普通战斗背景4_44100.mp3');
     this.load.audio('bgm_battle_5', '九鼎镇山河_44100.mp3');
     this.load.audio('bgm_battle_6', '群英赴山河_44100.mp3');
+    this.load.audio('bgm_hall_of_fame', '群英同堂_44100.mp3');
     this.load.audio('victory_jingle', '旌旗归_44100.mp3');
     this.load.audio('bgm_failure', 'bgm_failure_44100.mp3');
     this.load.audio('sfx_hurt', 'sfx_hurt.mp3');

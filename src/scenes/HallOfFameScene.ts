@@ -106,6 +106,9 @@ export class HallOfFameScene extends Phaser.Scene {
 
     GameAudioManager.init(this);
     GameAudioManager.unlock(this);
+
+    // 名人堂背景音乐《群英同堂》（进入场景即播放，返回菜单由关闭按钮 stopBgm 后恢复菜单 BGM）
+    GameAudioManager.playBgm(this, 'bgm_hall_of_fame', { loop: true });
   }
 
   update(_time: number, delta: number): void {
