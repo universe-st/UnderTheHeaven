@@ -98,6 +98,7 @@ export class CardInfoManager {
 
     const innerW = PANEL_W - 40;
     let panelH = 56; // 标题区（含底部留白）
+    panelH += 28; // 分数行（2026-08-16 修复：此前漏算该高度，分数行画在面板外被遮罩盖住看不到）
     let sealLines: string[] = [];
     if (card.seal) {
       panelH += 30; // 印名行
