@@ -73,6 +73,9 @@ export const CHARACTER_PRICES: Record<PlayerCharacterId, number> = {
   zhouyu: 120,
   dongfangshuo: 75,
   mengke: 120,
+  diqing: 120,
+  xuda: 120,
+  sunwu: 120,
 };
 
 /** 黄金台刷新费用：基础 5 通宝，每刷新一次 +1 */

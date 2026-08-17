@@ -45,6 +45,9 @@ import { ZhouGongDanZhiLi, ZhouGongDanZhiLiNullify } from './ZhouGongDanZhiLi';
 import { TianWenYangShi } from './TianWenYangShi';
 import { DongfangShuoFengJian } from './DongfangShuo';
 import { MengKeQuYi, MengKeXingShan } from './MengKe';
+import { DiQingWenJinMarker, DiQingWenJinBonus } from './DiQing';
+import { XuDaZhenBei } from './XuDa';
+import { SunWuLianBing, SunWuLianBingBonus } from './SunWu';
 import type { SkillDefinition } from './SkillTypes';
 import type { SkillRegistry } from './SkillRegistry';
 
@@ -84,6 +87,9 @@ export { TianWenYangShi } from './TianWenYangShi';
 export { ZhouYuFanjian } from './ZhouYu';
 export { DongfangShuoFengJian } from './DongfangShuo';
 export { MengKeQuYi, MengKeXingShan } from './MengKe';
+export { DiQingWenJinMarker, DiQingWenJinBonus } from './DiQing';
+export { XuDaZhenBei } from './XuDa';
+export { SunWuLianBing, SunWuLianBingBonus } from './SunWu';
 
 export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   HanxinDianBing,
@@ -142,6 +148,11 @@ export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   DongfangShuoFengJian,
   MengKeQuYi,
   MengKeXingShan,
+  DiQingWenJinMarker,
+  DiQingWenJinBonus,
+  XuDaZhenBei,
+  SunWuLianBing,
+  SunWuLianBingBonus,
 ];
 
 export function registerAllSkills(registry: SkillRegistry): void {

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { PLAYER_CHARACTER_LIST, ENEMY_CHARACTER_LIST } from '../Character';
 
 /** 名人堂分组展示的朝代（与 HallOfFameScene.DYNASTY_ORDER 保持一致） */
-const KNOWN_DYNASTIES = new Set(['商', '周', '战国', '秦', '秦汉', '西汉', '东汉', '三国', '西晋', '南北朝', '隋唐', '宋', '辽', '元', '明', '清', '敌军']);
+const KNOWN_DYNASTIES = new Set(['商', '周', '春秋', '战国', '秦', '秦汉', '西汉', '东汉', '三国', '西晋', '南北朝', '隋唐', '宋', '辽', '元', '明', '清', '敌军']);
 
 describe('Character 名人堂字段（dynasty / bio）', () => {
   const all = [...PLAYER_CHARACTER_LIST, ...ENEMY_CHARACTER_LIST];

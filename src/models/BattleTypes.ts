@@ -106,6 +106,23 @@ export interface BattleState {
    * 敌方打出含标记牌的整手牌时被反间劫持，对敌方结算伤害（见 BattleFlowManager 劫持点）。
    */
   fanjianMarkedUid?: string;
+  /**
+   * 狄青「稳进」：玩家最近一次打出牌中最大点数（视为点数优先：consideredAs?.rank ?? rank）。
+   * undefined 视为 0——对局首手无上次记录，视为满足"比上次大"条件。
+   * 每次 ON_PLAY 触发后更新为本次最大点数。
+   */
+  diqingLastMaxRank?: number;
+  /**
+   * 狄青「稳进」：当前持有的"稳进"标记数量（打出牌最大点数递增时 +1；
+   * 单牌结算伤害时每张消耗一个令该牌伤害+20）。
+   */
+  diqingSteadyMarks?: number;
+  /**
+   * 徐达「镇北」：玩家响应对方打出的牌后置 true，对方本圈无法再响应。
+   * 在 BattleFlowManager.aiRespond() 中检查（封锁则直接走 pass 流程），
+   * 玩家获得牌权（emitPlayerGainTurn）时清除。
+   */
+  xudaResponseBlock?: boolean;
 }
 
 /** Roguelike 局外循环进入战斗时由 MapScene 传入的节点信息 */

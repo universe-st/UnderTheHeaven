@@ -1,4 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin' | 'suqin' | 'jingke' | 'yiyin' | 'hairui' | 'chengyaojin' | 'hanshizhong' | 'zhougongdan' | 'tianwen' | 'zhouyu' | 'dongfangshuo' | 'mengke';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin' | 'suqin' | 'jingke' | 'yiyin' | 'hairui' | 'chengyaojin' | 'hanshizhong' | 'zhougongdan' | 'tianwen' | 'zhouyu' | 'dongfangshuo' | 'mengke' | 'diqing' | 'xuda' | 'sunwu';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army' | 'wokou' | 'qidan' | 'qingzhou';
 
 export interface CharacterAbility {
@@ -413,6 +413,43 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     abilities: [
       { skillId: 'mengke_quyi', name: '取义', description: '你获得牌权时，查看己方牌堆顶的两张牌，你可以选择获得一张牌，并将另一张牌移除牌库' },
       { skillId: 'mengke_xingshan', name: '性善', description: '你牌库中红色牌比黑色牌每多一张，你计算伤害分数时+5' },
+    ],
+  },
+  diqing: {
+    id: 'diqing',
+    name: '狄青',
+    dynasty: '宋',
+    bio: '北宋名将，面有刺字、人称「面涅将军」，屡破西夏，威震边陲。',
+    abilities: [
+      {
+        skillId: 'diqing_wenjin_marker', name: '稳进', markerLabel: '稳',
+        description: '你每次打出的牌中最大点数若比你本次对局上次打出的牌最大点数大，你获得一个『稳进』标记。每张牌结算伤害时，消耗一个『稳进』标记令伤害+20',
+      },
+      // 以下为「稳进」拆分的内部技能条目（单牌结算消耗标记加伤，用于注册，不单独显示）
+      { skillId: 'diqing_wenjin_bonus', name: '稳进', description: '', hidden: true },
+    ],
+  },
+  xuda: {
+    id: 'xuda',
+    name: '徐达',
+    dynasty: '明',
+    bio: '明初开国第一功臣，北伐灭元、镇守北平，封中山王，功勋卓著。',
+    abilities: [
+      { skillId: 'xuda_zhenbei', name: '镇北', description: '你响应对方打出的牌后，对方无法再响应' },
+    ],
+  },
+  sunwu: {
+    id: 'sunwu',
+    name: '孙武',
+    dynasty: '春秋',
+    bio: '春秋时期兵家始祖，著《孙子兵法》十三篇，被誉为「兵圣」。',
+    abilities: [
+      {
+        skillId: 'sunwu_lianbing', name: '练兵',
+        description: '你打出的牌分数永久+3，若成功进行伤害结算，结算前每张分数再次永久+3',
+      },
+      // 以下为「练兵」拆分的内部技能条目（结算成功加成，用于注册，不单独显示）
+      { skillId: 'sunwu_lianbing_bonus', name: '练兵', description: '', hidden: true },
     ],
   },
 };
