@@ -468,6 +468,8 @@ export class BattleFlowManager {
     // 仅玩家获得牌权时清空；敌方获得牌权（aiInitiatePlay 中 sourceCharacterId 为
     // 敌方的 ON_GAIN_TURN）不清。
     this.host.battle.fanjianMarkedUid = undefined;
+    // 徐达「镇北」封锁本圈结束：玩家获得牌权后失效，下一圈对方恢复正常响应
+    this.host.battle.xudaResponseBlock = false;
     const gainTurnCtx: SkillContext = {
       gameScene: this.scene,
       battle: this.host.battle,
@@ -650,6 +652,12 @@ export class BattleFlowManager {
         ),
       ),
     ];
+    // 徐达「镇北」封锁：玩家响应过对方打出的牌后，对方本圈无法再响应 →
+    // 直接走现有 pass 流程（复用 executePass，不自写 pass 动画）
+    if (this.host.battle.xudaResponseBlock) {
+      await this.executePass('enemy');
+      return;
+    }
     const cards = decidePlay(this.host.battle, (plays, ctx) => {
       const enemyCharId = this.host.battle.enemyCharacterId;
       if (!enemyCharId) return;
