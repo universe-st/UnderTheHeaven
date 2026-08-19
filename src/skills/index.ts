@@ -92,6 +92,7 @@ export { DiQingWenJinMarker, DiQingWenJinBonus } from './DiQing';
 export { XuDaZhenBei } from './XuDa';
 export { SunWuLianBing, SunWuLianBingBonus } from './SunWu';
 export { XianGaoZhaKao } from './XianGaoZhaKao';
+export { TangYinMiaoHui } from './TangYinMiaoHui';
 
 export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   HanxinDianBing,

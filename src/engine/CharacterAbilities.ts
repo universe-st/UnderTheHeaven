@@ -79,3 +79,47 @@ export function getCharacterEnemyName(enemyId: EnemyCharacterId): string {
 export function getCharacterPlayerName(playerId: PlayerCharacterId): string {
   return PLAYER_CHARACTERS[playerId]?.name ?? '未知';
 }
+
+/**
+ * 严嵩「结党」：严嵩在玩家阵容时，玩家方其他角色（除严嵩本身 + 紧邻其左右的两张）的
+ * 所有技能（触发技 + 主动技）被压制，无法触发 / 发动。
+ *
+ * - playerCharacterIds 为玩家阵容顺序（= 站位顺序，左右据此）；
+ * - ownerId 为技能所属角色 id（触发技用 registry.getSkillOwner，主动技用 ownerCharacterId）。
+ *
+ * 压制只影响玩家方角色（在 playerCharacterIds 中的）；敌方（不在其中）不受影响。
+ */
+export function isCharacterSkillSuppressed(
+  playerCharacterIds: readonly string[],
+  ownerId: string | null | undefined,
+): boolean {
+  if (!ownerId) return false;
+  const idx = playerCharacterIds.indexOf('yansong');
+  if (idx === -1) return false; // 严嵩不在场 → 不压制
+  if (ownerId === 'yansong') return false; // 严嵩自己（结党）始终生效
+  // 只压制玩家方角色；敌方（不在 playerCharacterIds 里）不受影响
+  if (!playerCharacterIds.includes(ownerId)) return false;
+  const exempt = new Set([
+    playerCharacterIds[idx],
+    playerCharacterIds[idx - 1],
+    playerCharacterIds[idx + 1],
+  ]);
+  return !exempt.has(ownerId); // 紧邻左右豁免，其余压制
+}
+
+/**
+ * 严嵩「结党」追加效果判定：其它玩家角色触发技能后，若严嵩在最后一个站位，则移到最前面。
+ *
+ * - 只算玩家方其它角色（owner 在 playerCharacterIds 中，且非严嵩自己）；
+ * - 敌方技能（owner 不在玩家阵容）不算；
+ * - 判定条件：严嵩是 playerCharacterIds 的最后一个元素。
+ */
+export function shouldYanSongMoveToFront(
+  playerCharacterIds: readonly string[],
+  ownerId: string | null | undefined,
+): boolean {
+  if (!ownerId) return false;
+  if (ownerId === 'yansong') return false; // 严嵩自己（结党常驻被动）不算
+  if (!playerCharacterIds.includes(ownerId)) return false; // 只算玩家方角色，敌方不算
+  return playerCharacterIds[playerCharacterIds.length - 1] === 'yansong'; // 严嵩在最后 → 移最前
+}

@@ -3,8 +3,9 @@ import type { Card } from '../../models/Card';
 import type { BattleState } from '../../models/BattleTypes';
 import type { PlayerCharacterId } from '../../models/Character';
 import type { ActiveSkillDefinition, CharacterSlotManager } from '../../skills';
-import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai, WeiZhengZhiJian, XiangYuPoFu, YiYinZhiWei, ZhouGongDanZhiLiActive, ZhouYuFanjian } from '../../skills';
+import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai, WeiZhengZhiJian, XiangYuPoFu, YiYinZhiWei, ZhouGongDanZhiLiActive, ZhouYuFanjian, TangYinMiaoHui } from '../../skills';
 import { hasLiXin } from '../../skills/ZhouChuChuHaiLogic';
+import { isCharacterSkillSuppressed, shouldYanSongMoveToFront } from '../../engine/CharacterAbilities';
 import { GameAudioManager } from '../../utils/GameAudioManager';
 import type { CardDisplayManager } from './CardDisplayManager';
 import { FONT_FAMILY, DEPTH_UI } from '../../constants/Layout';
@@ -129,6 +130,11 @@ export class ActiveSkillManager {
       this.host.activeSkills.push(ZhouYuFanjian);
       if (!counts.has(ZhouYuFanjian.id)) counts.set(ZhouYuFanjian.id, 0);
     }
+    // 唐寅「妙绘」：每次获得牌权限一次，选一张临时牌变普通牌，20% 附加随机四象印
+    if (this.host.playerCharacterIds.includes('tangyin')) {
+      this.host.activeSkills.push(TangYinMiaoHui);
+      if (!counts.has(TangYinMiaoHui.id)) counts.set(TangYinMiaoHui.id, 0);
+    }
 
     this.host.activeSkillUseCounts = counts;
   }
@@ -166,14 +172,18 @@ export class ActiveSkillManager {
       if (selected.length === 0) {
         // 无需选牌的主动技（如改制）：未选中牌也可发动
         if (skill.requiresSelection === false) {
-          if (!skill.canUseWithoutSelection || skill.canUseWithoutSelection(this.host)) {
+          if ((!skill.canUseWithoutSelection || skill.canUseWithoutSelection(this.host))
+              // 严嵩「结党」压制：被压制角色的主动技不显示、不能发动
+              && !isCharacterSkillSuppressed(this.host.playerCharacterIds, skill.ownerCharacterId)) {
             eligibleIds.push(skill.id);
           }
         }
       } else if (skill.cardFilter(selected)) {
         // cardFilter 通过后，若技能提供了 canUseWithSelection（需访问 scene 状态），
         // 叠加检查（如项羽「破釜」气数足够才能发动，否则按钮不显示）
-        if (!skill.canUseWithSelection || skill.canUseWithSelection(this.host, selected)) {
+        if ((!skill.canUseWithSelection || skill.canUseWithSelection(this.host, selected))
+            // 严嵩「结党」压制：被压制角色的主动技不显示、不能发动
+            && !isCharacterSkillSuppressed(this.host.playerCharacterIds, skill.ownerCharacterId)) {
           eligibleIds.push(skill.id);
         }
       }
@@ -306,9 +316,13 @@ export class ActiveSkillManager {
     const selected = this.host.getSelectedCards();
     const usable = selected.length > 0
       ? (skill.cardFilter(selected)
-          && (!skill.canUseWithSelection || skill.canUseWithSelection(this.host, selected)))
+          && (!skill.canUseWithSelection || skill.canUseWithSelection(this.host, selected))
+          // 严嵩「结党」压制：被压制角色的主动技不能点击发动
+          && !isCharacterSkillSuppressed(this.host.playerCharacterIds, skill.ownerCharacterId))
       : (skill.requiresSelection === false
-          && (!skill.canUseWithoutSelection || skill.canUseWithoutSelection(this.host)));
+          && (!skill.canUseWithoutSelection || skill.canUseWithoutSelection(this.host))
+          // 严嵩「结党」压制：被压制角色的主动技不能点击发动
+          && !isCharacterSkillSuppressed(this.host.playerCharacterIds, skill.ownerCharacterId));
     if (!usable) return;
 
     const prevPhase = this.host.phase;
@@ -343,6 +357,12 @@ export class ActiveSkillManager {
 
     await this.slotManager.glowOff(skill.ownerCharacterId);
     await this.slotManager.restoreSlot(skill.ownerCharacterId);
+
+    // 严嵩「结党」新效果：其它玩家角色发动主动技后，若严嵩在最后一个站位，移到最前面
+    // 能执行到这里都通过了 usable 的 isCharacterSkillSuppressed 检查，是成功发动的主动技
+    if (shouldYanSongMoveToFront(this.host.playerCharacterIds, skill.ownerCharacterId)) {
+      await this.slotManager.moveToFront('yansong');
+    }
 
     const playerHand = this.host.battle.player.hand;
 

@@ -1,4 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin' | 'suqin' | 'jingke' | 'yiyin' | 'hairui' | 'chengyaojin' | 'hanshizhong' | 'zhougongdan' | 'tianwen' | 'zhouyu' | 'dongfangshuo' | 'mengke' | 'diqing' | 'xuda' | 'sunwu' | 'xiangao';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin' | 'suqin' | 'jingke' | 'yiyin' | 'hairui' | 'chengyaojin' | 'hanshizhong' | 'zhougongdan' | 'tianwen' | 'zhouyu' | 'dongfangshuo' | 'mengke' | 'diqing' | 'xuda' | 'sunwu' | 'xiangao' | 'tangyin' | 'yansong';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army' | 'wokou' | 'qidan' | 'qingzhou';
 
 export interface CharacterAbility {
@@ -459,6 +459,24 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     bio: '春秋郑国商人，以十二头牛犒劳秦军、智退来犯之师，忠义传颂千古。',
     abilities: [
       { skillId: 'xiangao_zhakao', name: '诈犒', description: '你即将受到对方的卡牌伤害时，你可以将等量的黑色牌交给对方，不进行伤害结算，随后你获得牌权，每局只能发动一次' },
+    ],
+  },
+  tangyin: {
+    id: 'tangyin',
+    name: '唐寅',
+    dynasty: '明',
+    bio: '明代才子，诗书画俱绝，狂放不羁，世称「江南第一风流才子」。',
+    abilities: [
+      { skillId: 'tangyin_miaohui', name: '妙绘', description: '（主动技）每次牌权限一次，你可以选择一张临时牌，令该牌变成普通牌，并有 20% 几率附加随机四象印。' },
+    ],
+  },
+  yansong: {
+    id: 'yansong',
+    name: '严嵩',
+    dynasty: '明',
+    bio: '明代权臣，官至内阁首辅，把持朝政、结党营私，权倾一时。',
+    abilities: [
+      { skillId: 'yansong_jiedang', name: '结党', description: '（常驻被动）除该角色牌和其左右两张牌外，玩家方其他角色的技能均无法触发或发动；当其它角色触发或发动技能后，若严嵩在最后一个站位，则移动至队伍最前。' },
     ],
   },
 };

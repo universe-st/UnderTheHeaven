@@ -3,6 +3,7 @@ import type { HandPattern } from '../models/BattleTypes';
 import type { SkillRegistry } from './SkillRegistry';
 import type { SkillEventBus } from './SkillEventBus';
 import type { SkillVisualManager } from './SkillTypes';
+import { isCharacterSkillSuppressed, shouldYanSongMoveToFront } from '../engine/CharacterAbilities';
 
 export class SkillRunner {
   private registry: SkillRegistry;
@@ -42,7 +43,15 @@ export class SkillRunner {
 
     for (const skill of ordered) {
       if (!skill.filter(context)) continue;
+      // 严嵩「结党」压制：严嵩在场时，玩家方其他被压制角色的触发技不执行
+      const ownerId = this.registry.getSkillOwner(skill.id);
+      if (isCharacterSkillSuppressed(context.playerCharacterIds, ownerId)) continue;
       await this.executeWithAnimation(skill, context);
+      // 严嵩「结党」新效果：其它玩家角色触发技能成功后，若严嵩在最后一个站位，移到最前面
+      const execOwner = this.registry.getSkillOwner(skill.id);
+      if (shouldYanSongMoveToFront(context.playerCharacterIds, execOwner)) {
+        await this.slotManager.moveToFront('yansong');
+      }
     }
   }
 
@@ -107,6 +116,9 @@ export class SkillRunner {
 
     for (const skill of skills) {
       if (!skill.filter(ctx)) continue;
+      // 严嵩「结党」压制：HAND_VALIDATION 类技能同样被压制
+      const ownerId = this.registry.getSkillOwner(skill.id);
+      if (isCharacterSkillSuppressed(ctx.playerCharacterIds, ownerId)) continue;
       try {
         await skill.execute(ctx, this.visuals);
       } catch (err) {

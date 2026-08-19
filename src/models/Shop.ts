@@ -77,6 +77,8 @@ export const CHARACTER_PRICES: Record<PlayerCharacterId, number> = {
   xuda: 120,
   sunwu: 120,
   xiangao: 75,
+  tangyin: 120,
+  yansong: -120,
 };
 
 /** 黄金台刷新费用：基础 5 通宝，每刷新一次 +1 */

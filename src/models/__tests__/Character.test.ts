@@ -30,13 +30,13 @@ describe('Character 名人堂字段（dynasty / bio）', () => {
     }
   });
 
-  it('每个分组角色数不超过单行容量 8（名人堂一行 8 卡）', () => {
+  it('每个分组角色数不超过两行容量 16（名人堂一行 8 卡、支持多行换行）', () => {
     const counts = new Map<string, number>();
     for (const c of all) {
       counts.set(c.dynasty, (counts.get(c.dynasty) ?? 0) + 1);
     }
     for (const [dynasty, count] of counts) {
-      expect(count, `分组「${dynasty}」共 ${count} 个`).toBeLessThanOrEqual(8);
+      expect(count, `分组「${dynasty}」共 ${count} 个`).toBeLessThanOrEqual(16);
     }
   });
 });

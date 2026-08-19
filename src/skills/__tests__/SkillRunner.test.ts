@@ -154,4 +154,102 @@ describe('SkillRunner', () => {
 
     expect(order).toEqual(['high', 'low']);
   });
+
+  // 通过 registerForBattle 建立 skill → owner 映射，模拟真实对战注册
+  function registerSkillWithOwner(
+    registry: SkillRegistry,
+    skill: SkillDefinition,
+    ownerId: string,
+    enemy = false,
+  ): void {
+    registry.registerForBattle(
+      [skill],
+      enemy ? [] : [{ id: ownerId, abilities: [{ skillId: skill.id }] }],
+      enemy ? [{ id: ownerId, abilities: [{ skillId: skill.id }] }] : [],
+    );
+  }
+
+  it('结党追加效果：其它玩家角色触发技能 + 严嵩在最后 → moveToFront 以 yansong 调用', async () => {
+    const registry = new SkillRegistry();
+    const eventBus = new SkillEventBus();
+    const visuals = makeVisuals();
+    const slotManager = makeSlotManager();
+
+    registerSkillWithOwner(registry, makeSkill('hanxin_skill', SkillTiming.ON_PLAY), 'hanxin');
+
+    new SkillRunner(registry, eventBus, visuals, slotManager);
+
+    await eventBus.emit(SkillTiming.ON_PLAY, {
+      gameScene: {} as Phaser.Scene,
+      battle: null as never,
+      sourceCharacterId: 'hanxin',
+      // 触发者 hanxin 紧邻严嵩（豁免不被压制），且严嵩在最后一个站位 → 应触发重定位
+      playerCharacterIds: ['hanxin', 'yansong'],
+    });
+
+    expect(slotManager.moveToFront).toHaveBeenCalledWith('yansong');
+  });
+
+  it('结党追加效果：严嵩不在最后（在中间）→ 不调用 moveToFront(yansong)', async () => {
+    const registry = new SkillRegistry();
+    const eventBus = new SkillEventBus();
+    const visuals = makeVisuals();
+    const slotManager = makeSlotManager();
+
+    registerSkillWithOwner(registry, makeSkill('hanxin_skill', SkillTiming.ON_PLAY), 'hanxin');
+
+    new SkillRunner(registry, eventBus, visuals, slotManager);
+
+    await eventBus.emit(SkillTiming.ON_PLAY, {
+      gameScene: {} as Phaser.Scene,
+      battle: null as never,
+      sourceCharacterId: 'hanxin',
+      playerCharacterIds: ['hanxin', 'yansong', 'liubowen'], // 严嵩在中间
+    });
+
+    expect(slotManager.moveToFront).not.toHaveBeenCalledWith('yansong');
+  });
+
+  it('结党追加效果：触发者是敌方（owner 不在玩家阵容）→ 不调用 moveToFront(yansong)', async () => {
+    const registry = new SkillRegistry();
+    const eventBus = new SkillEventBus();
+    const visuals = makeVisuals();
+    const slotManager = makeSlotManager();
+
+    registerSkillWithOwner(registry, makeSkill('enemy_skill', SkillTiming.ON_PLAY), 'huangjinjun', true);
+
+    new SkillRunner(registry, eventBus, visuals, slotManager);
+
+    await eventBus.emit(SkillTiming.ON_PLAY, {
+      gameScene: {} as Phaser.Scene,
+      battle: null as never,
+      sourceCharacterId: 'huangjinjun',
+      playerCharacterIds: ['hanxin', 'liubowen', 'yansong'],
+    });
+
+    expect(slotManager.moveToFront).not.toHaveBeenCalledWith('yansong');
+  });
+
+  it('结党追加效果：被压制的触发技不执行，也不触发 moveToFront(yansong)', async () => {
+    const registry = new SkillRegistry();
+    const eventBus = new SkillEventBus();
+    const visuals = makeVisuals();
+    const slotManager = makeSlotManager();
+
+    const execute = vi.fn(async () => {});
+    // hanxin 距严嵩两位（非紧邻），被「结党」压制
+    registerSkillWithOwner(registry, makeSkill('hanxin_skill', SkillTiming.ON_PLAY, execute), 'hanxin');
+
+    new SkillRunner(registry, eventBus, visuals, slotManager);
+
+    await eventBus.emit(SkillTiming.ON_PLAY, {
+      gameScene: {} as Phaser.Scene,
+      battle: null as never,
+      sourceCharacterId: 'hanxin',
+      playerCharacterIds: ['hanxin', 'liubowen', 'zhugeliang', 'yansong'], // 严嵩最后，hanxin 距其两位被压制
+    });
+
+    expect(execute).not.toHaveBeenCalled();
+    expect(slotManager.moveToFront).not.toHaveBeenCalledWith('yansong');
+  });
 });
