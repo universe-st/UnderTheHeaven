@@ -123,6 +123,11 @@ export interface BattleState {
    * 玩家获得牌权（emitPlayerGainTurn）时清除。
    */
   xudaResponseBlock?: boolean;
+  /**
+   * 弦高「诈犒」：本局是否已成功发动过一次（每局仅一次）。
+   * undefined/false = 未用过，true = 本局已用过，之后不再触发。
+   */
+  xiangaoZhakaoUsed?: boolean;
 }
 
 /** Roguelike 局外循环进入战斗时由 MapScene 传入的节点信息 */

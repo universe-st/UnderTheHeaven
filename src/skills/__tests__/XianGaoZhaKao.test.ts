@@ -179,6 +179,14 @@ describe('XianGaoZhaKao filter（诈犒触发判定）', () => {
     const ctx = makeCtx({ battle, pattern: pattern([card(7, 'heart'), card(8, 'diamond')]) });
     expect(XianGaoZhaKao.filter(ctx)).toBe(true);
   });
+
+  it('本局已成功发动过一次（xiangaoZhakaoUsed=true）→ 即便条件满足也不再触发', () => {
+    const battle = makeBattle();
+    battle.player.hand = [card(3, 'spade'), card(5, 'club')];
+    battle.xiangaoZhakaoUsed = true;
+    const ctx = makeCtx({ battle, pattern: pattern([card(7, 'heart')]) });
+    expect(XianGaoZhaKao.filter(ctx)).toBe(false);
+  });
 });
 
 describe('XianGaoZhaKao execute（诈犒交牌免伤）', () => {
@@ -209,6 +217,8 @@ describe('XianGaoZhaKao execute（诈犒交牌免伤）', () => {
     // 取消伤害 + 获得牌权
     expect(visuals.cancelDamageSettlement).toHaveBeenCalledWith(true);
     expect(visuals.playSkillTriggerSound).toHaveBeenCalled();
+    // 每局限一次：成功发动后置位
+    expect(battle.xiangaoZhakaoUsed).toBe(true);
   });
 
   it('取消（返回 null）→ 不交牌、不取消伤害', async () => {
@@ -229,6 +239,8 @@ describe('XianGaoZhaKao execute（诈犒交牌免伤）', () => {
     expect(battle.enemy.hand.length).toBe(0);
     expect(battle.player.discardPile.length).toBe(0);
     expect(visuals.cancelDamageSettlement).not.toHaveBeenCalled();
+    // 取消不算发动：xiangaoZhakaoUsed 仍为 falsy
+    expect(battle.xiangaoZhakaoUsed).toBeFalsy();
   });
 
   it('选牌交互：want 恰好 N 张、filter 只能选黑色、forced=false 可取消', async () => {
@@ -271,6 +283,8 @@ describe('XianGaoZhaKao execute（诈犒交牌免伤）', () => {
     expect(battle.enemy.hand.length).toBe(0);
     expect(battle.player.discardPile.length).toBe(0);
     expect(visuals.cancelDamageSettlement).not.toHaveBeenCalled();
+    // 未选满取消不算发动：xiangaoZhakaoUsed 仍为 falsy
+    expect(battle.xiangaoZhakaoUsed).toBeFalsy();
   });
 });
 
@@ -279,7 +293,7 @@ describe('XianGaoZhaKao 配置', () => {
     expect(XianGaoZhaKao.id).toBe('xiangao_zhakao');
     expect(XianGaoZhaKao.name).toBe('诈犒');
     expect(XianGaoZhaKao.timing).toBe('on_coefficient_revealed');
-    expect(XianGaoZhaKao.description).toBe('你即将受到对方的卡牌伤害时，你可以将等量的黑色牌交给对方，不进行伤害结算，随后你获得牌权');
+    expect(XianGaoZhaKao.description).toBe('你即将受到对方的卡牌伤害时，你可以将等量的黑色牌交给对方，不进行伤害结算，随后你获得牌权，每局只能发动一次');
     expect(XianGaoZhaKao.dialogLines!.length).toBeGreaterThanOrEqual(2);
   });
 });

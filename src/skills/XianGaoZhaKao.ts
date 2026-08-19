@@ -17,11 +17,13 @@ import { waitForDelay } from '../utils/AnimationUtils';
  *   再 addCardsToHand('enemy') 交给敌方（剪径范式，不进入玩家弃牌堆），
  *   随后 cancelDamageSettlement(true)（不进行伤害结算 + 玩家获得牌权）。
  * - 玩家取消 → 直接 return，伤害照常结算，不交牌、不取消。
+ * - 每局限一次：成功发动（玩家确认交牌并实际执行交牌+免伤）后置位
+ *   battle.xiangaoZhakaoUsed，本局不再触发；玩家取消（未确认交牌）不算发动，可再次触发。
  */
 export const XianGaoZhaKao: SkillDefinition = {
   id: 'xiangao_zhakao',
   name: '诈犒',
-  description: '你即将受到对方的卡牌伤害时，你可以将等量的黑色牌交给对方，不进行伤害结算，随后你获得牌权',
+  description: '你即将受到对方的卡牌伤害时，你可以将等量的黑色牌交给对方，不进行伤害结算，随后你获得牌权，每局只能发动一次',
   timing: SkillTiming.ON_COEFFICIENT_REVEALED,
   priority: 100,
   dialogLines: [
@@ -31,6 +33,8 @@ export const XianGaoZhaKao: SkillDefinition = {
   ],
 
   filter: (ctx: SkillContext): boolean => {
+    // 0) 每局限一次：本局已成功发动过 → 不再触发
+    if (ctx.battle.xiangaoZhakaoUsed) return false;
     // a) 敌方打出的牌正对玩家结算
     if (ctx.target !== 'player') return false;
     // b) 弦高在玩家阵容中
@@ -83,6 +87,9 @@ export const XianGaoZhaKao: SkillDefinition = {
 
     // e) 交给敌方（剪径范式）
     await addCardsToHand(ctx.gameScene, 'enemy', removed);
+
+    // 每局限一次：成功发动后置位，本局不再触发
+    ctx.battle.xiangaoZhakaoUsed = true;
 
     // 不进行伤害结算 + 玩家获得牌权（同张飞「断喝」/荆轲「匕现」）
     visuals.cancelDamageSettlement(true);
