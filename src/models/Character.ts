@@ -1,4 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin' | 'suqin' | 'jingke' | 'yiyin' | 'hairui' | 'chengyaojin' | 'hanshizhong' | 'zhougongdan' | 'tianwen' | 'zhouyu' | 'dongfangshuo' | 'mengke' | 'diqing' | 'xuda' | 'sunwu' | 'xiangao' | 'tangyin' | 'yansong';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin' | 'suqin' | 'jingke' | 'yiyin' | 'hairui' | 'chengyaojin' | 'hanshizhong' | 'zhougongdan' | 'tianwen' | 'zhouyu' | 'dongfangshuo' | 'mengke' | 'diqing' | 'xuda' | 'sunwu' | 'xiangao' | 'tangyin' | 'yansong' | 'luyu' | 'huoqubing';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army' | 'wokou' | 'qidan' | 'qingzhou';
 
 export interface CharacterAbility {
@@ -478,6 +478,20 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     abilities: [
       { skillId: 'yansong_jiedang', name: '结党', description: '（常驻被动）除该角色牌和其左右两张牌外，玩家方其他角色的技能均无法触发或发动；当其它角色触发或发动技能后，若严嵩在最后一个站位，则移动至队伍最前。' },
     ],
+  },
+  luyu: {
+    id: 'luyu',
+    name: '陆羽',
+    dynasty: '隋唐',
+    bio: '唐代茶学家，著《茶经》三卷，被誉为「茶圣」。',
+    abilities: [{ skillId: 'luyu_chasheng', name: '茶圣', description: '（主动技）每次牌权限一次，你可以弃置任意张梅花牌，这些梅花牌分数+1。' }],
+  },
+  huoqubing: {
+    id: 'huoqubing',
+    name: '霍去病',
+    dynasty: '西汉',
+    bio: '西汉名将，六出匈奴、封狼居胥，官至大司马骠骑将军，英年早逝。',
+    abilities: [{ skillId: 'huoqubing_guanjun', name: '冠军', description: '系数亮出时，你令系数+2X。X为整盘游戏中此技能触发的次数。X为6时，移除此角色。' }],
   },
 };
 

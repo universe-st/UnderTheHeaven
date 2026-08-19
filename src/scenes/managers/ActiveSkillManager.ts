@@ -3,7 +3,7 @@ import type { Card } from '../../models/Card';
 import type { BattleState } from '../../models/BattleTypes';
 import type { PlayerCharacterId } from '../../models/Character';
 import type { ActiveSkillDefinition, CharacterSlotManager } from '../../skills';
-import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai, WeiZhengZhiJian, XiangYuPoFu, YiYinZhiWei, ZhouGongDanZhiLiActive, ZhouYuFanjian, TangYinMiaoHui } from '../../skills';
+import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai, WeiZhengZhiJian, XiangYuPoFu, YiYinZhiWei, ZhouGongDanZhiLiActive, ZhouYuFanjian, TangYinMiaoHui, LuYuChaSheng } from '../../skills';
 import { hasLiXin } from '../../skills/ZhouChuChuHaiLogic';
 import { isCharacterSkillSuppressed, shouldYanSongMoveToFront } from '../../engine/CharacterAbilities';
 import { GameAudioManager } from '../../utils/GameAudioManager';
@@ -134,6 +134,11 @@ export class ActiveSkillManager {
     if (this.host.playerCharacterIds.includes('tangyin')) {
       this.host.activeSkills.push(TangYinMiaoHui);
       if (!counts.has(TangYinMiaoHui.id)) counts.set(TangYinMiaoHui.id, 0);
+    }
+    // 陆羽「茶圣」：每次获得牌权限一次，弃置任意张梅花牌，分数永久+1
+    if (this.host.playerCharacterIds.includes('luyu')) {
+      this.host.activeSkills.push(LuYuChaSheng);
+      if (!counts.has(LuYuChaSheng.id)) counts.set(LuYuChaSheng.id, 0);
     }
 
     this.host.activeSkillUseCounts = counts;
