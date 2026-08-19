@@ -11,3 +11,6 @@ cordova/jks/
 *.log
 .codegraph/
 .reasonix/
+
+# Reasonix 本地模型配置（不进版本库）
+reasonix.toml
