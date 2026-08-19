@@ -46,7 +46,7 @@ UnderTheHeaven/
 │   │       ├── 05-战间系统.md    # 通宝经济、黄金台商店
 │   │       ├── 06-牌与道具系统.md # 卜辞牌、锦囊牌、事件牌
 │   │       ├── 07-印记系统.md    # 局内强化印记
-│   │       ├── 08-历史人物系统.md # 各稀有度人物全表
+│   │       ├── 08-人杰系统.md    # 全人杰（可招募人物）全表
 │   │       ├── 09-敌人系统.md    # 难度曲线、Boss 能力
 │   │       ├── 10-局外成长系统.md # 成长维度、通宝利息
 │   │       ├── 11-美术与视觉方向.md
@@ -183,7 +183,7 @@ src/
 
 | 模块 | 职责 | 不可依赖 | 参考文档 |
 |------|------|----------|----------|
-| `models/` | 纯数据定义、无副作用工具函数 | Phaser, scenes | `docs/design/game/02-对战系统.md`, `docs/design/game/08-历史人物系统.md` |
+| `models/` | 纯数据定义、无副作用工具函数 | Phaser, scenes | `docs/design/game/02-对战系统.md`, `docs/design/game/08-人杰系统.md` |
 | `engine/` | 核心游戏算法（牌型、伤害、AI） | Phaser, scenes | `docs/design/game/02-对战系统.md`, `docs/design/角色技能实现方案.md` |
 | `skills/` | 技能定义、注册、触发、执行 | 直接依赖 scenes（通过接口抽象） | `docs/design/角色技能实现方案.md` |
 | `scenes/` | 场景生命周期、UI 创建、用户交互 | 只能依赖 models/engine/skills/utils | `docs/design/game/01-核心概述.md` |
