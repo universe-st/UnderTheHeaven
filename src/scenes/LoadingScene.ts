@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { VoiceManager } from '../utils/VoiceManager';
 import { UIFactory } from '../utils/UIFactory';
 import { FONT_FAMILY, CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants/Layout';
+import { TRIGRAM_CODES, hexagramImageKey } from '../models/RunState';
 
 export class LoadingScene extends Phaser.Scene {
   private progressBar!: Phaser.GameObjects.Graphics;
@@ -122,6 +123,14 @@ export class LoadingScene extends Phaser.Scene {
     this.load.image('seal_baihu', 'seal_baihu.png');
     this.load.image('seal_zhuque', 'seal_zhuque.png');
     this.load.image('seal_xuanwu', 'seal_xuanwu.png');
+
+    // 六十四卦卦象图（程序化生成，见 scripts/generate_hexagrams.py）
+    for (const upper of Object.keys(TRIGRAM_CODES) as (keyof typeof TRIGRAM_CODES)[]) {
+      for (const lower of Object.keys(TRIGRAM_CODES) as (keyof typeof TRIGRAM_CODES)[]) {
+        const key = hexagramImageKey(upper, lower);
+        this.load.image(key, `${key}.png`);
+      }
+    }
 
     // 地图节点图标（古风水墨风格）
     this.load.image('node_normal', 'nodes/node_normal.png');

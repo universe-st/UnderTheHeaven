@@ -18,6 +18,16 @@ export interface MapNode {
 /** 八卦（上卦 / 下卦） */
 export type Trigram = '乾' | '坤' | '震' | '巽' | '坎' | '离' | '艮' | '兑';
 
+/** 八卦 → 拉丁码（用于卦象图资源命名） */
+export const TRIGRAM_CODES: Record<Trigram, string> = {
+  乾: 'qian', 坤: 'kun', 震: 'zhen', 巽: 'xun', 坎: 'kan', 离: 'li', 艮: 'gen', 兑: 'dui',
+};
+
+/** 卦象图资源 key：`hex_<上卦码>_<下卦码>`，与 public/hex_*.png 对应 */
+export function hexagramImageKey(upper: Trigram, lower: Trigram): string {
+  return `hex_${TRIGRAM_CODES[upper]}_${TRIGRAM_CODES[lower]}`;
+}
+
 /** 卜辞卦象类型：主动（手动使用） / 被动（触发即用） */
 export type BuCiType = 'active' | 'passive';
 
