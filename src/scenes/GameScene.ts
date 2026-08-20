@@ -8,6 +8,7 @@ import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayer
 import { getCharacterEnemyName } from '../engine/CharacterAbilities';
 import { PLAYER_VITALITY } from '../models/RunState';
 import { getRun } from '../models/RunManager';
+import { BuciBarManager } from './managers/BuciBarManager';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, type SkillContext, type ActiveSkillDefinition } from '../skills';
 import { clearPassiveSkills, registerAllPassiveSkills } from '../skills/PassiveSkillUtils';
 import {
@@ -99,6 +100,8 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
   private testConfig: BattleConfig | null = null;
   isTestMode: boolean = false;
   playerCharacterIds: PlayerCharacterId[] = [];
+  /** 战斗内卜辞栏（仅 runMode 对局显示） */
+  private buciBar: BuciBarManager | null = null;
 
   /** 入场配置（含 runMode），供 BattleFlowManager 等管理器读取 */
   get battleConfig(): BattleConfig | null {
@@ -187,6 +190,8 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
     this.respondChainDepth = 0;
     this.damageSettlementCancelled = false;
     this.playerCharacterIds = [];
+    this.buciBar?.destroy();
+    this.buciBar = null;
 
     this.characterSlotContainers = [];
     this.characterSlotTexts = [];
@@ -283,6 +288,7 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
       this.cardDisplayManager,
       () => this.battleFlowManager.aiInitiatePlay(),
       () => this.battleFlowManager.refillPlayerHandAndNotify(),
+      (active) => this.buciBar?.setBattleActivePhase(active),
     );
     this.bgmManager = new BgmManager(this);
 
@@ -300,6 +306,8 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
     this.renderAllCards();
     this.dragInputManager.setup();
     this.healthBarManager.updateVitalityBars();
+
+    this.createBattleBuciBar(width, height);
 
     // ── Skill system + pattern hint (must be before updateUIForPhase) ──
     this.skillEventBus = new SkillEventBus();
@@ -490,6 +498,35 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
     this.characterBarManager.createCharacterSlots(w, h);
   }
 
+  /**
+   * 战斗内卜辞栏（context:'battle'，仅 runMode 对局显示；测试模式无局不显示）。
+   * 位置：敌方信息栏右侧空白区（x=564, y=170，SLOT 116×100）。
+   * 重叠检查（2400×1080 画布）：
+   *   A 敌方信息栏:  x ∈ [120, 540]（含头像），y ∈ [56, 90]
+   *   B 牌型按钮:    x ∈ [2080, 2260]，y ∈ [34, 106]
+   *   C 设置按钮:    x ∈ [2284, 2372]，y ∈ [28, 116]
+   *   D 敌方手牌:    baseY=220（y ∈ [94, 346]），整列居中，左边缘 ≥ 840（17 张压缩时 918）
+   *   E 卜辞栏:      x ∈ [470, 658]，y ∈ [120, 220]
+   *   E 与 A/B/C 无 y 交集（E.y 下限 120 > A/C 上限）；E.x 上限 658 < D 左边缘 → 全部 gap ≥ 10 ✅
+   */
+  private createBattleBuciBar(_w: number, _h: number): void {
+    const runMode = this.testConfig?.runMode;
+    if (!runMode) return; // 仅 runMode 对局显示
+
+    this.buciBar?.destroy();
+    this.buciBar = new BuciBarManager(this, {
+      x: 564,
+      y: 170,
+      context: 'battle',
+      battleActivePhase: false,
+      onStateChanged: () => {
+        // 使用/出售后无天命/通宝显示，仅刷新卜辞栏自身
+        this.buciBar?.refresh();
+      },
+    });
+    this.buciBar.refresh();
+  }
+
   // ═══════════════════════════════════════════════
   //  Card Rendering (delegated to CardDisplayManager)
   // ═══════════════════════════════════════════════
@@ -650,6 +687,12 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
     if (this.btnHint) {
       this.btnHint.setVisible(isPlayerPhase);
       this.btnHintText.setColor(this.playerHasPlayablePattern() ? '#1a0a04' : '#8a7a5a');
+    }
+
+    // 主动卦可用性：仅 player_init（主动技可发动阶段）由 updateActiveSkillButton 控制；
+    // 其余阶段（跟牌/敌方回合/动画/终局）强制不可用，防止主动卦在非主动技阶段被使用
+    if (this.phase !== 'player_init') {
+      this.buciBar?.setBattleActivePhase(false);
     }
 
     this.updateButtonLayout();

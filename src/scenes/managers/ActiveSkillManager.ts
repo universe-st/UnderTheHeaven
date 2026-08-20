@@ -51,6 +51,8 @@ export class ActiveSkillManager {
   private cardDisplay: CardDisplayManager;
   private onAiInitiatePlay: () => Promise<void>;
   private onRefillPlayerHand: () => Promise<void>;
+  /** 主动技阶段进入/离开回调（用于战斗卜辞栏「使用」可用性联动） */
+  private onBuciActivePhaseChange: ((active: boolean) => void) | null;
 
   constructor(
     host: ActiveSkillHost & Phaser.Scene,
@@ -58,6 +60,7 @@ export class ActiveSkillManager {
     cardDisplay: CardDisplayManager,
     onAiInitiatePlay: () => Promise<void>,
     onRefillPlayerHand: () => Promise<void>,
+    onBuciActivePhaseChange: ((active: boolean) => void) | null = null,
   ) {
     this.host = host;
     this.scene = host;
@@ -65,6 +68,7 @@ export class ActiveSkillManager {
     this.cardDisplay = cardDisplay;
     this.onAiInitiatePlay = onAiInitiatePlay;
     this.onRefillPlayerHand = onRefillPlayerHand;
+    this.onBuciActivePhaseChange = onBuciActivePhaseChange;
   }
 
   getBattle(): BattleState {
@@ -164,6 +168,7 @@ export class ActiveSkillManager {
     const { height } = this.host.scale;
 
     if (this.host.phase !== 'player_init') {
+      this.notifyBuciActivePhase(false);
       if (this.host.btnSkill) this.host.btnSkill.setVisible(false);
       this.closeSkillDropdown();
       return;
@@ -197,6 +202,7 @@ export class ActiveSkillManager {
     this.host.activeSkillEligibleIds = eligibleIds;
 
     if (eligibleIds.length === 0) {
+      this.notifyBuciActivePhase(false);
       if (this.host.btnSkill) this.host.btnSkill.setVisible(false);
       this.closeSkillDropdown();
       this.updateButtonLayout();
@@ -205,11 +211,15 @@ export class ActiveSkillManager {
 
     const firstSkill = this.host.activeSkills.find(s => s.id === eligibleIds[0]);
     if (!firstSkill) {
+      this.notifyBuciActivePhase(false);
       if (this.host.btnSkill) this.host.btnSkill.setVisible(false);
       this.closeSkillDropdown();
       this.updateButtonLayout();
       return;
     }
+
+    // 有可发动的主动技：进入主动技阶段（战斗卜辞栏「使用」可用）
+    this.notifyBuciActivePhase(true);
 
     const btnY = height - 320;
     if (!this.host.btnSkill) {
@@ -330,6 +340,9 @@ export class ActiveSkillManager {
           && !isCharacterSkillSuppressed(this.host.playerCharacterIds, skill.ownerCharacterId));
     if (!usable) return;
 
+    // 主动技发动中：退出主动技阶段（战斗卜辞栏「使用」不可用）
+    this.notifyBuciActivePhase(false);
+
     const prevPhase = this.host.phase;
     this.host.phase = 'animating';
     this.host.updateUIForPhase();
@@ -434,5 +447,10 @@ export class ActiveSkillManager {
         });
       }
     }
+  }
+
+  /** 主动技阶段进入/离开通知（有可发动的主动技 → true） */
+  private notifyBuciActivePhase(active: boolean): void {
+    this.onBuciActivePhaseChange?.(active);
   }
 }
