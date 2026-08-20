@@ -549,7 +549,7 @@ export class MapScene extends Phaser.Scene {
     }).setOrigin(0.5));
 
     if (run.buciCards.length === 0) {
-      container.add(this.add.text(cx, buciTitleY + 60, '（尚未获得卜辞牌）', {
+      container.add(this.add.text(cx, buciTitleY + 60, '（尚未获得卜辞）', {
         fontSize: '22px', fontFamily: FONT_FAMILY, color: '#8a7040',
       }).setOrigin(0.5));
     } else {
@@ -559,8 +559,8 @@ export class MapScene extends Phaser.Scene {
         container.add(this.add.text(
           px + 180 + col * 400,
           buciTitleY + 52 + row * 44,
-          `${buci.name}  系数 +${buci.coefficientBonus}`,
-          { fontSize: '22px', fontFamily: FONT_FAMILY, color: '#5a4030' },
+          `${buci.name}${buci.count > 1 ? ` ×${buci.count}` : ''}  ${buci.desc}`,
+          { fontSize: '20px', fontFamily: FONT_FAMILY, color: '#5a4030' },
         ).setOrigin(0, 0.5));
       });
     }

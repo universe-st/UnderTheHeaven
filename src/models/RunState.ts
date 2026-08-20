@@ -15,11 +15,45 @@ export interface MapNode {
   cleared: boolean;
 }
 
+/** 八卦（上卦 / 下卦） */
+export type Trigram = '乾' | '坤' | '震' | '巽' | '坎' | '离' | '艮' | '兑';
+
+/** 卜辞卦象类型：主动（手动使用） / 被动（触发即用） */
+export type BuCiType = 'active' | 'passive';
+
+/**
+ * 卦象效果定义（判别联合）。
+ * 一次性：主动使用或被动触发都会消耗（count - 1）。
+ */
+export type BuCiEffect =
+  | { kind: 'destiny_up'; maxInc: number; curInc: number } // 乾为天：天命上限+，天命+
+  | { kind: 'block_battle_lose_deduction' } // 天水讼：抵挡一次战败天命扣减
+  | { kind: 'save_from_zero' } // 天泽履：天命≤0 时回 1，避免失败
+  | { kind: 'destiny_max_down_cur_up'; maxDown: number; curUp: number } // 天地否：上限-，天命+
+  | { kind: 'destiny_up_on_battle_win'; amount: number } // 天火同人：战斗节点胜利回天命
+  | { kind: 'event_autopick'; amount: number } // 天雷无妄：事件出选项随机选 + 回天命
+  | { kind: 'skip_battle'; amount: number } // 天山遁：选战斗节点跳过 + 回天命
+  | { kind: 'remove_character'; amount: number }; // 天风姤：移除角色牌 + 回天命
+
 export interface BuCiCard {
   id: string;
   name: string;
-  handType: HandType;
-  coefficientBonus: number;
+  /** 上卦（用于分组与卦象图） */
+  upper: Trigram;
+  /** 下卦 */
+  lower: Trigram;
+  price: number;
+  type: BuCiType;
+  /** 效果描述文本（商店 / 栏位展示） */
+  desc: string;
+  effect: BuCiEffect;
+  /** 堆叠数量：同卦可买多张，触发只消耗第一张 */
+  count: number;
+}
+
+/** 出售价 = 购买价一半（向下取整） */
+export function buciSellPrice(card: BuCiCard): number {
+  return Math.floor(card.price / 2);
 }
 
 export interface RunState {
@@ -76,6 +110,8 @@ export const BOSS_FLOORS: readonly number[] = [9, 18, 27, 36];
 export const MAP_FLOORS = 36;
 /** 阵容上限 */
 export const ROSTER_MAX = 10;
+/** 卜辞栏格数上限 */
+export const BUCI_BAR_MAX = 3;
 
 export function createNewRun(rng: () => number): RunState {
   return {

@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { startNewRun, getRun, setRun, hasSave, save, load, clear, applyBattleResult, consumePendingInterest, settleNodeClear, buciCoefficientBonus } from '../RunManager';
+import { startNewRun, getRun, setRun, hasSave, save, load, clear, applyBattleResult, consumePendingInterest, settleNodeClear } from '../RunManager';
 import type { RunState } from '../RunState';
 import { INITIAL_TONGBAO, INITIAL_DESTINY, TONGBAO_REWARD, interestOn } from '../RunState';
-import { HandType } from '../BattleTypes';
 
 function createMemoryLocalStorage(): Storage {
   const map = new Map<string, string>();
@@ -253,25 +252,5 @@ describe('applyBattleResult', () => {
     expect(node.cleared).toBe(true);
     expect(run.floor).toBe(2);
     expect(consumePendingInterest()).toBe(interestOn(INITIAL_TONGBAO + 20));
-  });
-});
-
-describe('buciCoefficientBonus', () => {
-  it('sums coefficientBonus of cards matching the hand type', () => {
-    const cards = [
-      { id: 'b1', name: '乾', handType: HandType.Pair, coefficientBonus: 0.3 },
-      { id: 'b2', name: '坤', handType: HandType.Bomb, coefficientBonus: 1 },
-      { id: 'b3', name: '震', handType: HandType.Pair, coefficientBonus: 0.2 },
-    ];
-    expect(buciCoefficientBonus(cards, HandType.Pair)).toBeCloseTo(0.5);
-    expect(buciCoefficientBonus(cards, HandType.Bomb)).toBe(1);
-  });
-
-  it('returns 0 when nothing matches or the list is empty', () => {
-    const cards = [
-      { id: 'b1', name: '乾', handType: HandType.Pair, coefficientBonus: 0.3 },
-    ];
-    expect(buciCoefficientBonus(cards, HandType.Straight)).toBe(0);
-    expect(buciCoefficientBonus([], HandType.Pair)).toBe(0);
   });
 });

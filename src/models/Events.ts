@@ -1,6 +1,6 @@
 import type { RunState } from './RunState';
 import type { ShopItem } from './Shop';
-import { BUCI_CATALOG, characterPrice } from './Shop';
+import { HEXAGRAM_CATALOG, addBuciToBar, characterPrice } from './Shop';
 import { PLAYER_CHARACTER_LIST } from './Character';
 
 export type EventEffect =
@@ -109,8 +109,8 @@ function clampDestiny(run: RunState): void {
 }
 
 function gainRandomBuci(run: RunState, rng: () => number): string {
-  const entry = BUCI_CATALOG[Math.floor(rng() * BUCI_CATALOG.length)]!;
-  run.buciCards.push({ ...entry.buci });
+  const entry = HEXAGRAM_CATALOG[Math.floor(rng() * HEXAGRAM_CATALOG.length)]!;
+  addBuciToBar(run, { ...entry.buci, count: 1 });
   return entry.buci.name;
 }
 

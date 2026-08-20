@@ -17,7 +17,7 @@ import { FONT_FAMILY, DEPTH_DAMAGE, DEPTH_CENTER_BASE } from '../../constants/La
 import { SkillTiming, type SkillContext, type SkillEventBus } from '../../skills';
 import type { PlayerCharacterId } from '../../models/Character';
 import type { BattleConfig } from '../../models/BattleTypes';
-import { getRun, buciCoefficientBonus } from '../../models/RunManager';
+import { getRun } from '../../models/RunManager';
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 
@@ -78,21 +78,6 @@ export class DamageSettlementManager {
     //   - 玄武：单牌伤害结算动画完成后（stage1），回复打出方等同该牌得分的气数；
     //   - 白虎：单牌伤害结算后（stage1），额外触发一次该牌的单牌结算动画（该牌伤害 ×2）。
     const seals: FourSeal[] = collectSeals(pattern.cards);
-
-    // 卜辞牌加成（仅局外循环中玩家造成伤害时）：匹配牌型的 coefficientBonus
-    // 全部加法叠加进系数；同时抬升 baseCoefficient，保证后续技能（如章邯「绝守」）
-    // 以 baseCoefficient 为基准重算时不丢失卜辞加成，系数标签也直接显示加成后数值。
-    if (target === 'enemy' && this.host.battleConfig?.runMode) {
-      const run = getRun();
-      const bonus = run ? buciCoefficientBonus(run.buciCards, pattern.type) : 0;
-      if (bonus > 0) {
-        damageInfo.baseCoefficient += bonus;
-        damageInfo.coefficient += bonus;
-        damageInfo.finalDamage = Math.round(
-          damageInfo.sumRanks * damageInfo.coefficient * damageInfo.damageMultiplier,
-        );
-      }
-    }
 
     const sourceCharId = target === 'enemy'
       ? (this.host.battle.player.characterId ?? this.host.playerCharacterIds[0]!)

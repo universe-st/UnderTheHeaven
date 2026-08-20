@@ -1,8 +1,7 @@
-import { HandType } from './BattleTypes';
 import { PLAYER_CHARACTER_LIST } from './Character';
 import type { PlayerCharacterId } from './Character';
 import type { BuCiCard, RunState } from './RunState';
-import { ROSTER_MAX } from './RunState';
+import { ROSTER_MAX, BUCI_BAR_MAX } from './RunState';
 import type { Card } from './Card';
 import { getNextCardId, rankToLabel, SUITS, CARD_RANKS } from './Card';
 import { randomSeal, SEAL_PRICE_EXTRA, CARD_SLOT_CHANCE } from './FourSeal';
@@ -13,14 +12,82 @@ export type ShopItem =
   | { kind: 'card'; card: Card; price: number }
   | { kind: 'heal'; amount: 10; price: number };
 
-/** 卜辞牌目录：按牌型提供伤害系数加成，价格按强度定（30-80） */
-export const BUCI_CATALOG: { buci: BuCiCard; price: number }[] = [
-  { buci: { id: 'buci_pojun_single', name: '破军·单张', handType: HandType.Single, coefficientBonus: 0.5 }, price: 80 },
-  { buci: { id: 'buci_pojun_pair', name: '破军·对子', handType: HandType.Pair, coefficientBonus: 0.4 }, price: 60 },
-  { buci: { id: 'buci_pojun_triple', name: '破军·三张', handType: HandType.Triple, coefficientBonus: 0.4 }, price: 55 },
-  { buci: { id: 'buci_pojun_straight', name: '破军·顺子', handType: HandType.Straight, coefficientBonus: 0.4 }, price: 50 },
-  { buci: { id: 'buci_pojun_bomb', name: '破军·炸弹', handType: HandType.Bomb, coefficientBonus: 0.3 }, price: 30 },
+/**
+ * 六十四卦·卜辞目录。第一批 = 天宫 8 卦（上卦皆「乾」），全为用户给定。
+ * 之后按上卦分组逐宫补齐（地/雷/风/水/火/山/泽 各 8 卦 = 64）。
+ */
+export const HEXAGRAM_CATALOG: { buci: BuCiCard; price: number }[] = [
+  // 乾为天（上乾下乾）
+  {
+    buci: { id: 'hex_qian_wei_tian', name: '乾为天', upper: '乾', lower: '乾', price: 30, type: 'active', desc: '天命上限 +10，同时天命 +10', effect: { kind: 'destiny_up', maxInc: 10, curInc: 10 }, count: 1 },
+    price: 30,
+  },
+  // 天水讼（上乾下坎）
+  {
+    buci: { id: 'hex_tian_shui_song', name: '天水讼', upper: '乾', lower: '坎', price: 30, type: 'passive', desc: '抵挡一次战斗失败引起的天命扣减', effect: { kind: 'block_battle_lose_deduction' }, count: 1 },
+    price: 30,
+  },
+  // 天泽履（上乾下兑）
+  {
+    buci: { id: 'hex_tian_ze_lv', name: '天泽履', upper: '乾', lower: '兑', price: 50, type: 'passive', desc: '天命被扣减到 0 以下时，恢复到 1，避免游戏失败', effect: { kind: 'save_from_zero' }, count: 1 },
+    price: 50,
+  },
+  // 天地否（上乾下坤）
+  {
+    buci: { id: 'hex_tian_di_pi', name: '天地否', upper: '乾', lower: '坤', price: 30, type: 'active', desc: '扣减 50 点天命上限，恢复 20 点天命', effect: { kind: 'destiny_max_down_cur_up', maxDown: 50, curUp: 20 }, count: 1 },
+    price: 30,
+  },
+  // 天火同人（上乾下离）
+  {
+    buci: { id: 'hex_tian_huo_tong_ren', name: '天火同人', upper: '乾', lower: '离', price: 20, type: 'passive', desc: '在战斗节点取得胜利则恢复 10 点天命', effect: { kind: 'destiny_up_on_battle_win', amount: 10 }, count: 1 },
+    price: 20,
+  },
+  // 天雷无妄（上乾下震）
+  {
+    buci: { id: 'hex_tian_lei_wu_wang', name: '天雷无妄', upper: '乾', lower: '震', price: 20, type: 'passive', desc: '在「事件」节点需选择选项时，恢复 10 点天命，随机为你选择一个', effect: { kind: 'event_autopick', amount: 10 }, count: 1 },
+    price: 20,
+  },
+  // 天山遁（上乾下艮）
+  {
+    buci: { id: 'hex_tian_shan_dun', name: '天山遁', upper: '乾', lower: '艮', price: 30, type: 'passive', desc: '选择「战斗」节点时，跳过战斗，增加 10 点天命', effect: { kind: 'skip_battle', amount: 10 }, count: 1 },
+    price: 30,
+  },
+  // 天风姤（上乾下巽）
+  {
+    buci: { id: 'hex_tian_feng_gou', name: '天风姤', upper: '乾', lower: '巽', price: 40, type: 'active', desc: '移除一张角色牌，增加 10 点天命；无角色牌不得使用', effect: { kind: 'remove_character', amount: 10 }, count: 1 },
+    price: 40,
+  },
 ];
+
+/**
+ * 将卦象加入卜辞栏：同卦堆叠（count +1），否则新增一格。
+ * 卜辞栏共 3 格，满格时返回 false（不加入）。
+ */
+export function addBuciToBar(run: RunState, buci: BuCiCard): boolean {
+  if (buci.count <= 0) buci.count = 1;
+  const existing = run.buciCards.find((c) => c.id === buci.id);
+  if (existing) {
+    existing.count += buci.count;
+    return true;
+  }
+  if (run.buciCards.length >= 3) {
+    return false;
+  }
+  run.buciCards.push({ ...buci });
+  return true;
+}
+
+/** 出售卜辞栏中某卦一张：返还售价（购买价一半），count-1，归零移除。 */
+export function sellBuci(run: RunState, id: string): number {
+  const idx = run.buciCards.findIndex((c) => c.id === id);
+  if (idx < 0) return 0;
+  const card = run.buciCards[idx]!;
+  const refund = Math.floor(card.price / 2);
+  card.count -= 1;
+  if (card.count <= 0) run.buciCards.splice(idx, 1);
+  run.tongbao += refund;
+  return refund;
+}
 
 /** 角色售价 = 招募费用 × 15 */
 export const CHARACTER_PRICE_FACTOR = 15;
@@ -163,8 +230,8 @@ export function generateShopStock(run: RunState, rng: () => number): ShopItem[] 
       const card = randomShopCard(rng);
       items.push({ kind: 'card', card, price: cardPrice(card) });
     } else {
-      const entry = BUCI_CATALOG[Math.floor(rng() * BUCI_CATALOG.length)]!;
-      items.push({ kind: 'buci', buci: { ...entry.buci }, price: entry.price });
+      const entry = HEXAGRAM_CATALOG[Math.floor(rng() * HEXAGRAM_CATALOG.length)]!;
+      items.push({ kind: 'buci', buci: { ...entry.buci, count: 1 }, price: entry.price });
     }
   }
 
@@ -186,13 +253,21 @@ export function purchase(run: RunState, item: ShopItem): boolean {
   if (item.kind === 'character' && (run.roster.length >= ROSTER_MAX || run.roster.includes(item.characterId))) {
     return false;
   }
+  // 卜辞栏满格且非同卦（不可堆叠）时不可购买
+  if (
+    item.kind === 'buci'
+    && !run.buciCards.some((c) => c.id === item.buci.id)
+    && run.buciCards.length >= BUCI_BAR_MAX
+  ) {
+    return false;
+  }
   run.tongbao -= item.price;
   switch (item.kind) {
     case 'character':
       run.roster.push(item.characterId);
       break;
     case 'buci':
-      run.buciCards.push({ ...item.buci });
+      addBuciToBar(run, item.buci);
       break;
     case 'card':
       run.cardPool.push({ ...item.card });

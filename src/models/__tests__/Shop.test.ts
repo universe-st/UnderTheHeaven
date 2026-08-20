@@ -1,25 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { HandType } from '../BattleTypes';
 import { PLAYER_CHARACTERS } from '../Character';
 import { createNewRun } from '../RunState';
-import { BUCI_CATALOG, generateShopStock, purchase, characterPrice, cardPrice, randomShopCard, CHARACTER_PRICES, refreshPrice } from '../Shop';
+import { HEXAGRAM_CATALOG, generateShopStock, purchase, characterPrice, cardPrice, randomShopCard, CHARACTER_PRICES, refreshPrice } from '../Shop';
 import type { ShopItem } from '../Shop';
 import { SEAL_PRICE_EXTRA } from '../FourSeal';
 import { createRng } from '../../engine/MapGenerator';
 
-describe('BUCI_CATALOG', () => {
-  it('contains 5 buci cards with expected hand types and bonuses', () => {
-    expect(BUCI_CATALOG).toHaveLength(5);
-    const byType = new Map(BUCI_CATALOG.map((e) => [e.buci.handType, e]));
-    expect(byType.get(HandType.Single)!.buci.coefficientBonus).toBe(0.5);
-    expect(byType.get(HandType.Pair)!.buci.coefficientBonus).toBe(0.4);
-    expect(byType.get(HandType.Triple)!.buci.coefficientBonus).toBe(0.4);
-    expect(byType.get(HandType.Straight)!.buci.coefficientBonus).toBe(0.4);
-    expect(byType.get(HandType.Bomb)!.buci.coefficientBonus).toBe(0.3);
-    for (const e of BUCI_CATALOG) {
-      expect(e.price).toBeGreaterThanOrEqual(30);
-      expect(e.price).toBeLessThanOrEqual(80);
+describe('HEXAGRAM_CATALOG', () => {
+  it('第一批 = 天宫 8 卦，上卦皆「乾」，含主/被动与效果定义', () => {
+    expect(HEXAGRAM_CATALOG).toHaveLength(8);
+    for (const e of HEXAGRAM_CATALOG) {
+      expect(e.buci.upper).toBe('乾');
+      expect(e.buci.name).toBeTruthy();
+      expect(e.buci.desc).toBeTruthy();
+      expect(e.buci.effect).toBeTruthy();
+      expect(['active', 'passive']).toContain(e.buci.type);
+      expect(e.buci.count).toBeGreaterThanOrEqual(1);
+      expect(e.price).toBe(e.buci.price);
+      expect(e.price).toBeGreaterThanOrEqual(20);
+      expect(e.price).toBeLessThanOrEqual(50);
     }
+  });
+
+  it('覆盖主/被动两类与全部天宫卦名', () => {
+    const names = HEXAGRAM_CATALOG.map((e) => e.buci.name);
+    expect(names).toEqual(['乾为天', '天水讼', '天泽履', '天地否', '天火同人', '天雷无妄', '天山遁', '天风姤']);
+    const actives = HEXAGRAM_CATALOG.filter((e) => e.buci.type === 'active');
+    const passives = HEXAGRAM_CATALOG.filter((e) => e.buci.type === 'passive');
+    expect(actives).toHaveLength(3); // 乾为天 / 天地否 / 天风姤
+    expect(passives).toHaveLength(5);
   });
 });
 
@@ -93,15 +102,28 @@ describe('purchase', () => {
     expect(run.roster).toContain('zhangfei');
   });
 
-  it('adds buci cards (stackable)', () => {
+  it('adds buci cards (stackable: same hexagram stacks count in one slot)', () => {
     const run = createNewRun(createRng(1));
     run.tongbao = 200;
-    const buci = BUCI_CATALOG[0]!;
-    const item: ShopItem = { kind: 'buci', buci: buci.buci, price: buci.price };
+    const entry = HEXAGRAM_CATALOG[0]!;
+    const item: ShopItem = { kind: 'buci', buci: { ...entry.buci, count: 1 }, price: entry.price };
     expect(purchase(run, item)).toBe(true);
     expect(purchase(run, item)).toBe(true);
-    expect(run.buciCards).toHaveLength(2);
-    expect(run.tongbao).toBe(200 - buci.price * 2);
+    // 同卦堆叠在同一格
+    expect(run.buciCards).toHaveLength(1);
+    expect(run.buciCards[0]!.count).toBe(2);
+    expect(run.tongbao).toBe(200 - entry.price * 2);
+  });
+
+  it('refuses buci purchase when the 3-slot bar is full of distinct hexagrams', () => {
+    const run = createNewRun(createRng(1));
+    run.tongbao = 1000;
+    const stock = generateShopStock(run, createRng(3));
+    // 塞满 3 个不同卦
+    run.buciCards = HEXAGRAM_CATALOG.slice(0, 3).map((e) => ({ ...e.buci, count: 1 }));
+    const item: ShopItem = { kind: 'buci', buci: { ...HEXAGRAM_CATALOG[3]!.buci, count: 1 }, price: HEXAGRAM_CATALOG[3]!.price };
+    expect(purchase(run, item)).toBe(false);
+    expect(run.tongbao).toBe(1000);
   });
 
   it('heals destiny up to destinyMax', () => {

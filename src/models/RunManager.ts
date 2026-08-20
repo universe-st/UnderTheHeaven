@@ -1,7 +1,17 @@
 import type { MapNode, NodeType, RunState, BuCiCard } from './RunState';
 import { createNewRun, applyDefeat, applyVictory, tongbaoReward } from './RunState';
-import type { HandType } from './BattleTypes';
 import { createRng } from '../engine/MapGenerator';
+
+/** 旧版卜辞牌（handType/coefficientBonus 结构）整体作废，加载时丢弃重置为空栏 */
+function migrateBuciCards(buciCards: unknown): BuCiCard[] {
+  if (!Array.isArray(buciCards)) return [];
+  return buciCards.filter((c): c is BuCiCard =>
+    !!c && typeof c === 'object'
+    && typeof (c as BuCiCard).count === 'number'
+    && typeof (c as BuCiCard).effect === 'object'
+    && (c as BuCiCard).effect !== null,
+  );
+}
 
 const SAVE_KEY = 'uth_run_save';
 const SAVE_VERSION = 1;
@@ -104,9 +114,9 @@ export function load(): boolean {
     if (data.version !== SAVE_VERSION || !data.run) {
       throw new Error('存档版本不符');
     }
-    // 兼容旧存档：补充后加入的字段默认值
+    // 兼容旧存档：补充后加入的字段默认值；卜辞栏迁移（旧结构整体作废）
     data.run.cardPool ??= [];
-    data.run.buciCards ??= [];
+    data.run.buciCards = migrateBuciCards(data.run.buciCards);
     data.run.characterMarkers ??= {};
     data.run.characterSkillFlags ??= {};
     data.run.scoreBoosts ??= {};
@@ -126,20 +136,6 @@ export interface BattleResultInput {
   enemyVitalityPercent?: number;
   /** 胜利时确定的通宝奖励；缺省时内部按节点类型掷取 */
   reward?: number;
-}
-
-/**
- * 汇总当前对局中卜辞牌对指定牌型的加法伤害系数加成。
- * 纯函数，供伤害结算链路叠加进玩家伤害系数。
- */
-export function buciCoefficientBonus(buciCards: readonly BuCiCard[], handType: HandType): number {
-  let bonus = 0;
-  for (const card of buciCards) {
-    if (card.handType === handType) {
-      bonus += card.coefficientBonus;
-    }
-  }
-  return bonus;
 }
 
 function findNode(run: RunState, nodeId: string): MapNode | null {
