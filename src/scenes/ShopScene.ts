@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { PLAYER_CHARACTERS } from '../models/Character';
-import { ROSTER_MAX } from '../models/RunState';
+import { ROSTER_MAX, hexagramImageKey } from '../models/RunState';
 import * as RunManager from '../models/RunManager';
 import type { ShopItem } from '../models/Shop';
 import { generateShopStock, purchase, refreshPrice } from '../models/Shop';
@@ -8,15 +8,17 @@ import { UIFactory } from '../utils/UIFactory';
 import { createPokerCardVisual } from '../utils/CardVisual';
 import { GameAudioManager } from '../utils/GameAudioManager';
 import { FONT_FAMILY, AVATAR_SOURCE_SIZE, CURRENCY_ICON_DISPLAY } from '../constants/Layout';
+import { BuciBarManager } from './managers/BuciBarManager';
 
 const CARD_W = 500;
 const CARD_H = 620;
 const CARD_GAP = 60;
-const CARD_TOP = 240;
+const CARD_TOP = 360;
 
 /**
  * 黄金台商店：4 件商品（角色 / 卜辞 / 天命回复），每件限购一次。
  * 状态来源全部为 RunManager；离开时 applyVictory 推进层数后回 MapScene。
+ * 顶部为卜辞栏（六十四卦），可在此使用/出售已拥有的卦象。
  */
 export class ShopScene extends Phaser.Scene {
   private nodeId = '';
@@ -29,6 +31,7 @@ export class ShopScene extends Phaser.Scene {
   private tongbaoText: Phaser.GameObjects.Text | null = null;
   private tongbaoIcon: Phaser.GameObjects.Image | null = null;
   private rosterText: Phaser.GameObjects.Text | null = null;
+  private buciBar: BuciBarManager | null = null;
 
   constructor() {
     super({ key: 'ShopScene' });
@@ -50,6 +53,8 @@ export class ShopScene extends Phaser.Scene {
     this.tongbaoText = null;
     this.tongbaoIcon = null;
     this.rosterText = null;
+    this.buciBar?.destroy();
+    this.buciBar = null;
     this.tweens.killAll();
   }
 
@@ -97,6 +102,21 @@ export class ShopScene extends Phaser.Scene {
 
     this.buildStock();
     this.buildRefreshButton();
+
+    // 卜辞栏（六十四卦）：黄金台可在此使用/出售已拥有卦象
+    this.add.text(cx, 195, '卜 辞 栏', {
+      fontSize: '22px', fontFamily: FONT_FAMILY, color: '#8a7040',
+    }).setOrigin(0.5);
+    this.buciBar = new BuciBarManager(this, {
+      x: cx,
+      y: 250,
+      context: 'shop',
+      onStateChanged: () => {
+        this.refreshStatus();
+        this.buildStock();
+      },
+    });
+    this.buciBar.refresh();
 
     UIFactory.button(this, cx, height - 90, '◂', '离开黄金台', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
@@ -169,14 +189,18 @@ export class ShopScene extends Phaser.Scene {
         fontSize: '18px', fontFamily: FONT_FAMILY, color: '#6a5030',
       }).setOrigin(0.5));
     } else if (item.kind === 'buci') {
-      container.add(this.add.text(cx, cy - 170, '📜', {
-        fontSize: '72px', fontFamily: FONT_FAMILY,
+      const hexImg = this.add.image(cx, cy - 160, hexagramImageKey(item.buci.upper, item.buci.lower));
+      hexImg.setScale(150 / hexImg.width);
+      container.add(hexImg);
+      container.add(this.add.text(cx, cy - 55, item.buci.name, {
+        fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
       }).setOrigin(0.5));
-      container.add(this.add.text(cx, cy - 60, item.buci.name, {
-        fontSize: '28px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
-      }).setOrigin(0.5));
-      container.add(this.add.text(cx, cy - 8, `牌型系数 +${item.buci.coefficientBonus}`, {
+      container.add(this.add.text(cx, cy + 2, item.buci.desc, {
         fontSize: '20px', fontFamily: FONT_FAMILY, color: '#8a7040',
+        align: 'center', wordWrap: { width: CARD_W - 40 },
+      }).setOrigin(0.5));
+      container.add(this.add.text(cx, cy + 52, item.buci.type === 'active' ? '主动 · 使用消耗' : '被动 · 触发消耗', {
+        fontSize: '18px', fontFamily: FONT_FAMILY, color: '#6a5030',
       }).setOrigin(0.5));
     } else if (item.kind === 'card') {
       // 与游戏内完全相同的扑克牌卡面样式，放大展示
