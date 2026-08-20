@@ -44,7 +44,7 @@ UnderTheHeaven/
 │   │       ├── 03-地图系统.md    # Roguelike 地图结构、节点类型
 │   │       ├── 04-双生命值系统.md # 气数 + 天命
 │   │       ├── 05-战间系统.md    # 通宝经济、黄金台商店
-│   │       ├── 06-牌与道具系统.md # 卜辞牌、锦囊牌、事件牌
+│   │       ├── 06-牌与道具系统.md # 卜辞栏（六十四卦）、锦囊牌、事件牌
 │   │       ├── 07-印记系统.md    # 局内强化印记
 │   │       ├── 08-人杰系统.md    # 全人杰（可招募人物）全表
 │   │       ├── 09-敌人系统.md    # 难度曲线、Boss 能力
@@ -224,7 +224,7 @@ LoadingScene -> MenuScene -> MapScene -> GameScene / ShopScene -> RunEndScene
 - `LoadingScene` — 入口场景，显示加载画面和资源加载进度，加载完成后跳转至 MenuScene
 - `MenuScene` — 主菜单，包含标题、按钮（开始/继续/设置/测试）、背景音乐、浮动粒子特效；开始游戏（有存档先确认覆盖）或继续游戏（有存档才可用）均进入 MapScene
 - `MapScene` — Roguelike 地图场景，36 层竖向可拖拽地图 + 顶栏（天命/通宝/层数）+ 阵容弹窗 + 事件弹窗；战斗节点进入 GameScene（runMode），商店节点进入 ShopScene
-- `ShopScene` — 黄金台商店场景，消耗通宝购买角色、破军卜辞牌、天命回复
+- `ShopScene` — 黄金台商店场景，消耗通宝购买角色、卜辞（六十四卦）、天命回复
 - `GameScene` — 核心对战场景（781 行，持续拆解中：见 `src/scenes/managers/` 目录）；战斗胜利得通宝回地图，失败扣天命
 - `RunEndScene` — 一局结算场景：天命归零显示「天命已尽」，击破 36 层 Boss 显示「天下归一」，可「再来一局」
 - `TestSelectScene` — 测试用角色选择场景，可选择多角色 + 敌人 + 血量进入 GameScene
