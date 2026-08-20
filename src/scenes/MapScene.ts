@@ -9,6 +9,14 @@ import { GameAudioManager } from '../utils/GameAudioManager';
 import { FONT_FAMILY, AVATAR_SOURCE_SIZE, DEPTH_OVERLAY, DEPTH_UI, DEPTH_OVERLAY_TEXT, NODE_ICON_DISPLAY, CURRENCY_ICON_DISPLAY } from '../constants/Layout';
 import { MapEventModal } from './managers/MapEventModal';
 import { DeckModal } from './managers/DeckModal';
+import { BuciBarManager } from './managers/BuciBarManager';
+import { randomEvent, applyEventChoice } from '../models/Events';
+import { purchase } from '../models/Shop';
+import {
+  triggerSkipBattle,
+  triggerEventAutopick,
+  triggerDestinyUpOnBattleWin,
+} from '../engine/BuciEffects';
 
 /** 与 GameScene 的 runMode 契约负载 */
 interface RunModePayload {
@@ -60,6 +68,7 @@ export class MapScene extends Phaser.Scene {
   private tongbaoText: Phaser.GameObjects.Text | null = null;
   private tongbaoIcon: Phaser.GameObjects.Image | null = null;
   private floorText: Phaser.GameObjects.Text | null = null;
+  private buciBar: BuciBarManager | null = null;
   private isDragging = false;
   private dragMoved = false;
   private dragStartY = 0;
@@ -80,6 +89,8 @@ export class MapScene extends Phaser.Scene {
     this.confirmModal = null;
     this.eventModal.close();
     this.deckModal.close();
+    this.buciBar?.destroy();
+    this.buciBar = null;
     this.destinyText = null;
     this.tongbaoText = null;
     this.tongbaoIcon = null;
@@ -103,6 +114,7 @@ export class MapScene extends Phaser.Scene {
 
     this.buildMap();
     this.buildTopBar();
+    this.buildBuciBar();
     this.setupDragInput();
     this.showPendingInterest();
 
@@ -344,13 +356,71 @@ export class MapScene extends Phaser.Scene {
       return;
     }
     if (node.type === 'event') {
+      // 天雷无妄：事件节点弹选项前自动随机选一个（无需玩家点击），并回天命
+      const autopick = triggerEventAutopick(run);
+      if (autopick !== null) {
+        RunManager.save();
+        this.showBuciHint(autopick);
+        this.autoResolveEvent(node);
+        return;
+      }
       this.eventModal.open(run, {
         onBattle: () => this.startEventBattle(node),
         onDone: () => this.completeEventNode(node),
       });
       return;
     }
+    // 战斗节点（normal/elite/boss）：天山遁触发则跳过战斗、按胜利结算
+    const skip = triggerSkipBattle(run);
+    if (skip !== null) {
+      RunManager.save();
+      this.showBuciHint(skip);
+      this.completeBattleNodeBySkip(node);
+      return;
+    }
     this.startBattle(node);
+  }
+
+  /**
+   * 天山遁跳过战斗：按胜利结算推进（清节点/推进层数/加通宝/存档），不进入战斗。
+   * 复刻 applyVictory 结算语义，与 completeEventNode 一致；
+   * 若跳过的恰为第 36 层最终 Boss，与正常战斗胜利一样跳转 RunEndScene。
+   */
+  private completeBattleNodeBySkip(node: MapNode): void {
+    const run = RunManager.getRun();
+    if (!run) return;
+    const reward = RunManager.settleNodeClear(node);
+    if (!reward) return;
+    RunManager.save();
+    if (isRunComplete(run)) {
+      this.scene.start('RunEndScene', { victory: true });
+      return;
+    }
+    this.buildMap();
+    this.refreshTopBar();
+    this.showPendingInterest();
+  }
+
+  /**
+   * 天雷无妄自动结算事件：随机抽取事件 → 随机选一个选项（无玩家交互）。
+   * 伏兵（startBattle）照常分流进入战斗；流浪武士招募与手动路径一致执行购买；
+   * 否则按普通完成推进。
+   */
+  private autoResolveEvent(node: MapNode): void {
+    const run = RunManager.getRun();
+    if (!run) return;
+    const event = randomEvent(Math.random);
+    const choiceIdx = Math.floor(Math.random() * event.choices.length);
+    const result = applyEventChoice(run, event, choiceIdx, Math.random);
+    if (result.shopItem) {
+      purchase(run, result.shopItem);
+    }
+    RunManager.save();
+    if (result.startBattle) {
+      this.startEventBattle(node);
+      return;
+    }
+    this.completeEventNode(node);
   }
 
   private startBattle(node: MapNode): void {
@@ -387,6 +457,40 @@ export class MapScene extends Phaser.Scene {
     this.refreshTopBar();
     // 事件完成不重建场景，需就地消费利息提示
     this.showPendingInterest();
+  }
+
+  // ── 卜辞触发提示 ──
+
+  /** 被动卦触发（天山遁/天雷无妄等）的浮动提示 */
+  private showBuciHint(message: string): void {
+    const { width, height } = this.scale;
+    const cx = width / 2;
+    const txt = this.add.text(cx, height * 0.34, message, {
+      fontSize: '40px',
+      fontFamily: FONT_FAMILY,
+      color: '#ffd700',
+      stroke: '#1a0800',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setAlpha(0).setDepth(DEPTH_OVERLAY_TEXT);
+
+    this.tweens.add({
+      targets: txt,
+      alpha: { from: 0, to: 1 },
+      scale: { from: 0.6, to: 1 },
+      duration: 320,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: txt,
+          y: txt.y - 80,
+          alpha: 0,
+          delay: 800,
+          duration: 1300,
+          ease: 'Sine.easeIn',
+          onComplete: () => txt.destroy(),
+        });
+      },
+    });
   }
 
   // ── 利息动画提示 ──
@@ -486,6 +590,28 @@ export class MapScene extends Phaser.Scene {
     this.destinyText?.setText(`❤ 天命 ${run.destiny}/${run.destinyMax}`);
     this.tongbaoText?.setText(`通宝 ${run.tongbao}`);
     this.floorText?.setText(`第 ${Math.min(run.floor, MAP_FLOORS)} / ${MAP_FLOORS} 层`);
+    // 天命/通宝变化后同步卜辞栏（使用/出售/触发都会改变对局状态）
+    this.buciBar?.refresh();
+  }
+
+  /**
+   * 卜辞栏（仅展示，context:'map' 不可点击）。
+   * 摆放在顶栏下方右侧：
+   *   顶栏（TOP_BAR_H=96）: y ∈ [0, 96]
+   *   卜辞栏（SLOT_H=100）: 中心 y=158 → y ∈ [108, 208]，与顶栏底 gap=12 ≥ 10 ✅
+   *   最右节点（第 2 列中心 x=width/2+600=1800）: 卜辞栏左边缘 = width-190-188 = width-378，
+   *   与 x=1800 的 gap ≥ 220（width=2400） ✅
+   */
+  private buildBuciBar(): void {
+    const { width } = this.scale;
+    this.buciBar?.destroy();
+    this.buciBar = new BuciBarManager(this, {
+      x: width - 190,
+      y: 158,
+      context: 'map',
+      onStateChanged: () => this.refreshTopBar(),
+    });
+    this.buciBar.refresh();
   }
 
   // ── 阵容弹窗 ──
