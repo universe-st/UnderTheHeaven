@@ -1,6 +1,7 @@
 import type { MapNode, NodeType, RunState, BuCiCard } from './RunState';
 import { createNewRun, applyDefeat, applyVictory, tongbaoReward } from './RunState';
 import { createRng } from '../engine/MapGenerator';
+import { triggerBlockBattleLose, triggerSaveFromZero } from '../engine/BuciEffects';
 
 /** 旧版卜辞牌（handType/coefficientBonus 结构）整体作废，加载时丢弃重置为空栏 */
 function migrateBuciCards(buciCards: unknown): BuCiCard[] {
@@ -179,7 +180,13 @@ export function applyBattleResult(result: BattleResultInput): RunState | null {
   } else {
     // 战败不结算利息；清空此前悬挂的提示，避免错位显示
     pendingInterest = 0;
-    applyDefeat(run, result.enemyVitalityPercent ?? 100, node.type === 'boss');
+    // 天水讼：抵挡一次战败天命扣减（命中则消耗，本次不扣天命）
+    const blocked = triggerBlockBattleLose(run);
+    if (!blocked) {
+      applyDefeat(run, result.enemyVitalityPercent ?? 100, node.type === 'boss');
+      // 天泽履：天命被扣到 ≤0 时回 1，避免游戏失败（覆盖战斗失败主要归零路径）
+      triggerSaveFromZero(run);
+    }
   }
 
   save();

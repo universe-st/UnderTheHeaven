@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { startNewRun, getRun, setRun, hasSave, save, load, clear, applyBattleResult, consumePendingInterest, settleNodeClear } from '../RunManager';
-import type { RunState } from '../RunState';
+import type { RunState, BuCiCard } from '../RunState';
 import { INITIAL_TONGBAO, INITIAL_DESTINY, TONGBAO_REWARD, interestOn } from '../RunState';
 
 function createMemoryLocalStorage(): Storage {
@@ -140,6 +140,18 @@ function makeRun(): RunState {
   };
 }
 
+/** 测试用卦象卡（天水讼 / 天泽履） */
+const HEX_TIAN_SHUI_SONG: BuCiCard = {
+  id: 'hex_tian_shui_song', name: '天水讼', upper: '乾', lower: '坎', price: 30,
+  type: 'passive', desc: '抵挡一次战斗失败引起的天命扣减',
+  effect: { kind: 'block_battle_lose_deduction' }, count: 1,
+};
+const HEX_TIAN_ZE_LV: BuCiCard = {
+  id: 'hex_tian_ze_lv', name: '天泽履', upper: '乾', lower: '兑', price: 50,
+  type: 'passive', desc: '天命被扣减到 0 以下时恢复到 1，避免游戏失败',
+  effect: { kind: 'save_from_zero' }, count: 1,
+};
+
 describe('applyBattleResult', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', createMemoryLocalStorage());
@@ -239,6 +251,42 @@ describe('applyBattleResult', () => {
     // 事件完成后再经历一场战败：此前悬挂的利息应被清空，不残留展示
     applyBattleResult({ nodeId: 'n1', victory: false });
     expect(consumePendingInterest()).toBe(0);
+  });
+
+  it('defeat with 天水讼 blocks the destiny deduction and consumes it', () => {
+    const run = makeRun();
+    run.buciCards.push({ ...HEX_TIAN_SHUI_SONG });
+    setRun(run);
+
+    applyBattleResult({ nodeId: 'n1', victory: false, enemyVitalityPercent: 80 });
+    expect(run.destiny).toBe(INITIAL_DESTINY);
+    expect(run.buciCards.some((c) => c.id === 'hex_tian_shui_song')).toBe(false);
+    expect(run.floor).toBe(1);
+  });
+
+  it('defeat with 天泽履 saves the run from zero by restoring destiny to 1', () => {
+    const run = makeRun();
+    run.destiny = 10;
+    run.buciCards.push({ ...HEX_TIAN_ZE_LV });
+    setRun(run);
+
+    // 10 - 25 = -15 → 归零 → 天泽履回 1
+    applyBattleResult({ nodeId: 'n1', victory: false, enemyVitalityPercent: 100 });
+    expect(run.destiny).toBe(1);
+    expect(run.buciCards.some((c) => c.id === 'hex_tian_ze_lv')).toBe(false);
+  });
+
+  it('defeat with 天水讼 blocks deduction and 天泽履 is not consumed when no deduction happened', () => {
+    const run = makeRun();
+    run.destiny = 10;
+    run.buciCards.push({ ...HEX_TIAN_SHUI_SONG }, { ...HEX_TIAN_ZE_LV });
+    setRun(run);
+
+    applyBattleResult({ nodeId: 'n1', victory: false, enemyVitalityPercent: 80 });
+    // 天水讼抵挡扣减：天命不变、两卦均未消耗
+    expect(run.destiny).toBe(10);
+    expect(run.buciCards.some((c) => c.id === 'hex_tian_shui_song')).toBe(false);
+    expect(run.buciCards.some((c) => c.id === 'hex_tian_ze_lv')).toBe(true);
   });
 
   it('settleNodeClear applies victory and records interest for the animation hint', () => {

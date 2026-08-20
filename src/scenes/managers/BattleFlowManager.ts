@@ -21,6 +21,7 @@ import type { BattleConfig, RunModeConfig } from '../../models/BattleTypes';
 import type { NodeType } from '../../models/RunState';
 import { tongbaoReward, calcDestinyLoss, isRunOver, isRunComplete } from '../../models/RunState';
 import { applyBattleResult, consumePendingInterest, getRun, save } from '../../models/RunManager';
+import { triggerDestinyUpOnBattleWin } from '../../engine/BuciEffects';
 import { UIFactory } from '../../utils/UIFactory';
 import {
   FONT_FAMILY, CARD_W, CARD_H,
@@ -1143,6 +1144,14 @@ export class BattleFlowManager {
       const run = applyBattleResult({ nodeId: runMode.nodeId, victory: true, reward });
       const interest = consumePendingInterest();
       subText = interest > 0 ? `通宝 +${reward} · 利息 +${interest}` : `通宝 +${reward}`;
+
+      // 天火同人：战斗节点（normal/elite/boss）胜利回天命，弹提示
+      const destinyUp = run ? triggerDestinyUpOnBattleWin(run, runMode.nodeType) : null;
+      if (destinyUp) {
+        subText = `${subText} · ${destinyUp}`;
+        save();
+      }
+
       if (run && isRunComplete(run)) {
         nextSceneKey = 'RunEndScene';
         nextSceneData = { victory: true };
