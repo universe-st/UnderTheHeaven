@@ -102,23 +102,30 @@ export function createPokerCardVisual(
 
   if (!isJoker) {
     const rankTxt = scene.add.text(cornerX, cornerY, card.rankLabel, {
-      fontSize: '34px',
+      fontSize: '36px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: textColor,
+      stroke: '#faf5eb',
+      strokeThickness: 2,
     }).setOrigin(0, 0);
     container.add(rankTxt);
 
-    const suitTxt = scene.add.text(cornerX, cornerY + 34, suitSymbol[card.suit!]!, {
-      fontSize: '24px',
+    const suitTxt = scene.add.text(cornerX, cornerY + 36, suitSymbol[card.suit!]!, {
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: textColor,
+      stroke: '#faf5eb',
+      strokeThickness: 2,
     }).setOrigin(0, 0);
     container.add(suitTxt);
 
     // Large faded suit symbol in center
     const centerSuit = scene.add.text(0, 0, suitSymbol[card.suit!]!, {
-      fontSize: '60px',
+      fontSize: '64px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: textColor,
     }).setOrigin(0.5).setAlpha(0.12);
     container.add(centerSuit);
@@ -129,9 +136,12 @@ export function createPokerCardVisual(
     const jokerColor = card.rank === 30 ? '#c9a030' : '#1a0a04';
 
     const cornerLabel = scene.add.text(cornerX, cornerY, card.rankLabel, {
-      fontSize: '30px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: jokerColor,
+      stroke: '#faf5eb',
+      strokeThickness: 2,
     }).setOrigin(0, 0);
     container.add(cornerLabel);
 
@@ -148,9 +158,12 @@ export function createPokerCardVisual(
     }
 
     const label = scene.add.text(0, halfH - 22, 'JOKER', {
-      fontSize: '13px',
+      fontSize: '18px',
       fontFamily: FONT_FAMILY,
-      color: '#8a6830',
+      fontStyle: 'bold',
+      color: '#6a4a18',
+      stroke: '#faf5eb',
+      strokeThickness: 2,
     }).setOrigin(0.5);
     container.add(label);
   }

@@ -6,9 +6,9 @@ import { GameAudioManager } from '../../utils/GameAudioManager';
 import { FONT_FAMILY, DEPTH_OVERLAY, DEPTH_OVERLAY_TEXT } from '../../constants/Layout';
 
 /** 技能列表名称/描述颜色常量 */
-const SKILL_COLOR_NORMAL: { name: string; desc: string } = { name: '#8a6030', desc: '#5a4a30' };
-const SKILL_COLOR_SPECIAL_LOCKED: { name: string; desc: string } = { name: '#c9a227', desc: '#8a7a40' };
-const SKILL_COLOR_LOST: { name: string; desc: string } = { name: '#9a9a9a', desc: '#b0b0b0' };
+const SKILL_COLOR_NORMAL: { name: string; desc: string } = { name: '#7a4e1a', desc: '#4a3a22' };
+const SKILL_COLOR_SPECIAL_LOCKED: { name: string; desc: string } = { name: '#b8860b', desc: '#7a5a2a' };
+const SKILL_COLOR_LOST: { name: string; desc: string } = { name: '#8a8a8a', desc: '#9a9a9a' };
 
 /**
  * CharacterBarManager 的辅助管理器：负责角色槽点击后的角色信息 tooltip
@@ -60,19 +60,19 @@ export class CharacterInfoManager {
     const slotY = slotContainer.y + barY;
     const slotSize = 120;
 
-    const tooltipW = 320;
+    const tooltipW = 380;
     const tooltipRadius = 8;
     const { width: sw, height: sh } = h.scale;
 
     const descLinesList: string[][] = [];
-    let tooltipH = 50;
+    let tooltipH = 54;
     const visibleAbilities = char.abilities.filter(a => !a.hidden);
     for (const ability of visibleAbilities) {
-      tooltipH += 28;
-      const lines = this.wrapText(ability.description, tooltipW - 48, '18px');
+      tooltipH += 30;
+      const lines = this.wrapText(ability.description, tooltipW - 48, '22px');
       descLinesList.push(lines);
-      tooltipH += lines.length * 24;
-      tooltipH += 32;
+      tooltipH += lines.length * 28;
+      tooltipH += 34;
     }
     tooltipH += 12;
 
@@ -101,9 +101,12 @@ export class CharacterInfoManager {
     container.add(panel);
 
     const nameText = h.add.text(tooltipX, tooltipY + 28, char.name, {
-      fontSize: '30px',
+      fontSize: '34px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
+      stroke: '#f0e8d8',
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(nameText);
 
@@ -117,23 +120,26 @@ export class CharacterInfoManager {
     for (const ability of visibleAbilities) {
       const colors = this.skillDisplayColors(ability);
       const skillName = h.add.text(tooltipX - tooltipW / 2 + 22, abilityY, `【${ability.name}】`, {
-        fontSize: '20px',
+        fontSize: '22px',
         fontFamily: FONT_FAMILY,
+        fontStyle: 'bold',
         color: colors.name,
       }).setDepth(DEPTH_OVERLAY_TEXT);
       container.add(skillName);
 
       const descLines = descLinesList[lineIdx]!;
       for (const line of descLines) {
-        abilityY += 24;
+        abilityY += 28;
         const descText = h.add.text(tooltipX - tooltipW / 2 + 28, abilityY, line, {
-          fontSize: '18px',
+          fontSize: '22px',
           fontFamily: FONT_FAMILY,
           color: colors.desc,
+          stroke: '#f5f0e2',
+          strokeThickness: 1,
         }).setDepth(DEPTH_OVERLAY_TEXT);
         container.add(descText);
       }
-      abilityY += 32;
+      abilityY += 34;
       lineIdx++;
     }
 
@@ -186,19 +192,19 @@ export class CharacterInfoManager {
     const enemy = ENEMY_CHARACTERS[enemyCharId];
     if (!enemy) return;
 
-    const tooltipW = 320;
+    const tooltipW = 380;
     const tooltipRadius = 8;
     const { width: sw, height: sh } = h.scale;
 
     const descLinesList: string[][] = [];
-    let tooltipH = 50;
+    let tooltipH = 54;
     const visibleAbilities = enemy.abilities.filter(a => !a.hidden);
     for (const ability of visibleAbilities) {
-      tooltipH += 28;
-      const lines = this.wrapText(ability.description, tooltipW - 48, '18px');
+      tooltipH += 30;
+      const lines = this.wrapText(ability.description, tooltipW - 48, '22px');
       descLinesList.push(lines);
-      tooltipH += lines.length * 24;
-      tooltipH += 32;
+      tooltipH += lines.length * 28;
+      tooltipH += 34;
     }
     tooltipH += 12;
 
@@ -231,9 +237,12 @@ export class CharacterInfoManager {
     container.add(panel);
 
     const nameText = h.add.text(tooltipX, tooltipY + 28, enemy.name, {
-      fontSize: '30px',
+      fontSize: '34px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
+      stroke: '#f0e8d8',
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(nameText);
 
@@ -246,23 +255,26 @@ export class CharacterInfoManager {
     let lineIdx = 0;
     for (const ability of visibleAbilities) {
       const skillName = h.add.text(tooltipX - tooltipW / 2 + 22, abilityY, `【${ability.name}】`, {
-        fontSize: '20px',
+        fontSize: '22px',
         fontFamily: FONT_FAMILY,
-        color: '#8a6030',
+        fontStyle: 'bold',
+        color: '#7a4e1a',
       }).setDepth(DEPTH_OVERLAY_TEXT);
       container.add(skillName);
 
       const descLines = descLinesList[lineIdx]!;
       for (const line of descLines) {
-        abilityY += 24;
+        abilityY += 28;
         const descText = h.add.text(tooltipX - tooltipW / 2 + 28, abilityY, line, {
-          fontSize: '18px',
+          fontSize: '22px',
           fontFamily: FONT_FAMILY,
-          color: '#5a4a30',
+          color: '#4a3a22',
+          stroke: '#f5f0e2',
+          strokeThickness: 1,
         }).setDepth(DEPTH_OVERLAY_TEXT);
         container.add(descText);
       }
-      abilityY += 32;
+      abilityY += 34;
       lineIdx++;
     }
 

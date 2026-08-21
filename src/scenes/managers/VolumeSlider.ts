@@ -25,9 +25,10 @@ export function createVolumeSlider(
   const fillColor2 = 0x8a6830;
 
   const labelText = scene.add.text(labelX, y - 18, label, {
-    fontSize: '24px',
+    fontSize: '28px',
     fontFamily: FONT_FAMILY,
-    color: '#4a2a10',
+    fontStyle: 'bold',
+    color: '#3a2010',
   }).setOrigin(0, 0.5).setDepth(DEPTH_OVERLAY_TEXT);
   parent.add(labelText);
 
@@ -47,9 +48,10 @@ export function createVolumeSlider(
   parent.add(fillGfx);
 
   const valueText = scene.add.text(trackX + trackW, y - 18, `${Math.round(initialValue * 100)}%`, {
-    fontSize: '20px',
+    fontSize: '24px',
     fontFamily: FONT_FAMILY,
-    color: '#4a2a10',
+    fontStyle: 'bold',
+    color: '#3a2010',
   }).setOrigin(1, 0.5).setDepth(DEPTH_OVERLAY_TEXT);
   parent.add(valueText);
 

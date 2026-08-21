@@ -15,11 +15,12 @@ interface RunStats {
 }
 
 const BUTTON_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
-  fontSize: '28px',
+  fontSize: '32px',
   fontFamily: FONT_FAMILY,
-  color: '#e8d5a3',
+  fontStyle: 'bold',
+  color: '#ffe9b0',
   stroke: '#2a1008',
-  strokeThickness: 2,
+  strokeThickness: 3,
 };
 
 /**
@@ -77,11 +78,12 @@ export class RunEndScene extends Phaser.Scene {
     }
 
     const title = this.add.text(cx, 220, this.victory ? '天 下 归 一' : '天 命 已 尽', {
-      fontSize: '84px',
+      fontSize: '92px',
       fontFamily: FONT_FAMILY,
-      color: this.victory ? '#d4a843' : '#a04040',
+      fontStyle: 'bold',
+      color: this.victory ? '#ffd980' : '#d05050',
       stroke: '#1a0800',
-      strokeThickness: 4,
+      strokeThickness: 6,
     }).setOrigin(0.5);
 
     this.tweens.add({
@@ -111,10 +113,12 @@ export class RunEndScene extends Phaser.Scene {
     rows.forEach(([label, value], i) => {
       const ry = py + 74 + i * 60;
       this.add.text(px + 80, ry, label, {
-        fontSize: '26px', fontFamily: FONT_FAMILY, color: '#8a7040',
+        fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#d0a860',
+        stroke: '#1a0800', strokeThickness: 2,
       }).setOrigin(0, 0.5);
       this.add.text(px + panelW - 80, ry, value, {
-        fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
+        fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#fff0c8',
+        stroke: '#1a0800', strokeThickness: 2,
       }).setOrigin(1, 0.5);
     });
 

@@ -90,16 +90,22 @@ export const ZuChongZhiYuanZhou: ActiveSkillDefinition = {
     overlay.add(piText);
 
     const sub1Text = scene.add.text(0, 4, `弃 ${count} 张`, {
-      fontSize: '22px',
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a080',
+      fontStyle: 'bold',
+      color: '#ffd9a8',
+      stroke: '#1a0a2a',
+      strokeThickness: 2,
     }).setOrigin(0.5);
     overlay.add(sub1Text);
 
     const sub2Text = scene.add.text(0, 34, `创造 ${count} 张带印临时牌`, {
-      fontSize: '22px',
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a080',
+      fontStyle: 'bold',
+      color: '#ffd9a8',
+      stroke: '#1a0a2a',
+      strokeThickness: 2,
     }).setOrigin(0.5);
     overlay.add(sub2Text);
 

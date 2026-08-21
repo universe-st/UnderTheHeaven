@@ -47,8 +47,9 @@ export class ButtonManager {
     this.host.btnHint.add(hintBg);
 
     this.host.btnHintText = this.host.add.text(0, 0, '提  示', {
-      fontSize: '28px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#1a0a04',
       stroke: '#e8dcc8',
       strokeThickness: 2,
@@ -71,8 +72,9 @@ export class ButtonManager {
     this.host.btnPlay.add(playBg);
 
     this.host.btnPlayText = this.host.add.text(0, 0, '出  牌', {
-      fontSize: '28px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#1a0a04',
       stroke: '#e8dcc8',
       strokeThickness: 2,
@@ -95,9 +97,10 @@ export class ButtonManager {
     this.host.btnPass.add(passBg);
 
     this.host.btnPassText = this.host.add.text(0, 0, '不  出', {
-      fontSize: '28px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
-      color: '#7a6a50',
+      fontStyle: 'bold',
+      color: '#6a5a40',
       stroke: '#e8dcc8',
       strokeThickness: 2,
     }).setOrigin(0.5);

@@ -83,12 +83,14 @@ export class BuciBarManager {
     container.add(img);
 
     container.add(this.scene.add.text(cx, 32, card.name, {
-      fontSize: '18px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
+      fontSize: '20px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffd98a',
+      stroke: '#1a0800', strokeThickness: 2,
     }).setOrigin(0.5));
 
     if (card.count > 1) {
       container.add(this.scene.add.text(cx + SLOT_W / 2 - 12, -SLOT_H / 2 + 14, `×${card.count}`, {
-        fontSize: '16px', fontFamily: FONT_FAMILY, color: '#d4a843',
+        fontSize: '18px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf80',
+        stroke: '#1a0800', strokeThickness: 2,
       }).setOrigin(0.5));
     }
 
@@ -117,7 +119,7 @@ export class BuciBarManager {
 
     let menuY = SLOT_H / 2 + 22;
     const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '20px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2,
+      fontSize: '22px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 2,
     };
 
     if (canUse) {
@@ -135,7 +137,7 @@ export class BuciBarManager {
         this.doSell(card);
       }, {
         w: 120, h: 44,
-        textStyle: { fontSize: '20px', fontFamily: FONT_FAMILY, color: '#d4a843', stroke: '#2a1008', strokeThickness: 2 },
+        textStyle: { fontSize: '22px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf80', stroke: '#2a1008', strokeThickness: 2 },
       });
       container.add(btn);
     }
@@ -197,7 +199,8 @@ export class BuciBarManager {
     }));
     container.add(UIFactory.modalPanel(this.scene, px, py, panelW, panelH, 10));
     container.add(this.scene.add.text(cx, py + 46, '选择要移除的角色（天风姤）', {
-      fontSize: '30px', fontFamily: FONT_FAMILY, color: '#3a2010',
+      fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#3a2010',
+      stroke: '#f0e8d8', strokeThickness: 3,
     }).setOrigin(0.5));
 
     const avatarSize = 84;
@@ -214,7 +217,8 @@ export class BuciBarManager {
       img.setScale(avatarSize / AVATAR_SOURCE_SIZE);
       container.add(img);
       container.add(this.scene.add.text(ax, ay + avatarSize / 2 + 18, PLAYER_CHARACTERS[id].name, {
-        fontSize: '20px', fontFamily: FONT_FAMILY, color: '#3a2010',
+        fontSize: '22px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#2a1008',
+        stroke: '#f0e8d8', strokeThickness: 2,
       }).setOrigin(0.5));
 
       const zone = this.scene.add.zone(ax, ay, avatarSize, avatarSize + 30).setInteractive({ cursor: 'pointer' });
@@ -235,8 +239,8 @@ export class BuciBarManager {
   private showToast(message: string): void {
     const { width, height } = this.scene.scale;
     const txt = this.scene.add.text(width / 2, height * 0.30, message, {
-      fontSize: '26px', fontFamily: FONT_FAMILY, color: '#ffd700',
-      stroke: '#1a0800', strokeThickness: 3,
+      fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffd700',
+      stroke: '#1a0800', strokeThickness: 4,
     }).setOrigin(0.5).setAlpha(0).setDepth(DEPTH_OVERLAY);
     this.scene.tweens.add({
       targets: txt,

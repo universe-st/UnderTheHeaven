@@ -89,11 +89,13 @@ export class DamageSettlementManager {
 
     const isBombPattern = pattern.type === HandType.Bomb || pattern.type === HandType.Rocket;
     const counterText = this.host.add.text(centerX, centerY, '0', {
-      fontSize: isBombPattern ? '108px' : '72px',
+      fontSize: isBombPattern ? '112px' : '76px',
       fontFamily: FONT_FAMILY,
       fontStyle: 'bold',
-      color: isBombPattern ? '#dd3300' : '#cc3333',
-    }).setOrigin(0.5).setDepth(DEPTH_DAMAGE).setShadow(0, 0, '#ff8800', 14, true, true);
+      color: isBombPattern ? '#ff2200' : '#e04040',
+      stroke: '#1a0500',
+      strokeThickness: 6,
+    }).setOrigin(0.5).setDepth(DEPTH_DAMAGE).setShadow(0, 4, '#ff8800', 18, true, true);
 
 
     await this.stage1RevealCards(
@@ -148,11 +150,12 @@ export class DamageSettlementManager {
       GameAudioManager.playSfx(this.scene, 'sfx_card_reveal');
 
       const floatText = this.host.add.text(card.x, card.y, `+${score}`, {
-        fontSize: '36px',
+        fontSize: '40px',
         fontFamily: FONT_FAMILY,
-        color: '#b08030',
+        fontStyle: 'bold',
+        color: '#e09030',
         stroke: '#1a0800',
-        strokeThickness: 3,
+        strokeThickness: 4,
       }).setOrigin(0.5).setDepth(DEPTH_DAMAGE + 1).setAlpha(0).setScale(0.5);
 
       await Promise.all([
@@ -292,14 +295,15 @@ export class DamageSettlementManager {
     const coeffText = this.host.add.text(centerX + 60, centerY,
       `✖️ ${baseCoefficient}（${typeLabel}）`,
       {
-        fontSize: '36px',
+        fontSize: '40px',
         fontFamily: FONT_FAMILY,
-        color: '#8a5a20',
+        fontStyle: 'bold',
+        color: '#b06a10',
         stroke: '#1a0800',
-        strokeThickness: 3,
+        strokeThickness: 4,
       },
     ).setOrigin(0, 0.5).setDepth(DEPTH_DAMAGE).setAlpha(0)
-      .setShadow(0, 0, '#ff8800', 14, true, true);
+      .setShadow(0, 2, '#ff8800', 16, true, true);
 
     await waitForTween(this.scene, {
       targets: coeffText,
@@ -333,14 +337,15 @@ export class DamageSettlementManager {
       centerY,
       `✖️ ${damageInfo.damageMultiplier}（伤害倍数）`,
       {
-        fontSize: '36px',
+        fontSize: '40px',
         fontFamily: FONT_FAMILY,
-        color: '#b08030',
+        fontStyle: 'bold',
+        color: '#e09030',
         stroke: '#1a0800',
-        strokeThickness: 3,
+        strokeThickness: 4,
       },
     ).setOrigin(0, 0.5).setDepth(DEPTH_DAMAGE).setAlpha(0)
-      .setShadow(0, 0, '#ffaa00', 14, true, true);
+      .setShadow(0, 2, '#ffaa00', 16, true, true);
 
     await waitForTween(this.scene, {
       targets: multiplierText,
@@ -617,11 +622,12 @@ export class DamageSettlementManager {
     beforeSum: number,
   ): Promise<void> {
     const floatText = this.host.add.text(card.x, card.y, `+${cardScore}`, {
-      fontSize: '36px',
+      fontSize: '40px',
       fontFamily: FONT_FAMILY,
-      color: '#b08030',
+      fontStyle: 'bold',
+      color: '#e09030',
       stroke: '#1a0800',
-      strokeThickness: 3,
+      strokeThickness: 4,
     }).setOrigin(0.5).setDepth(DEPTH_DAMAGE + 1).setAlpha(0).setScale(0.5);
 
     await Promise.all([
@@ -689,12 +695,13 @@ export class DamageSettlementManager {
     this.host.updateVitalityBars();
 
     const text = this.scene.add.text(card.x, card.y, `+${actual}`, {
-      fontSize: '36px',
+      fontSize: '40px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#00ff44',
       stroke: '#003300',
-      strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(DEPTH_DAMAGE).setShadow(0, 0, '#66ff88', 10, true, true);
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(DEPTH_DAMAGE).setShadow(0, 2, '#66ff88', 14, true, true);
 
     await waitForTween(this.scene, {
       targets: text,

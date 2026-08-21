@@ -75,16 +75,18 @@ export class ShopScene extends Phaser.Scene {
     UIFactory.darkBgWithBorder(this, width, height, 8);
 
     this.add.text(cx, 90, '黄 金 台', {
-      fontSize: '48px',
+      fontSize: '56px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffdf90',
       stroke: '#3a2010',
-      strokeThickness: 3,
+      strokeThickness: 4,
     }).setOrigin(0.5);
     UIFactory.divider(this, cx, 132);
 
     this.destinyText = this.add.text(cx - 420, 172, '', {
-      fontSize: '24px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
+      fontSize: '28px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0',
+      stroke: '#1a0800', strokeThickness: 2,
     }).setOrigin(0.5);
     // 通宝：铜钱图标 + 数字（Container 居中组合）
     const tongbaoGroup = this.add.container(cx, 172);
@@ -92,11 +94,13 @@ export class ShopScene extends Phaser.Scene {
     coinIcon.setScale(CURRENCY_ICON_DISPLAY / coinIcon.width);
     this.tongbaoIcon = coinIcon;
     this.tongbaoText = this.add.text(CURRENCY_ICON_DISPLAY + 6, 0, '', {
-      fontSize: '24px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
+      fontSize: '28px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0',
+      stroke: '#1a0800', strokeThickness: 2,
     }).setOrigin(0, 0.5);
     tongbaoGroup.add([this.tongbaoIcon, this.tongbaoText]);
     this.rosterText = this.add.text(cx + 420, 172, '', {
-      fontSize: '24px', fontFamily: FONT_FAMILY, color: '#c8a050',
+      fontSize: '28px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf80',
+      stroke: '#1a0800', strokeThickness: 2,
     }).setOrigin(0.5);
     this.refreshStatus();
 
@@ -105,7 +109,8 @@ export class ShopScene extends Phaser.Scene {
 
     // 卜辞栏（六十四卦）：黄金台可在此使用/出售已拥有卦象
     this.add.text(cx, 195, '卜 辞 栏', {
-      fontSize: '22px', fontFamily: FONT_FAMILY, color: '#8a7040',
+      fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#c8a060',
+      stroke: '#1a0800', strokeThickness: 2,
     }).setOrigin(0.5);
     this.buciBar = new BuciBarManager(this, {
       x: cx,
@@ -123,7 +128,7 @@ export class ShopScene extends Phaser.Scene {
       this.leave();
     }, {
       w: 340, h: 72,
-      textStyle: { fontSize: '28px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 },
+      textStyle: { fontSize: '32px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3 },
     });
 
     GameAudioManager.init(this);
@@ -183,24 +188,28 @@ export class ShopScene extends Phaser.Scene {
       container.add(img);
 
       container.add(this.add.text(cx, cy - 40, char.name, {
-        fontSize: '32px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
+        fontSize: '36px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf90',
+        stroke: '#1a0800', strokeThickness: 3,
       }).setOrigin(0.5));
       container.add(this.add.text(cx, cy + 4, char.abilities.map((a) => a.name).join(' · '), {
-        fontSize: '18px', fontFamily: FONT_FAMILY, color: '#6a5030',
+        fontSize: '22px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#e0b878',
+        stroke: '#1a0800', strokeThickness: 2,
       }).setOrigin(0.5));
     } else if (item.kind === 'buci') {
       const hexImg = this.add.image(cx, cy - 160, hexagramImageKey(item.buci.upper, item.buci.lower));
       hexImg.setScale(150 / hexImg.width);
       container.add(hexImg);
       container.add(this.add.text(cx, cy - 55, item.buci.name, {
-        fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
+        fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf90',
+        stroke: '#1a0800', strokeThickness: 3,
       }).setOrigin(0.5));
       container.add(this.add.text(cx, cy + 2, item.buci.desc, {
-        fontSize: '20px', fontFamily: FONT_FAMILY, color: '#8a7040',
+        fontSize: '24px', fontFamily: FONT_FAMILY, color: '#e0b878',
         align: 'center', wordWrap: { width: CARD_W - 40 },
       }).setOrigin(0.5));
       container.add(this.add.text(cx, cy + 52, item.buci.type === 'active' ? '主动 · 使用消耗' : '被动 · 触发消耗', {
-        fontSize: '18px', fontFamily: FONT_FAMILY, color: '#6a5030',
+        fontSize: '22px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#e0b878',
+        stroke: '#1a0800', strokeThickness: 2,
       }).setOrigin(0.5));
     } else if (item.kind === 'card') {
       // 与游戏内完全相同的扑克牌卡面样式，放大展示
@@ -209,10 +218,11 @@ export class ShopScene extends Phaser.Scene {
       container.add(cardVisual);
     } else {
       container.add(this.add.text(cx, cy - 170, '❤', {
-        fontSize: '72px', fontFamily: FONT_FAMILY, color: '#c05040',
+        fontSize: '76px', fontFamily: FONT_FAMILY, color: '#e06050',
       }).setOrigin(0.5));
       container.add(this.add.text(cx, cy - 60, `天命 +${item.amount}`, {
-        fontSize: '28px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
+        fontSize: '32px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf90',
+        stroke: '#1a0800', strokeThickness: 3,
       }).setOrigin(0.5));
     }
 
@@ -224,7 +234,8 @@ export class ShopScene extends Phaser.Scene {
     const coin = this.add.image(0, 0, 'node_tongbao').setOrigin(1, 0.5);
     coin.setScale(CURRENCY_ICON_DISPLAY / coin.width);
     const priceTxt = this.add.text(6, 0, `${item.price}`, {
-      fontSize: '26px', fontFamily: FONT_FAMILY, color: '#c8a050',
+      fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf80',
+      stroke: '#1a0800', strokeThickness: 2,
     }).setOrigin(0, 0.5);
     priceGroup.add([coin, priceTxt]);
     container.add(priceGroup);
@@ -268,9 +279,12 @@ export class ShopScene extends Phaser.Scene {
     container.add(btnBg);
 
     container.add(this.add.text(btnX, btnY, label, {
-      fontSize: '24px',
+      fontSize: '28px',
       fontFamily: FONT_FAMILY,
-      color: enabled ? '#e8d5a3' : '#5a4030',
+      fontStyle: 'bold',
+      color: enabled ? '#ffe9b0' : '#7a6a50',
+      stroke: enabled ? '#2a1008' : 'transparent',
+      strokeThickness: 2,
     }).setOrigin(0.5));
 
     if (enabled) {
@@ -317,9 +331,9 @@ export class ShopScene extends Phaser.Scene {
     }, {
       w: 320, h: 72,
       textStyle: {
-        fontSize: '26px', fontFamily: FONT_FAMILY,
-        color: affordable ? '#e8d5a3' : '#5a4030',
-        stroke: '#2a1008', strokeThickness: 2,
+        fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold',
+        color: affordable ? '#ffe9b0' : '#7a6a50',
+        stroke: '#2a1008', strokeThickness: 3,
       },
     });
   }
@@ -348,8 +362,8 @@ export class ShopScene extends Phaser.Scene {
     const { width } = this.scale;
     const cx = width / 2;
     const txt = this.add.text(cx, 205, message, {
-      fontSize: '24px', fontFamily: FONT_FAMILY, color: '#d4a843',
-      stroke: '#1a0800', strokeThickness: 2,
+      fontSize: '28px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffd700',
+      stroke: '#1a0800', strokeThickness: 3,
     }).setOrigin(0.5).setAlpha(0);
     this.tweens.add({
       targets: txt,

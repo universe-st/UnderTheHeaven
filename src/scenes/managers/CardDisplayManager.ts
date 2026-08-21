@@ -318,9 +318,12 @@ export class CardDisplayManager {
   showPatternLabel(label: string, isBomb: boolean): void {
     this.clearPatternLabel();
     const text = this.host.add.text(0, 0, label, {
-      fontSize: '30px',
+      fontSize: '36px',
       fontFamily: FONT_FAMILY,
-      color: isBomb ? '#ffd090' : '#ffe9c0',
+      fontStyle: 'bold',
+      color: isBomb ? '#ffdf80' : '#fff2c8',
+      stroke: '#3a1500',
+      strokeThickness: 4,
     }).setOrigin(0.5);
     const padX = 26;
     const padY = 10;

@@ -23,8 +23,8 @@ export interface ButtonConfig {
 const DEFAULT_BUTTON: Required<ButtonConfig> = {
   w: 340, h: 72, radius: 6,
   textStyle: {
-    fontSize: '28px', fontFamily: FONT_FAMILY,
-    color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2,
+    fontSize: '32px', fontFamily: FONT_FAMILY, fontStyle: 'bold',
+    color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3,
   },
   normalBg: 0x5a3018, normalStroke: 0xc8a050,
   hoverBg: 0x6b3820, hoverStroke: 0xe8d5a3,
@@ -84,7 +84,7 @@ export class UIFactory {
   ): void {
     const radius = options?.radius ?? 10;
     const bgAlpha = options?.bgAlpha ?? 0.8;
-    const titleFontSize = options?.titleFontSize ?? '24px';
+    const titleFontSize = options?.titleFontSize ?? '30px';
 
     const gfx = scene.add.graphics();
     gfx.fillStyle(PANEL_BG_COLOR, bgAlpha);
@@ -97,17 +97,18 @@ export class UIFactory {
     if (title) {
       const labelX = px + 16;
       const labelY = py - 10;
-      const titleW = title.length * 22 + 24;
+      const titleW = title.length * 30 + 24;
       const labelBg = scene.add.graphics();
       labelBg.fillStyle(PANEL_BG_COLOR, 0.9);
-      labelBg.fillRoundedRect(labelX - 6, labelY - 10, titleW, 28, 6);
+      labelBg.fillRoundedRect(labelX - 6, labelY - 10, titleW, 32, 6);
       labelBg.lineStyle(1, ACCENT_COLOR, 0.4);
-      labelBg.strokeRoundedRect(labelX - 6, labelY - 10, titleW, 28, 6);
+      labelBg.strokeRoundedRect(labelX - 6, labelY - 10, titleW, 32, 6);
 
       scene.add.text(labelX, labelY + 4, title, {
         fontSize: titleFontSize,
         fontFamily: FONT_FAMILY,
-        color: '#c8a050',
+        fontStyle: 'bold',
+        color: '#e0b050',
       }).setOrigin(0, 0.5);
     }
   }
@@ -194,9 +195,12 @@ export class UIFactory {
     sfxKey?: string
   ): void {
     const closeText = scene.add.text(x, y, '✕', {
-      fontSize: '34px',
+      fontSize: '36px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#7a5a3a',
+      stroke: '#f5f0e2',
+      strokeThickness: 1,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     const closeZone = scene.add.zone(x, y, 52, 52)
       .setInteractive({ cursor: 'pointer' })

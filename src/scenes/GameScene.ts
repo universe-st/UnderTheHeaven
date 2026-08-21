@@ -488,9 +488,12 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
 
   private createPatternHint(w: number, h: number): void {
     this.patternHintText = this.add.text(w / 2, h - 370, '', {
-      fontSize: '22px',
+      fontSize: '28px',
       fontFamily: FONT_FAMILY,
-      color: '#5a3a20',
+      fontStyle: 'bold',
+      color: '#6a3a10',
+      stroke: '#f0e8d8',
+      strokeThickness: 4,
     }).setOrigin(0.5).setDepth(DEPTH_UI);
   }
 
@@ -762,11 +765,12 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
 
   private showFloatingText(value: number, x: number, y: number, color: string): void {
     const text = this.add.text(x, y, `${value}`, {
-      fontSize: '44px',
+      fontSize: '48px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: color,
       stroke: '#000000',
-      strokeThickness: 4,
+      strokeThickness: 5,
     }).setOrigin(0.5).setDepth(DEPTH_DAMAGE);
 
     this.tweens.add({

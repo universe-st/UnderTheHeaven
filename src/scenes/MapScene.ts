@@ -216,16 +216,22 @@ export class MapScene extends Phaser.Scene {
 
     if (isPast) {
       nc.add(this.add.text(r - 6, -r + 6, node.cleared ? '✓' : '✗', {
-        fontSize: '26px',
+        fontSize: '30px',
         fontFamily: FONT_FAMILY,
-        color: node.cleared ? '#8aa860' : '#6a4030',
+        fontStyle: 'bold',
+        color: node.cleared ? '#a8d070' : '#a05030',
+        stroke: '#1a0a04',
+        strokeThickness: 3,
       }).setOrigin(0.5));
     }
 
     nc.add(this.add.text(0, r + 24, `第${node.floor}层·${NODE_LABELS[node.type]}`, {
-      fontSize: '18px',
+      fontSize: '22px',
       fontFamily: FONT_FAMILY,
-      color: selectable ? '#c8a050' : '#6a5535',
+      fontStyle: 'bold',
+      color: selectable ? '#ffdf80' : '#8a7a50',
+      stroke: '#1a0a04',
+      strokeThickness: 2,
     }).setOrigin(0.5));
 
     // 未来层整体 40% 亮度
@@ -315,21 +321,25 @@ export class MapScene extends Phaser.Scene {
     container.add(UIFactory.modalPanel(this, px, py, panelW, panelH, 10));
 
     container.add(this.add.text(cx, py + 58, `第${node.floor}层 · ${NODE_LABELS[node.type]}`, {
-      fontSize: '36px',
+      fontSize: '42px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#3a2010',
+      stroke: '#f0e8d8',
+      strokeThickness: 3,
     }).setOrigin(0.5));
 
     container.add(this.add.text(cx, py + 170, NODE_DESCS[node.type], {
-      fontSize: '26px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
-      color: '#5a4030',
+      fontStyle: 'bold',
+      color: '#4a3018',
       align: 'center',
-      lineSpacing: 12,
+      lineSpacing: 14,
     }).setOrigin(0.5));
 
     const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2,
+      fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3,
     };
     container.add(UIFactory.button(this, cx - 150, py + panelH - 78, '▸', '前 往', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
@@ -466,11 +476,12 @@ export class MapScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const cx = width / 2;
     const txt = this.add.text(cx, height * 0.34, message, {
-      fontSize: '40px',
+      fontSize: '48px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#ffd700',
       stroke: '#1a0800',
-      strokeThickness: 4,
+      strokeThickness: 5,
     }).setOrigin(0.5).setAlpha(0).setDepth(DEPTH_OVERLAY_TEXT);
 
     this.tweens.add({
@@ -506,11 +517,12 @@ export class MapScene extends Phaser.Scene {
     const cx = width / 2;
 
     const txt = this.add.text(cx, height * 0.34, `利息 +${interest}`, {
-      fontSize: '46px',
+      fontSize: '52px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#ffd700',
       stroke: '#1a0800',
-      strokeThickness: 4,
+      strokeThickness: 5,
     }).setOrigin(0.5).setAlpha(0).setDepth(DEPTH_OVERLAY_TEXT);
 
     this.tweens.add({
@@ -550,16 +562,19 @@ export class MapScene extends Phaser.Scene {
     bar.add(g);
 
     this.destinyText = this.add.text(60, TOP_BAR_H / 2, '', {
-      fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
+      fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0',
+      stroke: '#1a0800', strokeThickness: 2,
     }).setOrigin(0, 0.5);
     const coinIcon = this.add.image(440, TOP_BAR_H / 2, 'node_tongbao').setOrigin(0, 0.5);
     coinIcon.setScale(CURRENCY_ICON_DISPLAY / coinIcon.width);
     this.tongbaoIcon = coinIcon;
     this.tongbaoText = this.add.text(440 + CURRENCY_ICON_DISPLAY + 6, TOP_BAR_H / 2, '', {
-      fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3',
+      fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0',
+      stroke: '#1a0800', strokeThickness: 2,
     }).setOrigin(0, 0.5);
     this.floorText = this.add.text(width / 2, TOP_BAR_H / 2, '', {
-      fontSize: '26px', fontFamily: FONT_FAMILY, color: '#c8a050',
+      fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf80',
+      stroke: '#1a0800', strokeThickness: 2,
     }).setOrigin(0.5);
     bar.add([this.destinyText, this.tongbaoIcon, this.tongbaoText, this.floorText]);
 
@@ -568,7 +583,7 @@ export class MapScene extends Phaser.Scene {
       this.deckModal.open(run);
     }, {
       w: 240, h: 64,
-      textStyle: { fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 },
+      textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3 },
     });
     bar.add(deckBtn);
 
@@ -577,7 +592,7 @@ export class MapScene extends Phaser.Scene {
       this.showRosterModal();
     }, {
       w: 240, h: 64,
-      textStyle: { fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 },
+      textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3 },
     });
     bar.add(rosterBtn);
 
@@ -634,11 +649,12 @@ export class MapScene extends Phaser.Scene {
     container.add(UIFactory.modalPanel(this, px, py, panelW, panelH, 10));
 
     container.add(this.add.text(cx, py + 50, '阵  容', {
-      fontSize: '36px', fontFamily: FONT_FAMILY, color: '#3a2010',
+      fontSize: '42px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#3a2010',
+      stroke: '#f0e8d8', strokeThickness: 3,
     }).setOrigin(0.5));
 
     const closeText = this.add.text(px + panelW - 40, py + 32, '✕', {
-      fontSize: '32px', fontFamily: FONT_FAMILY, color: '#7a5a3a',
+      fontSize: '36px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#6a4a2a',
     }).setOrigin(0.5);
     const closeZone = this.add.zone(px + panelW - 40, py + 32, 52, 52).setInteractive({ cursor: 'pointer' });
     closeZone.on('pointerover', () => closeText.setColor('#2a1008'));
@@ -664,19 +680,21 @@ export class MapScene extends Phaser.Scene {
       img.setScale(avatarSize / AVATAR_SOURCE_SIZE);
       container.add(img);
       container.add(this.add.text(ax, ay + avatarSize / 2 + 22, PLAYER_CHARACTERS[id].name, {
-        fontSize: '22px', fontFamily: FONT_FAMILY, color: '#3a2010',
+        fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#2a1008',
+        stroke: '#f0e8d8', strokeThickness: 2,
       }).setOrigin(0.5));
     });
 
     const rosterRows = Math.max(1, Math.ceil(run.roster.length / 5));
     const buciTitleY = gridY + (rosterRows - 1) * strideY + avatarSize / 2 + 70;
     container.add(this.add.text(cx, buciTitleY, '卜 辞 牌', {
-      fontSize: '28px', fontFamily: FONT_FAMILY, color: '#3a2010',
+      fontSize: '32px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#3a2010',
+      stroke: '#f0e8d8', strokeThickness: 2,
     }).setOrigin(0.5));
 
     if (run.buciCards.length === 0) {
       container.add(this.add.text(cx, buciTitleY + 60, '（尚未获得卜辞）', {
-        fontSize: '22px', fontFamily: FONT_FAMILY, color: '#8a7040',
+        fontSize: '26px', fontFamily: FONT_FAMILY, color: '#7a5a2a',
       }).setOrigin(0.5));
     } else {
       run.buciCards.forEach((buci, i) => {
@@ -686,7 +704,7 @@ export class MapScene extends Phaser.Scene {
           px + 180 + col * 400,
           buciTitleY + 52 + row * 44,
           `${buci.name}${buci.count > 1 ? ` ×${buci.count}` : ''}  ${buci.desc}`,
-          { fontSize: '20px', fontFamily: FONT_FAMILY, color: '#5a4030' },
+          { fontSize: '24px', fontFamily: FONT_FAMILY, color: '#3a2812' },
         ).setOrigin(0, 0.5));
       });
     }

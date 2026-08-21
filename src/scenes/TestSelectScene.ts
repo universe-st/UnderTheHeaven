@@ -80,11 +80,12 @@ export class TestSelectScene extends Phaser.Scene {
 
     const titleY = 100;
     this.add.text(cx, titleY, '测 试 选 择', {
-      fontSize: '48px',
+      fontSize: '54px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffdf90',
       stroke: '#3a2010',
-      strokeThickness: 3,
+      strokeThickness: 4,
     }).setOrigin(0.5);
 
     this.drawDivider(cx, titleY + 40);
@@ -125,9 +126,12 @@ export class TestSelectScene extends Phaser.Scene {
     this.createMaxCharacterCountControl(px, py, pw);
 
     this.playerCountText = this.add.text(w / 2, py + 24, '', {
-      fontSize: '20px',
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a050',
+      fontStyle: 'bold',
+      color: '#ffdf80',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(0.5);
     this.updatePlayerCountText();
 
@@ -189,9 +193,12 @@ export class TestSelectScene extends Phaser.Scene {
     const labelRightX = minusX - btnSize / 2 - gap;
 
     this.add.text(labelRightX, lineY + 4, '最大角色数', {
-      fontSize: '20px',
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a050',
+      fontStyle: 'bold',
+      color: '#ffdf80',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(1, 0.5);
 
     const createStepBtn = (x: number, label: string, delta: number): void => {
@@ -205,9 +212,10 @@ export class TestSelectScene extends Phaser.Scene {
       };
       draw(false);
       this.add.text(x, lineY, label, {
-        fontSize: '24px',
+        fontSize: '28px',
         fontFamily: FONT_FAMILY,
-        color: '#e8d5a3',
+        fontStyle: 'bold',
+        color: '#ffe9b0',
       }).setOrigin(0.5);
       const zone = this.add.zone(x, lineY, btnSize + 8, btnSize + 8).setInteractive({ cursor: 'pointer' });
       zone.on('pointerover', () => draw(true));
@@ -229,9 +237,10 @@ export class TestSelectScene extends Phaser.Scene {
     createStepBtn(plusX, '+', 1);
 
     this.maxCountValueText = this.add.text(valueX, lineY, `${this.maxPlayerCharacterCount}`, {
-      fontSize: '24px',
+      fontSize: '28px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffe9b0',
       stroke: '#2a1008',
       strokeThickness: 2,
     }).setOrigin(0.5);
@@ -294,17 +303,23 @@ export class TestSelectScene extends Phaser.Scene {
     charImg.setScale(imgScale);
 
     const textOffsetX = 55;
-    const nameTxt = this.add.text(cx + textOffsetX - 10, cy - 18, char.name, {
-      fontSize: '28px',
+    const nameTxt = this.add.text(cx + textOffsetX - 10, cy - 20, char.name, {
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
-      color: isSelected ? '#e8d5a3' : '#c8a050',
+      fontStyle: 'bold',
+      color: isSelected ? '#ffe9b0' : '#e0b878',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(0.5).setData('_nameText', true);
 
     const abilitiesStr = char.abilities.filter(a => !a.hidden).map(a => a.name).join(' · ');
-    const abiTxt = this.add.text(cx + textOffsetX - 10, cy + 14, abilitiesStr, {
-      fontSize: '16px',
+    const abiTxt = this.add.text(cx + textOffsetX - 10, cy + 18, abilitiesStr, {
+      fontSize: '20px',
       fontFamily: FONT_FAMILY,
-      color: '#6a5030',
+      fontStyle: 'bold',
+      color: '#d8a860',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(0.5);
 
     const zone = this.add.zone(cx, cy, cardW, cardH).setInteractive({ cursor: 'pointer' });
@@ -362,9 +377,10 @@ export class TestSelectScene extends Phaser.Scene {
       c.add(bg);
 
       const txt = this.add.text(0, 0, label, {
-        fontSize: '24px',
+        fontSize: '28px',
         fontFamily: FONT_FAMILY,
-        color: '#e8d5a3',
+        fontStyle: 'bold',
+        color: '#ffe9b0',
       }).setOrigin(0.5);
       c.add(txt);
 
@@ -616,9 +632,12 @@ export class TestSelectScene extends Phaser.Scene {
     draw(isSelected, false);
 
     const nameTxt = this.add.text(cx, cy - 20, char.name, {
-      fontSize: '28px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
-      color: isSelected ? '#e8d5a3' : '#c8a050',
+      fontStyle: 'bold',
+      color: isSelected ? '#ffe9b0' : '#e0b878',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(0.5);
 
     let abiNameTxt: Phaser.GameObjects.Text | null = null;
@@ -626,15 +645,20 @@ export class TestSelectScene extends Phaser.Scene {
 
     if (char.abilities.length > 0) {
       abiNameTxt = this.add.text(cx, cy + 8, char.abilities[0]!.name, {
-        fontSize: '20px',
+        fontSize: '24px',
         fontFamily: FONT_FAMILY,
-        color: '#8a7040',
+        fontStyle: 'bold',
+        color: '#d8a860',
+        stroke: '#1a0800',
+        strokeThickness: 2,
       }).setOrigin(0.5);
 
       abiDescTxt = this.add.text(cx, cy + 34, char.abilities[0]!.description, {
-        fontSize: '16px',
+        fontSize: '20px',
         fontFamily: FONT_FAMILY,
-        color: '#6a5030',
+        color: '#c8a878',
+        stroke: '#1a0800',
+        strokeThickness: 1,
       }).setOrigin(0.5);
     }
 
@@ -707,9 +731,12 @@ export class TestSelectScene extends Phaser.Scene {
     const labelX = panelX + 40;
     const centerX = panelX + panelW / 2;
     this.add.text(labelX, rowY, label, {
-      fontSize: '28px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a050',
+      fontStyle: 'bold',
+      color: '#ffdf90',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(0, 0.5);
 
     const btnSize = 48;
@@ -731,9 +758,12 @@ export class TestSelectScene extends Phaser.Scene {
       draw(false);
 
       this.add.text(x, rowY, label, {
-        fontSize: '32px',
+        fontSize: '36px',
         fontFamily: FONT_FAMILY,
-        color: '#e8d5a3',
+        fontStyle: 'bold',
+        color: '#ffe9b0',
+        stroke: '#1a0800',
+        strokeThickness: 2,
       }).setOrigin(0.5);
 
       const zone = this.add.zone(x, rowY, btnSize + 8, btnSize + 8).setInteractive({ cursor: 'pointer' });
@@ -747,9 +777,10 @@ export class TestSelectScene extends Phaser.Scene {
     const plus = createBtnBg(plusBtnX, '+');
 
     const valueText = this.add.text(valueTextX, rowY, `${initialValue}`, {
-      fontSize: '32px',
+      fontSize: '36px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffe9b0',
       stroke: '#2a1008',
       strokeThickness: 2,
     }).setOrigin(0.5);
@@ -832,11 +863,12 @@ export class TestSelectScene extends Phaser.Scene {
     drawNormal();
 
     this.add.text(btnX, btnY, '▶  开 始 战 斗', {
-      fontSize: '30px',
+      fontSize: '34px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffe9b0',
       stroke: '#2a1008',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5);
 
     const zone = this.add.zone(btnX, btnY, btnW, btnH).setInteractive({ cursor: 'pointer' });

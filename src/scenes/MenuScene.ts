@@ -57,17 +57,19 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(cx, titleY - 12, '天 下 牌', {
       fontSize: '100px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffdf90',
       stroke: '#3a2010',
-      strokeThickness: 4,
+      strokeThickness: 5,
     }).setOrigin(0.5);
 
     this.add.text(cx, titleY + 40, '一 局 定 天 下', {
-      fontSize: '34px',
+      fontSize: '38px',
       fontFamily: FONT_FAMILY,
-      color: '#b89050',
+      fontStyle: 'bold',
+      color: '#e8b858',
       stroke: '#1a0800',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5);
 
     UIFactory.divider(this, cx, titleY + 82);
@@ -81,7 +83,7 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
       this.startNewRunAndGotoMap();
-    }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
+    }, { textStyle: { fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3 } });
 
     // 「继续游戏」：有存档时可用，无存档时置灰占位
     if (RunManager.hasSave()) {
@@ -98,7 +100,7 @@ export class MenuScene extends Phaser.Scene {
           RunManager.clear();
           this.scene.restart();
         }
-      }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
+      }, { textStyle: { fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3 } });
     } else {
       const dw = 340; const dh = 72; const dy = height * 0.66;
       const disabledGfx = this.add.graphics();
@@ -107,9 +109,10 @@ export class MenuScene extends Phaser.Scene {
       disabledGfx.lineStyle(1, 0x5a4030, 0.5);
       disabledGfx.strokeRoundedRect(cx - dw / 2, dy - dh / 2, dw, dh, 6);
       this.add.text(cx, dy, '✦  继续游戏', {
-        fontSize: '30px',
+        fontSize: '34px',
         fontFamily: FONT_FAMILY,
-        color: '#665544',
+        fontStyle: 'bold',
+        color: '#7a6a50',
         stroke: '#1a0a00',
         strokeThickness: 2,
       }).setOrigin(0.5);
@@ -118,7 +121,7 @@ export class MenuScene extends Phaser.Scene {
     UIFactory.button(this, cx, height * 0.75, '⚙', '设  置', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
       this.showSettings();
-    }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
+    }, { textStyle: { fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3 } });
 
     if (SHOW_TEST_BUTTON) {
       UIFactory.button(this, cx, height * 0.84, '▶', '测试游戏', () => {
@@ -128,13 +131,15 @@ export class MenuScene extends Phaser.Scene {
         this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
           this.scene.start('TestSelectScene');
         });
-      }, { textStyle: { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2 } });
+      }, { textStyle: { fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3 } });
     }
 
     this.add.text(cx, height - 22, 'v0.1.0  ·  天下牌 Under The Heaven', {
-      fontSize: '16px',
+      fontSize: '20px',
       fontFamily: FONT_FAMILY,
-      color: '#4a3020',
+      color: '#8a6a3a',
+      stroke: '#1a0a00',
+      strokeThickness: 2,
     }).setOrigin(0.5);
 
     this.createParticles(width, height);
@@ -181,11 +186,12 @@ export class MenuScene extends Phaser.Scene {
     icon.setScale(HALL_OF_FAME_ICON_DISPLAY / icon.width);
 
     this.add.text(x + 42, y, '名人堂', {
-      fontSize: '30px',
+      fontSize: '34px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffe9b0',
       stroke: '#2a1008',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5);
 
     const zone = this.add.zone(x, y, bw, bh).setInteractive({ cursor: 'pointer' });
@@ -230,23 +236,30 @@ export class MenuScene extends Phaser.Scene {
     container.add(panel);
 
     container.add(this.add.text(sw / 2, py + 70, '开启新的征程？', {
-      fontSize: '38px',
+      fontSize: '44px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#3a2010',
+      stroke: '#f0e8d8',
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT));
 
     container.add(this.add.text(sw / 2, py + 140, '已有进行中的征程，开始新游戏将覆盖存档', {
-      fontSize: '24px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
-      color: '#6a4a2a',
+      fontStyle: 'bold',
+      color: '#8a4020',
+      stroke: '#f5f0e2',
+      strokeThickness: 2,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT));
 
     const btnTextStyle = {
-      fontSize: '26px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffe9b0',
       stroke: '#2a1008',
-      strokeThickness: 2,
+      strokeThickness: 3,
     };
     container.add(UIFactory.button(this, sw / 2 - 150, py + 225, '✓', '确认', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
@@ -385,11 +398,12 @@ export class MenuScene extends Phaser.Scene {
     container.add(panel);
 
     const title = this.add.text(px + panelW / 2, py + 40, '设  置', {
-      fontSize: '36px',
+      fontSize: '42px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffdf90',
       stroke: '#3a2010',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5);
     container.add(title);
 
@@ -399,9 +413,10 @@ export class MenuScene extends Phaser.Scene {
     container.add(dividerT);
 
     const closeBtn = this.add.text(px + panelW - 36, py + 14, '✕', {
-      fontSize: '28px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
-      color: '#8a7040',
+      fontStyle: 'bold',
+      color: '#b89a60',
     }).setOrigin(0.5).setInteractive({ cursor: 'pointer' });
     closeBtn.on('pointerover', () => closeBtn.setColor('#e8d5a3'));
     closeBtn.on('pointerout', () => closeBtn.setColor('#8a7040'));
@@ -426,9 +441,11 @@ export class MenuScene extends Phaser.Scene {
     container.add(dividerB);
 
     const hint = this.add.text(px + panelW / 2, py + panelH - 30, '设置自动保存', {
-      fontSize: '18px',
+      fontSize: '24px',
       fontFamily: FONT_FAMILY,
-      color: '#5a4030',
+      color: '#b89a60',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(0.5);
     container.add(hint);
 
@@ -468,17 +485,21 @@ export class MenuScene extends Phaser.Scene {
     onChange: (value: number) => void,
   ): void {
     const labelText = this.add.text(lx, ty - 18, label, {
-      fontSize: '26px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a050',
+      fontStyle: 'bold',
+      color: '#ffdf90',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     });
     container.add(labelText);
 
     const pct = Math.round(initialValue * 100);
     const valueText = this.add.text(lx + trackW, ty - 18, `${pct}`, {
-      fontSize: '24px',
+      fontSize: '28px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffe9b0',
     }).setOrigin(1, 0);
     container.add(valueText);
 

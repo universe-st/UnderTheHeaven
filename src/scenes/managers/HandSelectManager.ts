@@ -77,12 +77,12 @@ export class HandSelectManager {
       ui = scene.add.container(0, 0).setDepth(DEPTH_OVERLAY);
       ui.add(
         scene.add.text(width / 2, height - 440, options.title ?? '选择手牌', {
-          fontSize: '30px',
+          fontSize: '34px',
           fontFamily: FONT_FAMILY,
           fontStyle: 'bold',
           color: '#ffd700',
           stroke: '#1a0800',
-          strokeThickness: 4,
+          strokeThickness: 5,
         }).setOrigin(0.5),
       );
 
@@ -95,8 +95,9 @@ export class HandSelectManager {
       const confirmBtn = scene.add.container(confirmX, btnY).setDepth(DEPTH_OVERLAY + 1);
       const confirmGfx = scene.add.graphics();
       const confirmText = scene.add.text(0, 0, '确 定', {
-        fontSize: '30px',
+        fontSize: '34px',
         fontFamily: FONT_FAMILY,
+        fontStyle: 'bold',
         color: '#1a0a04',
         stroke: '#e8dcc8',
         strokeThickness: 2,
@@ -134,9 +135,10 @@ export class HandSelectManager {
         cancelGfx.lineStyle(2, 0xc8a080, 0.8);
         cancelGfx.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
         const cancelText = scene.add.text(0, 0, '取 消', {
-          fontSize: '30px',
+          fontSize: '34px',
           fontFamily: FONT_FAMILY,
-          color: '#c8a080',
+          fontStyle: 'bold',
+          color: '#d8b898',
           stroke: '#1a0a2a',
           strokeThickness: 2,
         }).setOrigin(0.5);

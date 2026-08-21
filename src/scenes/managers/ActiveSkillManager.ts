@@ -248,11 +248,12 @@ export class ActiveSkillManager {
 
     const displaySkill = this.host.activeSkills.find(s => s.id === this.host.currentActiveSkillId) ?? firstSkill;
     this.host.btnSkillText = this.host.add.text(0, 0, displaySkill.name, {
-      fontSize: '28px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#ffd700',
       stroke: '#1a0a2a',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5);
     this.host.btnSkill.add(this.host.btnSkillText);
 
@@ -303,9 +304,10 @@ export class ActiveSkillManager {
       const itemY = startY + idx * itemH + itemH / 2;
 
       const itemText = this.host.add.text(0, itemY, skill.name, {
-        fontSize: '24px',
+        fontSize: '28px',
         fontFamily: FONT_FAMILY,
-        color: skillId === this.host.currentActiveSkillId ? '#ffd700' : '#c8a080',
+        fontStyle: 'bold',
+        color: skillId === this.host.currentActiveSkillId ? '#ffd700' : '#d8b898',
         stroke: '#1a0a24',
         strokeThickness: 2,
       }).setOrigin(0.5);

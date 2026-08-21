@@ -15,14 +15,15 @@ export interface MapEventModalCallbacks {
 }
 
 const TEXT_TITLE = '#3a2010';
-const TEXT_BODY = '#5a4030';
+const TEXT_BODY = '#4a3018';
 
 const CHOICE_BUTTON_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
-  fontSize: '24px',
+  fontSize: '28px',
   fontFamily: FONT_FAMILY,
-  color: '#e8d5a3',
+  fontStyle: 'bold',
+  color: '#ffe9b0',
   stroke: '#2a1008',
-  strokeThickness: 2,
+  strokeThickness: 3,
 };
 
 /**
@@ -54,8 +55,8 @@ export class MapEventModal {
 
     const { width, height } = this.scene.scale;
     const cx = width / 2;
-    const panelW = 880;
-    const panelH = 250 + event.choices.length * 92;
+    const panelW = 920;
+    const panelH = 300 + event.choices.length * 96;
     const px = (width - panelW) / 2;
     const py = (height - panelH) / 2;
 
@@ -65,26 +66,29 @@ export class MapEventModal {
     container.add(UIFactory.modalOverlay(this.scene, width, height, () => { /* 事件必须做出选择 */ }));
     container.add(UIFactory.modalPanel(this.scene, px, py, panelW, panelH, 10));
 
-    container.add(this.scene.add.text(cx, py + 54, event.title, {
-      fontSize: '38px',
+    container.add(this.scene.add.text(cx, py + 56, event.title, {
+      fontSize: '44px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: TEXT_TITLE,
+      stroke: '#f0e8d8',
+      strokeThickness: 3,
     }).setOrigin(0.5));
 
-    container.add(this.scene.add.text(cx, py + 136, event.description, {
-      fontSize: '24px',
+    container.add(this.scene.add.text(cx, py + 142, event.description, {
+      fontSize: '28px',
       fontFamily: FONT_FAMILY,
       color: TEXT_BODY,
       align: 'center',
-      lineSpacing: 8,
-      wordWrap: { width: panelW - 140 },
+      lineSpacing: 10,
+      wordWrap: { width: panelW - 160 },
     }).setOrigin(0.5));
 
     event.choices.forEach((choice, idx) => {
-      const btn = UIFactory.button(this.scene, cx, py + 216 + idx * 92, '▸', choice.label, () => {
+      const btn = UIFactory.button(this.scene, cx, py + 240 + idx * 96, '▸', choice.label, () => {
         GameAudioManager.playSfx(this.scene, 'sfx_button');
         this.resolve(run, event, idx, callbacks);
-      }, { w: 680, h: 68, textStyle: CHOICE_BUTTON_STYLE });
+      }, { w: 720, h: 72, textStyle: CHOICE_BUTTON_STYLE });
       container.add(btn);
     });
   }
@@ -105,8 +109,8 @@ export class MapEventModal {
 
     const { width, height } = this.scene.scale;
     const cx = width / 2;
-    const panelW = 880;
-    const panelH = 380;
+    const panelW = 920;
+    const panelH = 400;
     const px = (width - panelW) / 2;
     const py = (height - panelH) / 2;
 
@@ -116,19 +120,23 @@ export class MapEventModal {
     container.add(UIFactory.modalOverlay(this.scene, width, height, () => { /* 等待点击继续 */ }));
     container.add(UIFactory.modalPanel(this.scene, px, py, panelW, panelH, 10));
 
-    container.add(this.scene.add.text(cx, py + 54, '际 遇', {
-      fontSize: '38px',
+    container.add(this.scene.add.text(cx, py + 56, '际 遇', {
+      fontSize: '44px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: TEXT_TITLE,
+      stroke: '#f0e8d8',
+      strokeThickness: 3,
     }).setOrigin(0.5));
 
-    container.add(this.scene.add.text(cx, py + 170, description, {
-      fontSize: '26px',
+    container.add(this.scene.add.text(cx, py + 180, description, {
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: TEXT_BODY,
       align: 'center',
-      lineSpacing: 10,
-      wordWrap: { width: panelW - 140 },
+      lineSpacing: 12,
+      wordWrap: { width: panelW - 160 },
     }).setOrigin(0.5));
 
     const btn = UIFactory.button(this.scene, cx, py + panelH - 72, '▸', '继 续', () => {
@@ -139,7 +147,7 @@ export class MapEventModal {
       } else {
         callbacks.onDone();
       }
-    }, { w: 300, h: 68, textStyle: CHOICE_BUTTON_STYLE });
+    }, { w: 320, h: 72, textStyle: CHOICE_BUTTON_STYLE });
     container.add(btn);
   }
 }

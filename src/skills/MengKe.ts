@@ -135,11 +135,12 @@ async function chooseFromTopTwo(
     overlay.add(bg);
 
     const label = scene.add.text(bx, btnY, btnLabels[i]!.label, {
-      fontSize: '26px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#ffd700',
       stroke: '#1a0a2a',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5);
     overlay.add(label);
 

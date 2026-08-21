@@ -39,12 +39,13 @@ export class InfoBarManager {
     const barH = 34;
 
     this.host.enemyNameText = this.host.add.text(enemyBarX, enemyBarY - 22, '山贼头目', {
-      fontSize: '26px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a050',
+      fontStyle: 'bold',
+      color: '#ffd98a',
       stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0, 0.5).setShadow(0, 2, '#1a0800', 4, true, true).setDepth(DEPTH_UI);
+      strokeThickness: 4,
+    }).setOrigin(0, 0.5).setShadow(0, 2, '#1a0800', 5, true, true).setDepth(DEPTH_UI);
 
     // 敌人名字（金色风格，无背景框）
 
@@ -82,18 +83,24 @@ export class InfoBarManager {
     this.host.enemyVitalityBar = this.host.add.graphics();
     this.host.enemyVitalityBar.setDepth(DEPTH_UI);
     this.host.enemyVitalityText = this.host.add.text(enemyBarX + barW / 2, enemyBarY + 6 + barH / 2, '', {
-      fontSize: '16px',
+      fontSize: '20px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
+      stroke: '#f0ebe0',
+      strokeThickness: 2,
     }).setOrigin(0.5).setDepth(DEPTH_UI);
 
     // 玩家信息栏（中下方，高于按钮和手牌）
     const playerBarY = h - 380;
 
     this.host.playerNameText = this.host.add.text(enemyBarX, playerBarY - 16, '玩家', {
-      fontSize: '24px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#4a2a10',
+      stroke: '#f0ebe0',
+      strokeThickness: 2,
     }).setDepth(DEPTH_UI).setVisible(false);
 
     const playerBg = this.host.add.graphics();
@@ -106,22 +113,31 @@ export class InfoBarManager {
     this.host.playerVitalityBar = this.host.add.graphics();
     this.host.playerVitalityBar.setDepth(DEPTH_UI);
     this.host.playerVitalityText = this.host.add.text(enemyBarX + barW / 2, playerBarY + 6 + barH / 2, '', {
-      fontSize: '16px',
+      fontSize: '20px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
+      stroke: '#f0ebe0',
+      strokeThickness: 2,
     }).setOrigin(0.5).setDepth(DEPTH_UI);
 
     const deckTextX = enemyBarX + barW + 24;
     this.host.enemyDeckText = this.host.add.text(deckTextX, enemyBarY + 6 + barH / 2, '', {
-      fontSize: '16px',
+      fontSize: '20px',
       fontFamily: FONT_FAMILY,
-      color: '#5a3a20',
+      fontStyle: 'bold',
+      color: '#3a2a10',
+      stroke: '#f0ebe0',
+      strokeThickness: 2,
     }).setOrigin(0, 0.5).setDepth(DEPTH_UI);
 
     this.host.playerDeckText = this.host.add.text(deckTextX, playerBarY + 6 + barH / 2, '', {
-      fontSize: '16px',
+      fontSize: '20px',
       fontFamily: FONT_FAMILY,
-      color: '#5a3a20',
+      fontStyle: 'bold',
+      color: '#3a2a10',
+      stroke: '#f0ebe0',
+      strokeThickness: 2,
     }).setOrigin(0, 0.5).setDepth(DEPTH_UI);
   }
 }

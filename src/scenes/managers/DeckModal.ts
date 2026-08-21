@@ -12,10 +12,10 @@ const PANEL_H = 780;
 const COLS = 7;
 const ROWS = 8;
 const PAGE_SIZE = COLS * ROWS;
-const CARD_W = 128;
-const CARD_H = 66;
-const STRIDE_X = 144;
-const STRIDE_Y = 82;
+const CARD_W = 132;
+const CARD_H = 74;
+const STRIDE_X = 146;
+const STRIDE_Y = 84;
 
 const SUIT_SYMBOLS: Record<string, string> = {
   spade: '♠',
@@ -25,10 +25,10 @@ const SUIT_SYMBOLS: Record<string, string> = {
 };
 
 const TITLE_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
-  fontSize: '36px', fontFamily: FONT_FAMILY, color: '#3a2010',
+  fontSize: '42px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#3a2010', stroke: '#f0e8d8', strokeThickness: 3,
 };
 const BUTTON_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
-  fontSize: '26px', fontFamily: FONT_FAMILY, color: '#e8d5a3', stroke: '#2a1008', strokeThickness: 2,
+  fontSize: '30px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3,
 };
 
 /**
@@ -121,7 +121,7 @@ export class DeckModal {
     // 牌网格（标准 54 张恰好一页，购买牌多时分页）
     const cards = this.pages[this.page]!;
     const gridX = px + (PANEL_W - (COLS - 1) * STRIDE_X - CARD_W) / 2 + CARD_W / 2;
-    const gridY = py + 128;
+    const gridY = py + 112;
     cards.forEach((card, i) => {
       const col = i % COLS;
       const row = Math.floor(i / COLS);
@@ -131,7 +131,7 @@ export class DeckModal {
     // 分页控件（仅多页时显示）
     if (this.pages.length > 1) {
       container.add(this.scene.add.text(cx, py + PANEL_H - 56, `第 ${this.page + 1} / ${this.pages.length} 页`, {
-        fontSize: '22px', fontFamily: FONT_FAMILY, color: '#7a5a3a',
+        fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#6a4a2a',
       }).setOrigin(0.5));
       container.add(UIFactory.button(this.scene, px + 120, py + PANEL_H - 56, '‹', '上一页', () => {
         GameAudioManager.playSfx(this.scene, 'sfx_button');
@@ -163,13 +163,14 @@ export class DeckModal {
 
     const isRed = card.suit === 'heart' || card.suit === 'diamond';
     const nameColor = card.suit === null ? '#8a6a20' : (isRed ? '#a03020' : '#2a2018');
-    tile.add(this.scene.add.text(x, y - 9, cardDisplayName(card), {
-      fontSize: '24px', fontFamily: FONT_FAMILY, color: nameColor,
+    tile.add(this.scene.add.text(x, y - 11, cardDisplayName(card), {
+      fontSize: '28px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: nameColor,
+      stroke: '#f5f0e2', strokeThickness: 1,
     }).setOrigin(0.5));
 
     const sealName = card.seal ? SEAL_LABELS[card.seal] : '';
-    tile.add(this.scene.add.text(x, y + 17, `分 ${card.score}${sealName ? ` · ${sealName}印` : ''}`, {
-      fontSize: '16px', fontFamily: FONT_FAMILY, color: '#6a5a40',
+    tile.add(this.scene.add.text(x, y + 20, `分 ${card.score}${sealName ? ` · ${sealName}印` : ''}`, {
+      fontSize: '20px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#5a4a30',
     }).setOrigin(0.5));
 
     const zone = this.scene.add.zone(x, y, CARD_W, CARD_H).setInteractive({ cursor: 'pointer' });
@@ -221,25 +222,27 @@ export class DeckModal {
       ? `${SUIT_SYMBOLS[card.suit]} ${card.rankLabel}`
       : `${card.rankLabel} ${card.rank === 30 ? '大王' : '小王'}`;
     container.add(this.scene.add.text(cx, py + 44, titleText, {
-      fontSize: '34px', fontFamily: FONT_FAMILY, color: nameColor,
+      fontSize: '38px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: nameColor,
+      stroke: '#f5f0e2', strokeThickness: 2,
     }).setOrigin(0.5));
 
     container.add(this.scene.add.text(cx, py + 108, `分数：${card.score}`, {
-      fontSize: '24px', fontFamily: FONT_FAMILY, color: '#5a4a30',
+      fontSize: '28px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#4a3a22',
     }).setOrigin(0.5));
 
     if (card.seal) {
-      container.add(this.scene.add.text(cx, py + 162, `【${SEAL_LABELS[card.seal]}】${SEAL_DESCRIPTIONS[card.seal]}`, {
-        fontSize: '22px', fontFamily: FONT_FAMILY, color: '#8a6030',
+      container.add(this.scene.add.text(cx, py + 166, `【${SEAL_LABELS[card.seal]}】${SEAL_DESCRIPTIONS[card.seal]}`, {
+        fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#7a4e1a',
+        align: 'center', wordWrap: { width: w - 80 },
       }).setOrigin(0.5));
     } else {
-      container.add(this.scene.add.text(cx, py + 162, '（无四象印）', {
-        fontSize: '20px', fontFamily: FONT_FAMILY, color: '#a09080',
+      container.add(this.scene.add.text(cx, py + 166, '（无四象印）', {
+        fontSize: '24px', fontFamily: FONT_FAMILY, color: '#7a6a50',
       }).setOrigin(0.5));
     }
 
     const closeText = this.scene.add.text(px + w - 34, py + 26, '✕', {
-      fontSize: '30px', fontFamily: FONT_FAMILY, color: '#7a5a3a',
+      fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#6a4a2a',
     }).setOrigin(0.5);
     const closeZone = this.scene.add.zone(px + w - 34, py + 26, 48, 48).setInteractive({ cursor: 'pointer' });
     closeZone.on('pointerover', () => closeText.setColor('#2a1008'));

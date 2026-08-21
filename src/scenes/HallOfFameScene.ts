@@ -136,11 +136,12 @@ export class HallOfFameScene extends Phaser.Scene {
     UIFactory.titleFrame(this, cx, titleY, 660, 136);
 
     this.add.text(cx, titleY - 12, '名 人 堂', {
-      fontSize: '56px',
+      fontSize: '62px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffdf90',
       stroke: '#3a2010',
-      strokeThickness: 3,
+      strokeThickness: 4,
     }).setOrigin(0.5);
 
     const divider = this.add.graphics();
@@ -161,9 +162,12 @@ export class HallOfFameScene extends Phaser.Scene {
     ], true);
 
     this.add.text(cx, titleY + 48, '天下英杰，尽入此堂', {
-      fontSize: '22px',
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
-      color: '#8a7040',
+      fontStyle: 'bold',
+      color: '#d0a860',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(0.5);
 
     // 左右装饰纹样（菱形 + 横线 + 竖线）
@@ -268,11 +272,12 @@ export class HallOfFameScene extends Phaser.Scene {
     container.add(seal);
 
     const sealText = this.add.text(x + sealW / 2, y, title, {
-      fontSize: '26px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
-      color: '#f5ead0',
+      fontStyle: 'bold',
+      color: '#fdf2d8',
       stroke: '#5a1010',
-      strokeThickness: 1,
+      strokeThickness: 2,
     }).setOrigin(0.5);
     container.add(sealText);
 
@@ -346,17 +351,21 @@ export class HallOfFameScene extends Phaser.Scene {
 
     // 名字 + 朝代
     card.add(this.add.text(0, 58, char.name, {
-      fontSize: '30px',
+      fontSize: '34px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffe9b0',
       stroke: '#2a1008',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5));
 
     card.add(this.add.text(0, 100, `◆ ${char.dynasty} ◆`, {
-      fontSize: '20px',
+      fontSize: '24px',
       fontFamily: FONT_FAMILY,
-      color: '#a08040',
+      fontStyle: 'bold',
+      color: '#d0a860',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(0.5));
 
     const zone = this.add.zone(0, 0, CARD_W, CARD_H).setInteractive({ cursor: 'pointer' });
@@ -621,9 +630,10 @@ export class HallOfFameScene extends Phaser.Scene {
     container.add(nameTxt);
 
     const dynastyTxt = this.add.text(cx, py + 142, `◆ ${char.dynasty} ◆`, {
-      fontSize: '30px',
+      fontSize: '34px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a868',
+      fontStyle: 'bold',
+      color: '#d8b878',
       stroke: '#3a1c05',
       strokeThickness: 2,
     }).setOrigin(0.5).setDepth(MODAL_DEPTH_TEXT);
@@ -675,15 +685,16 @@ export class HallOfFameScene extends Phaser.Scene {
       // 技能名：金色竖条 + 大字
       const nameBar = this.add.graphics().setDepth(MODAL_DEPTH_TEXT - 1);
       nameBar.lineStyle(3, 0xd4a843, 0.9);
-      nameBar.lineBetween(colX, ty - 18, colX, ty + 18);
+      nameBar.lineBetween(colX, ty - 20, colX, ty + 20);
       container.add(nameBar);
 
       const skillName = this.add.text(colX + 18, ty, block.ability.name, {
-        fontSize: '36px',
+        fontSize: '40px',
         fontFamily: FONT_FAMILY,
-        color: '#f0c860',
+        fontStyle: 'bold',
+        color: '#ffd980',
         stroke: '#3a1c05',
-        strokeThickness: 2,
+        strokeThickness: 3,
       }).setOrigin(0, 0.5).setDepth(MODAL_DEPTH_TEXT);
       container.add(skillName);
       ty += 50;

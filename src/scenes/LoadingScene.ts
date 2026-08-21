@@ -42,9 +42,12 @@ export class LoadingScene extends Phaser.Scene {
     this.progressBar = this.add.graphics();
 
     this.loadingText = this.add.text(cx, barY + barH + 22, '加载中... 0%', {
-      fontSize: '20px',
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
-      color: '#8a7040',
+      fontStyle: 'bold',
+      color: '#ffdf90',
+      stroke: '#1a0800',
+      strokeThickness: 2,
     }).setOrigin(0.5);
 
     this.load.on('progress', (value: number) => {
@@ -76,17 +79,19 @@ export class LoadingScene extends Phaser.Scene {
       this.add.text(cx, height * 0.38, '天 下 牌', {
         fontSize: '90px',
         fontFamily: FONT_FAMILY,
-        color: '#e8d5a3',
+        fontStyle: 'bold',
+        color: '#ffdf90',
         stroke: '#3a2010',
-        strokeThickness: 4,
+        strokeThickness: 5,
       }).setOrigin(0.5);
 
       this.add.text(cx, height * 0.38 + 58, '一 局 定 天 下', {
-        fontSize: '28px',
+        fontSize: '32px',
         fontFamily: FONT_FAMILY,
-        color: '#b89050',
+        fontStyle: 'bold',
+        color: '#e8b858',
         stroke: '#1a0800',
-        strokeThickness: 2,
+        strokeThickness: 3,
       }).setOrigin(0.5);
     });
   }

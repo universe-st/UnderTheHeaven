@@ -74,9 +74,12 @@ export class ModalManager {
     container.add(bg);
 
     const text = this.host.add.text(btnX, btnY, '牌型', {
-      fontSize: '32px',
+      fontSize: '36px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
+      stroke: '#f0e8d8',
+      strokeThickness: 2,
     }).setOrigin(0.5);
     container.add(text);
 
@@ -127,8 +130,8 @@ export class ModalManager {
     if (this.host.handPatternModal) return;
 
     const { width: sw, height: sh } = this.host.scale;
-    const modalW = 880;
-    const modalH = 920;
+    const modalW = 900;
+    const modalH = 820;
     const modalX = (sw - modalW) / 2;
     const modalY = (sh - modalH) / 2;
     const pad = 24;
@@ -156,11 +159,12 @@ export class ModalManager {
 
     const titleY = modalY + 36;
     const title = this.host.add.text(modalX + modalW / 2, titleY, '牌型系数表', {
-      fontSize: '42px',
+      fontSize: '48px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
       stroke: '#e0d8c0',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(title);
 
@@ -170,7 +174,7 @@ export class ModalManager {
     const col2X = col1X + 160;
     const col3X = col1X + 410;
     const headerY = titleY + 38;
-    const headerStyle = { fontSize: '34px', fontFamily: FONT_FAMILY, color: '#4a2a10' } as const;
+    const headerStyle = { fontSize: '38px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#4a2a10' } as const;
 
     const headerBg = this.host.add.graphics();
     headerBg.fillStyle(0xe0d8c8, 0.6);
@@ -207,10 +211,10 @@ export class ModalManager {
       { name: '王炸', coeff: '×4', desc: '小王 + 大王' },
     ];
 
-    const rowH = 46;
-    const nameStyle = { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#2a1008' } as const;
-    const coeffStyle = { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#4a2a10' } as const;
-    const descStyle = { fontSize: '30px', fontFamily: FONT_FAMILY, color: '#5a4a30' } as const;
+    const rowH = 50;
+    const nameStyle = { fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#2a1008' } as const;
+    const coeffStyle = { fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#4a2a10' } as const;
+    const descStyle = { fontSize: '34px', fontFamily: FONT_FAMILY, color: '#5a4a30' } as const;
 
     rows.forEach((row, i) => {
       const y = headerY + 34 + i * rowH;
@@ -239,7 +243,7 @@ export class ModalManager {
     footerDivider.lineBetween(modalX + pad, footerY, modalX + modalW - pad, footerY);
     container.add(footerDivider);
 
-    const noteStyle = { fontSize: '22px', fontFamily: FONT_FAMILY, color: '#5a4a30' } as const;
+    const noteStyle = { fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#5a4a30' } as const;
     const note2 = this.host.add.text(modalX + pad + 6, footerY + 24, '清空手牌时伤害×5', noteStyle)
       .setOrigin(0, 0).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(note2);
@@ -381,8 +385,9 @@ export class ModalManager {
     container.add(panel);
 
     const itemStyle = {
-      fontSize: '28px',
+      fontSize: '32px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
     } as const;
 
@@ -480,11 +485,12 @@ export class ModalManager {
 
     const titleY = modalY + 42;
     const title = this.host.add.text(modalX + modalW / 2, titleY, '音量设置', {
-      fontSize: '30px',
+      fontSize: '36px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
       stroke: '#e0d8c0',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(title);
 
@@ -627,16 +633,22 @@ export class ModalManager {
     container.add(panel);
 
     const title = this.host.add.text(modalX + modalW / 2, modalY + 48, '确认返回主菜单？', {
-      fontSize: '28px',
+      fontSize: '34px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
+      stroke: '#f0e8d8',
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(title);
 
-    const subtitle = this.host.add.text(modalX + modalW / 2, modalY + 82, '当前对局进度将丢失', {
-      fontSize: '20px',
+    const subtitle = this.host.add.text(modalX + modalW / 2, modalY + 84, '当前对局进度将丢失', {
+      fontSize: '26px',
       fontFamily: FONT_FAMILY,
-      color: '#7a5a3a',
+      fontStyle: 'bold',
+      color: '#8a4020',
+      stroke: '#f5f0e2',
+      strokeThickness: 2,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(subtitle);
 
@@ -653,8 +665,9 @@ export class ModalManager {
     container.add(cancelBg);
 
     const cancelText = this.host.add.text(cancelBtnX, btnY, '取消', {
-      fontSize: '24px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#5a4a30',
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(cancelText);
@@ -676,9 +689,12 @@ export class ModalManager {
     container.add(confirmBg);
 
     const confirmText = this.host.add.text(confirmBtnX, btnY, '确认', {
-      fontSize: '24px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#1a0a04',
+      stroke: '#e8dcc8',
+      strokeThickness: 2,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(confirmText);
 

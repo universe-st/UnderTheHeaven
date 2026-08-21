@@ -51,11 +51,12 @@ export class SkillVisualManagerImpl implements SkillVisualManager {
       : 56 + barH / 2;
 
     const text = this.scene.add.text(barX + barW / 2, barCenterY, `+${amount}`, {
-      fontSize: '36px',
+      fontSize: '40px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#00ff44',
       stroke: '#003300',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_DAMAGE);
 
     this.scene.tweens.add({

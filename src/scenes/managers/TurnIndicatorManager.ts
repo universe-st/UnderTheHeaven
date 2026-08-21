@@ -24,21 +24,22 @@ export class TurnIndicatorManager {
 
   create(w: number, h: number): void {
     this.banner = this.host.add.text(w / 2, h - 440, '', {
-      fontSize: '48px',
+      fontSize: '56px',
       fontFamily: FONT_FAMILY,
       fontStyle: 'bold',
-      color: '#6a4a20',
-      stroke: '#f5eeda',
-      strokeThickness: 3,
+      color: '#8a5a1e',
+      stroke: '#fff6e0',
+      strokeThickness: 6,
     }).setOrigin(0.5).setDepth(DEPTH_UI).setVisible(false)
-      .setShadow(0, 0, '#ffd700', 10, true, true);
+      .setShadow(0, 4, '#ffd700', 12, true, true);
 
     this.thinking = this.host.add.text(660, 67, '对方思考中…', {
-      fontSize: '24px',
+      fontSize: '28px',
       fontFamily: FONT_FAMILY,
-      color: '#4a2a10',
-      stroke: '#f0ebe0',
-      strokeThickness: 1,
+      fontStyle: 'bold',
+      color: '#3a1a08',
+      stroke: '#fff8e8',
+      strokeThickness: 4,
     }).setOrigin(0, 0.5).setDepth(DEPTH_UI).setVisible(false);
 
     this.enemyFrame = this.host.add.graphics().setDepth(DEPTH_UI + 1).setVisible(false);

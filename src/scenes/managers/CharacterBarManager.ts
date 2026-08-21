@@ -130,12 +130,13 @@ export class CharacterBarManager implements CharacterSlotManager {
       }
 
       const slotText = this.host.add.text(0, SLOT_SIZE / 2 + 18, char ? char.name : '?', {
-        fontSize: char ? '28px' : '42px',
+        fontSize: char ? '30px' : '42px',
         fontFamily: FONT_FAMILY,
-        color: char ? '#c8a050' : '#5a4030',
+        fontStyle: 'bold',
+        color: char ? '#ffd98a' : '#6a4a2a',
         stroke: '#000000',
-        strokeThickness: 3,
-      }).setOrigin(0.5).setShadow(0, 2, '#1a0800', 4, true, true);
+        strokeThickness: 4,
+      }).setOrigin(0.5).setShadow(0, 2, '#1a0800', 5, true, true);
       container.add(slotText);
       this.host.characterSlotTexts.push(slotText);
 
@@ -156,10 +157,10 @@ export class CharacterBarManager implements CharacterSlotManager {
         container.add(markerCircle);
 
         markerText = this.host.add.text(mx, my, `${this.host.battle.player.aoMarkers ?? 0}`, {
-          fontSize: '20px',
+          fontSize: '22px',
           fontFamily: FONT_FAMILY,
           fontStyle: 'bold',
-          color: '#e8d5a3',
+          color: '#ffdf80',
           stroke: '#1a0800',
           strokeThickness: 2,
         }).setOrigin(0.5);
@@ -297,7 +298,7 @@ export class CharacterBarManager implements CharacterSlotManager {
 
     const h = this.host;
     const lines = this.wrapDialogText(text, 15);
-    const fontSize = 22;
+    const fontSize = 24;
     const padX = 16;
     const padY = 12;
 

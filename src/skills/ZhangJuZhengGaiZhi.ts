@@ -68,16 +68,22 @@ export const ZhangJuZhengGaiZhi: ActiveSkillDefinition = {
     overlay.add(titleText);
 
     const sub1Text = scene.add.text(0, -2, `弃 ${count} 张`, {
-      fontSize: '24px',
+      fontSize: '28px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a080',
+      fontStyle: 'bold',
+      color: '#ffd9a8',
+      stroke: '#1a0a2a',
+      strokeThickness: 2,
     }).setOrigin(0.5);
     overlay.add(sub1Text);
 
     const sub2Text = scene.add.text(0, 32, `生成 ${count} 张点数+1 临时牌`, {
-      fontSize: '24px',
+      fontSize: '28px',
       fontFamily: FONT_FAMILY,
-      color: '#c8a080',
+      fontStyle: 'bold',
+      color: '#ffd9a8',
+      stroke: '#1a0a2a',
+      strokeThickness: 2,
     }).setOrigin(0.5);
     overlay.add(sub2Text);
 

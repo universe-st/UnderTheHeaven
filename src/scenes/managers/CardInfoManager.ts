@@ -27,7 +27,7 @@ const SUIT_LABELS: Record<string, string> = {
   diamond: '方片',
 };
 
-const PANEL_W = 330;
+const PANEL_W = 400;
 const PANEL_RADIUS = 8;
 
 export class CardInfoManager {
@@ -77,7 +77,7 @@ export class CardInfoManager {
     const { width: sw, height: sh } = h.scale;
 
     // ── 先测量内容高度 ──
-    const measure = h.add.text(0, 0, '', { fontSize: '20px', fontFamily: FONT_FAMILY });
+    const measure = h.add.text(0, 0, '', { fontSize: '24px', fontFamily: FONT_FAMILY });
     const wrap = (text: string, maxW: number): string[] => {
       const lines: string[] = [];
       let cur = '';
@@ -97,16 +97,16 @@ export class CardInfoManager {
     };
 
     const innerW = PANEL_W - 40;
-    let panelH = 56; // 标题区（含底部留白）
-    panelH += 28; // 分数行（2026-08-16 修复：此前漏算该高度，分数行画在面板外被遮罩盖住看不到）
+    let panelH = 60; // 标题区（含底部留白）
+    panelH += 32; // 分数行（2026-08-16 修复：此前漏算该高度，分数行画在面板外被遮罩盖住看不到）
     let sealLines: string[] = [];
     if (card.seal) {
-      panelH += 30; // 印名行
+      panelH += 34; // 印名行
       sealLines = wrap(SEAL_DESCRIPTIONS[card.seal], innerW - 34);
-      panelH += sealLines.length * 24 + 8;
+      panelH += sealLines.length * 28 + 8;
     }
     if (card.isTemp) {
-      panelH += 30;
+      panelH += 34;
     }
     panelH += 12;
 
@@ -152,9 +152,12 @@ export class CardInfoManager {
       titleText = `${card.rankLabel} ${jokerName}`;
     }
     const title = h.add.text(px, top + 28, titleText, {
-      fontSize: '30px',
+      fontSize: '34px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: '#2a1008',
+      stroke: '#f0e8d8',
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(title);
 
@@ -164,39 +167,43 @@ export class CardInfoManager {
     container.add(divider);
 
     // ── 分数行（牌面分数 score，与点数独立，可能被技能修改） ──
-    let lineY = top + 78;
+    let lineY = top + 84;
     const score = h.add.text(left + 24, lineY, `分数：${card.score}`, {
-      fontSize: '20px',
+      fontSize: '24px',
       fontFamily: FONT_FAMILY,
-      color: '#5a4a30',
+      fontStyle: 'bold',
+      color: '#4a3a22',
     }).setOrigin(0, 0.5).setDepth(DEPTH_OVERLAY_TEXT);
     container.add(score);
-    lineY += 28;
+    lineY += 32;
 
     // ── 四象印：印图 + 印名 + 效果描述 ──
     if (card.seal) {
       const sealKey = SEAL_IMAGE_KEYS[card.seal];
-      const sealImg = h.add.image(left + 26, lineY + 8, sealKey);
-      sealImg.setScale(44 / SEAL_SOURCE_SIZE);
+      const sealImg = h.add.image(left + 26, lineY + 10, sealKey);
+      sealImg.setScale(48 / SEAL_SOURCE_SIZE);
       sealImg.setDepth(DEPTH_OVERLAY_TEXT);
       container.add(sealImg);
 
-      const sealName = h.add.text(left + 52, lineY, `【${SEAL_LABELS[card.seal]}】`, {
-        fontSize: '20px',
+      const sealName = h.add.text(left + 56, lineY, `【${SEAL_LABELS[card.seal]}】`, {
+        fontSize: '24px',
         fontFamily: FONT_FAMILY,
-        color: '#8a6030',
+        fontStyle: 'bold',
+        color: '#7a4e1a',
       }).setOrigin(0, 0.5).setDepth(DEPTH_OVERLAY_TEXT);
       container.add(sealName);
 
-      lineY += 26;
+      lineY += 30;
       for (const line of sealLines) {
-        const desc = h.add.text(left + 52, lineY, line, {
-          fontSize: '17px',
+        const desc = h.add.text(left + 56, lineY, line, {
+          fontSize: '22px',
           fontFamily: FONT_FAMILY,
-          color: '#6a5a40',
+          color: '#4a3a22',
+          stroke: '#f5f0e2',
+          strokeThickness: 1,
         }).setOrigin(0, 0.5).setDepth(DEPTH_OVERLAY_TEXT);
         container.add(desc);
-        lineY += 24;
+        lineY += 28;
       }
       lineY += 6;
     }
@@ -204,9 +211,10 @@ export class CardInfoManager {
     // ── 临时牌提示 ──
     if (card.isTemp) {
       const tempHint = h.add.text(px, lineY + 6, '临时牌：打出后不进入牌库', {
-        fontSize: '17px',
+        fontSize: '22px',
         fontFamily: FONT_FAMILY,
-        color: '#3a6a8a',
+        fontStyle: 'bold',
+        color: '#2a4a6a',
       }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
       container.add(tempHint);
     }

@@ -295,8 +295,8 @@ export class BattleFlowManager {
         const halfW = CARD_W / 2;
         const halfH = CARD_H / 2;
         const tagBg = this.host.add.graphics();
-        const tagW = 120;
-        const tagH = 26;
+        const tagW = 128;
+        const tagH = 32;
         const tagX = -halfW + 4;
         const tagY = halfH - tagH - 4;
         tagBg.fillStyle(0xfaf5eb, 0.85);
@@ -304,9 +304,12 @@ export class BattleFlowManager {
         tagBg.lineStyle(1, 0x8a6030, 0.6);
         tagBg.strokeRoundedRect(-tagW / 2, 0, tagW, tagH, 5);
         const tagText = this.host.add.text(0, tagH / 2, labelText, {
-          fontSize: '20px',
+          fontSize: '24px',
           fontFamily: FONT_FAMILY,
-          color: '#5a3a20',
+          fontStyle: 'bold',
+          color: '#4a2a08',
+          stroke: '#faf5eb',
+          strokeThickness: 2,
         }).setOrigin(0.5);
         const tagContainer = this.host.add.container(tagX, tagY).setDepth(DEPTH_CENTER_BASE + 200);
         tagContainer.add([tagBg, tagText]);
@@ -1003,11 +1006,12 @@ export class BattleFlowManager {
     const resultColor = playerWin ? '#6a4a20' : '#802020';
 
     const title = this.scene.add.text(width / 2, height / 2 - 50, resultText, {
-      fontSize: '80px',
+      fontSize: '92px',
       fontFamily: FONT_FAMILY,
+      fontStyle: 'bold',
       color: resultColor,
-      stroke: '#f0ebe0',
-      strokeThickness: 4,
+      stroke: '#fff6e0',
+      strokeThickness: 6,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
 
     this.scene.tweens.add({
@@ -1030,9 +1034,12 @@ export class BattleFlowManager {
 
     // 兜底路径：菜单直进的裸战斗，保持原有行为
     this.scene.add.text(width / 2, height / 2 + 30, '点击返回主菜单', {
-      fontSize: '24px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
-      color: '#8a7a60',
+      fontStyle: 'bold',
+      color: '#f0e0c0',
+      stroke: '#1a0800',
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
 
     this.scene.time.delayedCall(500, () => {
@@ -1175,17 +1182,21 @@ export class BattleFlowManager {
     }
 
     this.scene.add.text(width / 2, height / 2 + 30, subText, {
-      fontSize: '32px',
+      fontSize: '38px',
       fontFamily: FONT_FAMILY,
-      color: '#b89050',
+      fontStyle: 'bold',
+      color: '#ffdf80',
       stroke: '#1a0800',
-      strokeThickness: 2,
+      strokeThickness: 4,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
 
     this.scene.add.text(width / 2, height / 2 + 90, '点击继续', {
-      fontSize: '24px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
-      color: '#8a7a60',
+      fontStyle: 'bold',
+      color: '#f0e0c0',
+      stroke: '#1a0800',
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
 
     this.scene.time.delayedCall(500, () => {
@@ -1202,11 +1213,12 @@ export class BattleFlowManager {
   private showTestModeResult(): void {
     const { width, height } = this.scene.scale;
     const btnTextStyle = {
-      fontSize: '26px',
+      fontSize: '30px',
       fontFamily: FONT_FAMILY,
-      color: '#e8d5a3',
+      fontStyle: 'bold',
+      color: '#ffdf90',
       stroke: '#2a1008',
-      strokeThickness: 2,
+      strokeThickness: 3,
     };
 
     UIFactory.button(this.scene, width / 2 - 190, height / 2 + 70, '↻', '再来一局', () => {
