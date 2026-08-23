@@ -76,6 +76,27 @@ describe('HuoQuBingGuanJun filter（冠军触发判定）', () => {
     expect(HuoQuBingGuanJun.filter(makeCtx())).toBe(true);
   });
 
+  it('本次牌数不足 X+3 不触发（X=0 需 3 张，打出 2 张不触发）', () => {
+    const ctx = makeCtx({ pattern: patternWith(card(3), card(4)) });
+    expect(HuoQuBingGuanJun.filter(ctx)).toBe(false);
+  });
+
+  it('本次牌数恰好等于 X+3 触发（X=1 需 4 张，打出 4 张触发）', () => {
+    const ctx = makeCtx({
+      pattern: patternWith(card(3), card(4), card(5), card(6)),
+      battle: makeBattle({ skillFlags: { [HUO_QU_BING_GUANJUN_COUNT_KEY]: 1 } }),
+    });
+    expect(HuoQuBingGuanJun.filter(ctx)).toBe(true);
+  });
+
+  it('X 累计后门槛递增：X=2 需 5 张，打出 4 张不触发', () => {
+    const ctx = makeCtx({
+      pattern: patternWith(card(3), card(4), card(5), card(6)),
+      battle: makeBattle({ skillFlags: { [HUO_QU_BING_GUANJUN_COUNT_KEY]: 2 } }),
+    });
+    expect(HuoQuBingGuanJun.filter(ctx)).toBe(false);
+  });
+
   it('敌方结算（target=player）不触发', () => {
     const ctx = makeCtx({ target: 'player' });
     expect(HuoQuBingGuanJun.filter(ctx)).toBe(false);
@@ -124,6 +145,8 @@ describe('HuoQuBingGuanJun execute（冠军系数加成与计数）', () => {
     });
     const ctx = makeCtx({ battle });
     const { damageInfo } = ctx;
+    // 前累计 X=2，门槛为 5 张，本次打出 5 张满足触发条件
+    ctx.pattern = patternWith(card(3), card(4), card(5), card(6), card(7));
 
     await HuoQuBingGuanJun.execute(ctx, visuals);
 
@@ -165,6 +188,10 @@ describe('HuoQuBingGuanJun execute（冠军系数加成与计数）', () => {
     });
     const ctx = makeCtx({ battle });
     const { damageInfo } = ctx;
+    // 前累计 X=5，门槛为 8 张，本次打出 8 张满足触发条件
+    ctx.pattern = patternWith(
+      card(3), card(4), card(5), card(6), card(7), card(8), card(9), card(10),
+    );
 
     await HuoQuBingGuanJun.execute(ctx, visuals);
 

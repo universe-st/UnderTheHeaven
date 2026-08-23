@@ -121,8 +121,8 @@ describe('LiQingZhaoHaoFang filter（豪放触发判定）', () => {
   });
 });
 
-describe('LiQingZhaoHaoFang execute（豪放分数翻倍）', () => {
-  it('scoreBonus += baseScore，最终计分 = 2 × baseScore', async () => {
+describe('LiQingZhaoHaoFang execute（豪放声明额外结算）', () => {
+  it('extraSettlements += 1，声明一次额外结算', async () => {
     const visuals = makeVisuals();
     const ctx = makeCtx({
       gameScene: sceneWithTweens(),
@@ -134,9 +134,22 @@ describe('LiQingZhaoHaoFang execute（豪放分数翻倍）', () => {
       },
     });
     await LiQingZhaoHaoFang.execute(ctx, visuals);
-    expect(ctx.singleCard!.scoreBonus).toBe(8);
-    expect(ctx.singleCard!.baseScore + ctx.singleCard!.scoreBonus).toBe(16);
+    expect(ctx.singleCard!.extraSettlements).toBe(1);
+    expect(ctx.singleCard!.scoreBonus).toBe(0);
     expect(visuals.playSkillTriggerSound).toHaveBeenCalled();
+  });
+
+  it('额外结算轮（isExtraSettlement）不递归触发', () => {
+    const ctx = makeCtx({
+      singleCard: {
+        card: {} as never,
+        scoreText: {} as never,
+        baseScore: 8,
+        scoreBonus: 0,
+        isExtraSettlement: true,
+      },
+    });
+    expect(LiQingZhaoHaoFang.filter(ctx)).toBe(false);
   });
 });
 

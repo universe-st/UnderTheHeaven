@@ -10,6 +10,8 @@ const HUO_QU_BING: PlayerCharacterId = 'huoqubing';
  * 霍去病「冠军」：X 为整盘游戏（跨战斗）本技能触发的次数。
  * 计数存于 battle.player.skillFlags['huoqubing_guanjun_count']，
  * 战斗结束由 BattleFlowManager 合并写回 run.characterSkillFlags（跨对局继承）。
+ *
+ * 触发门槛：本次打出的牌数量至少为 X+3 张（X 取触发前的累计次数）。
  */
 export const HUO_QU_BING_GUANJUN_COUNT_KEY = 'huoqubing_guanjun_count';
 
@@ -22,10 +24,11 @@ function hasHuoQuBing(ctx: SkillContext): boolean {
 }
 
 /**
- * 霍去病「冠军」（触发技）：系数亮出时，你令系数 +2X。
+ * 霍去病「冠军」（触发技）：系数亮出时，若本次打出的牌数量至少为 X+3 张，你令系数 +2X。
  * X 为整盘游戏中此技能触发的次数；X 为 6 时移除此角色。
  *
  * - 时机 ON_COEFFICIENT_REVEALED：玩家造成伤害结算、系数揭示后（同苏秦「合纵」）；
+ * - 门槛：本次打出的牌数 ≥ X+3（X 取触发前的累计次数），不足则不触发、不计入 X；
  * - 加成：在现有系数上直接相加 +2X（不基于 baseCoefficient 重算，保留其他技能加成）；
  * - X 跨战斗累计：skillFlags['huoqubing_guanjun_count']，每次触发 +1；
  * - X 达到 6 时：lostCharacters + markCharacterLost（本场技能停用、角色从角色区消失，
@@ -34,7 +37,7 @@ function hasHuoQuBing(ctx: SkillContext): boolean {
 export const HuoQuBingGuanJun: SkillDefinition = {
   id: 'huoqubing_guanjun',
   name: '冠军',
-  description: '系数亮出时，你令系数+2X。X为整盘游戏中此技能触发的次数。X为6时，移除此角色。',
+  description: '系数亮出时，若本次打出的牌数量至少为X+3张，你令系数+2X。X为整盘游戏中此技能触发的次数。X为6时，移除此角色。',
   timing: SkillTiming.ON_COEFFICIENT_REVEALED,
   priority: 60,
   dialogLines: [
@@ -47,7 +50,10 @@ export const HuoQuBingGuanJun: SkillDefinition = {
     if (ctx.target !== 'enemy') return false;
     if (!hasHuoQuBing(ctx)) return false;
     if (!ctx.damageInfo) return false;
-    return ctx.pattern !== undefined && ctx.pattern.cards.length > 0;
+    if (ctx.pattern === undefined || ctx.pattern.cards.length === 0) return false;
+    // 触发门槛：本次打出的牌数 ≥ X+3（X 取触发前累计次数，不因本次触发递增）
+    const X = (ctx.battle.player.skillFlags?.[HUO_QU_BING_GUANJUN_COUNT_KEY] as number) ?? 0;
+    return ctx.pattern.cards.length >= X + 3;
   },
 
   execute: async (ctx: SkillContext, visuals: SkillVisualManager): Promise<void> => {

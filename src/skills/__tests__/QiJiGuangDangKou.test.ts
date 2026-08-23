@@ -109,8 +109,8 @@ describe('QiJiGuangDangKou filter（荡寇触发判定）', () => {
   });
 });
 
-describe('QiJiGuangDangKou execute（荡寇翻倍）', () => {
-  it('执行后单牌计分翻倍（scoreBonus += baseScore）', async () => {
+describe('QiJiGuangDangKou execute（荡寇声明额外结算）', () => {
+  it('extraSettlements += 1，声明一次额外结算', async () => {
     const visuals = makeVisuals();
     const ctx = makeCtx({
       singleCard: { card: {} as never, scoreText: {} as never, baseScore: 8, scoreBonus: 0 },
@@ -121,17 +121,30 @@ describe('QiJiGuangDangKou execute（荡寇翻倍）', () => {
       } as unknown as Phaser.Scene,
     });
     await QiJiGuangDangKou.execute(ctx, visuals);
-    expect(ctx.singleCard!.scoreBonus).toBe(8); // 8 + 8 = 16 = 2 × baseScore
+    expect(ctx.singleCard!.extraSettlements).toBe(1);
+    expect(ctx.singleCard!.scoreBonus).toBe(0);
     expect(visuals.playSkillTriggerSound).toHaveBeenCalled();
   });
 
-  it('baseScore 缺失时安静返回，不修改计分', async () => {
-    const visuals = makeVisuals();
+  it('额外结算轮（isExtraSettlement）不递归触发', () => {
     const ctx = makeCtx({
-      singleCard: { card: {} as never, scoreText: {} as never, baseScore: undefined, scoreBonus: 0 } as never,
+      battle: makeBattle([card(9), card(10), card(11)]),
+      singleCard: {
+        card: {} as never,
+        scoreText: {} as never,
+        baseScore: 8,
+        scoreBonus: 0,
+        isExtraSettlement: true,
+      },
     });
+    expect(QiJiGuangDangKou.filter(ctx)).toBe(false);
+  });
+
+  it('singleCard 缺失时安静返回，不修改计分', async () => {
+    const visuals = makeVisuals();
+    const ctx = makeCtx({ singleCard: undefined });
     await QiJiGuangDangKou.execute(ctx, visuals);
-    expect(ctx.singleCard!.scoreBonus).toBe(0);
+    expect(ctx.singleCard).toBeUndefined();
   });
 });
 
