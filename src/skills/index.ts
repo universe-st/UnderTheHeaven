@@ -51,6 +51,9 @@ import { SunWuLianBing, SunWuLianBingBonus } from './SunWu';
 import { XianGaoZhaKao } from './XianGaoZhaKao';
 import { LuYuChaSheng } from './LuYuChaSheng';
 import { HuoQuBingGuanJun } from './HuoQuBingGuanJun';
+import { YuChiGongDuoShuo } from './YuChiGongDuoShuo';
+import { LiLiZunFa } from './LiLiZunFa';
+import { LiLiFuJianBan } from './LiLiFuJianBan';
 import type { SkillDefinition } from './SkillTypes';
 import type { SkillRegistry } from './SkillRegistry';
 
@@ -97,6 +100,10 @@ export { XianGaoZhaKao } from './XianGaoZhaKao';
 export { TangYinMiaoHui } from './TangYinMiaoHui';
 export { LuYuChaSheng } from './LuYuChaSheng';
 export { HuoQuBingGuanJun } from './HuoQuBingGuanJun';
+export { YuChiGongDuoShuo } from './YuChiGongDuoShuo';
+export { LiLiZunFa } from './LiLiZunFa';
+export { LiLiFuJian } from './LiLiFuJian';
+export { LiLiFuJianBan } from './LiLiFuJianBan';
 
 export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   HanxinDianBing,
@@ -162,6 +169,9 @@ export const ALL_SKILL_DEFINITIONS: SkillDefinition[] = [
   SunWuLianBingBonus,
   XianGaoZhaKao,
   HuoQuBingGuanJun,
+  YuChiGongDuoShuo,
+  LiLiZunFa,
+  LiLiFuJianBan,
 ];
 
 export function registerAllSkills(registry: SkillRegistry): void {

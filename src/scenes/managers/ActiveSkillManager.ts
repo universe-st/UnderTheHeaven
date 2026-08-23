@@ -3,7 +3,7 @@ import type { Card } from '../../models/Card';
 import type { BattleState } from '../../models/BattleTypes';
 import type { PlayerCharacterId } from '../../models/Character';
 import type { ActiveSkillDefinition, CharacterSlotManager } from '../../skills';
-import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai, WeiZhengZhiJian, XiangYuPoFu, YiYinZhiWei, ZhouGongDanZhiLiActive, ZhouYuFanjian, TangYinMiaoHui, LuYuChaSheng } from '../../skills';
+import { LiuBoWenChouCe, ZuChongZhiYuanZhou, ZhangJuZhengGaiZhi, ZhouChuChuHai, WeiZhengZhiJian, XiangYuPoFu, YiYinZhiWei, ZhouGongDanZhiLiActive, ZhouYuFanjian, TangYinMiaoHui, LuYuChaSheng, LiLiFuJian } from '../../skills';
 import { hasLiXin } from '../../skills/ZhouChuChuHaiLogic';
 import { isCharacterSkillSuppressed, shouldYanSongMoveToFront } from '../../engine/CharacterAbilities';
 import { GameAudioManager } from '../../utils/GameAudioManager';
@@ -143,6 +143,13 @@ export class ActiveSkillManager {
     if (this.host.playerCharacterIds.includes('luyu')) {
       this.host.activeSkills.push(LuYuChaSheng);
       if (!counts.has(LuYuChaSheng.id)) counts.set(LuYuChaSheng.id, 0);
+    }
+    // 李离「伏剑」：每次获得牌权限一次，展示一张与尊法弃牌同点同花色的手牌，
+    // 移除该花色并移除李离（permanentSuitBans 跨局永久禁分）。
+    // 前置条件（尊法已触发）由 canUseWithSelection 拦截，按钮未满足条件时不显示。
+    if (this.host.playerCharacterIds.includes('lili')) {
+      this.host.activeSkills.push(LiLiFuJian);
+      if (!counts.has(LiLiFuJian.id)) counts.set(LiLiFuJian.id, 0);
     }
 
     this.host.activeSkillUseCounts = counts;

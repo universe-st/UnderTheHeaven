@@ -96,6 +96,13 @@ export interface RunState {
    * 获得牌权时手牌分数 +1 并累计于此；每场战斗开始应用到玩家牌组（永久生效）。
    */
   scoreBoosts?: Record<string, number>;
+  /**
+   * 李离「伏剑」遗产：永久禁分花色列表（如 ['spade', 'club']）。
+   * 李离发动「伏剑」移除自身时写入，自此之后的所有对局中，
+   * 敌方打出该花色的牌结算伤害永不计分（跨局持久化）。
+   * 战斗开始时注入 BattleState / 由隐藏技能读取，李离移除后依旧生效。
+   */
+  permanentSuitBans?: Card['suit'][];
 }
 
 /** 玩家气数（单场战斗） */
@@ -138,6 +145,7 @@ export function createNewRun(rng: () => number): RunState {
     characterMarkers: {},
     characterSkillFlags: {},
     scoreBoosts: {},
+    permanentSuitBans: [],
   };
 }
 

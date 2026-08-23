@@ -437,6 +437,9 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
       jianzaoActive: false,
       // 倭寇「劫海」：被劫走的玩家手牌记录，敌方被击败后回归玩家牌库
       wokouStolenCards: [],
+      // 李离「伏剑」永久禁分：从对局存档读入本场（跨局生效；李离本场即使不在
+      // 阵容/已移除，敌方该花色结算伤害仍由 LiLiFuJianBan 隐藏技归零）
+      permanentSuitBans: run ? [...(run.permanentSuitBans ?? [])] : [],
     };
   }
 

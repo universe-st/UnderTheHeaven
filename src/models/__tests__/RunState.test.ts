@@ -32,6 +32,7 @@ describe('createNewRun', () => {
     expect(run.layers).toHaveLength(36);
     expect(run.bossKills).toBe(0);
     expect(run.battlesWon).toBe(0);
+    expect(run.permanentSuitBans).toEqual([]);
   });
 
   it('is reproducible for the same seed', () => {

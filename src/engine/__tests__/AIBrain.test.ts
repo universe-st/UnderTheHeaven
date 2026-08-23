@@ -148,6 +148,71 @@ describe('decidePlay - 响应封锁（李白「诗仙」5/7 张只能被王炸�
   });
 });
 
+describe('decidePlay - 李离「尊法」本圈禁花色（blockedSuits）', () => {
+  it('主动出牌：禁黑桃时，敌方不出含黑桃的牌（选择其它花色或不出）', () => {
+    resetCardIdCounter();
+    // 手牌：两张黑桃单张 + 一张红桃单张；禁黑桃
+    const state = makeBattle({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: {
+        hand: [makeCard(5, 'spade'), makeCard(9, 'spade'), makeCard(7, 'heart')],
+        deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人',
+      },
+      phase: 'play',
+    });
+    const result = decidePlay(state, undefined, undefined, ['spade']);
+    expect(result).not.toBeNull();
+    // 不能包含任何黑桃牌
+    expect(result!.every(c => c.suit !== 'spade')).toBe(true);
+  });
+
+  it('主动出牌：手牌全部为禁花色 → AI 不出（返回 null）', () => {
+    resetCardIdCounter();
+    const state = makeBattle({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: {
+        hand: [makeCard(5, 'spade'), makeCard(9, 'spade'), makeCard(3, 'spade')],
+        deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人',
+      },
+      phase: 'play',
+    });
+    const result = decidePlay(state, undefined, undefined, ['spade']);
+    expect(result).toBeNull();
+  });
+
+  it('接牌：禁黑桃时，即使黑桃可压上家也不出（返回 null）', () => {
+    resetCardIdCounter();
+    const last = { type: HandType.Single, cards: [makeCard(4, 'heart')], mainValue: 4, length: 1 };
+    const state = makeBattle({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: {
+        hand: [makeCard(9, 'spade'), makeCard(7, 'heart')],
+        deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人',
+      },
+      lastPlay: last,
+      phase: 'respond',
+    });
+    // 黑桃 9 可压红桃 4，但被禁；红桃 7 也可压 → 应出红桃 7
+    const result = decidePlay(state, undefined, undefined, ['spade']);
+    expect(result).not.toBeNull();
+    expect(result!.every(c => c.suit !== 'spade')).toBe(true);
+  });
+
+  it('无禁花色（undefined）时行为不变', () => {
+    resetCardIdCounter();
+    const state = makeBattle({
+      player: { hand: [], deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '玩家' },
+      enemy: {
+        hand: [makeCard(5, 'spade'), makeCard(9, 'spade'), makeCard(7, 'heart')],
+        deck: [], discardPile: [], vitality: 500, vitalityMax: 500, name: '敌人',
+      },
+      phase: 'play',
+    });
+    const result = decidePlay(state);
+    expect(result).not.toBeNull();
+  });
+});
+
 // ========== Helper functions for advanced tests ==========
 
 function makeBattleWithEnemy(overrides: Partial<BattleState> = {}, enemyId?: EnemyCharacterId): BattleState {

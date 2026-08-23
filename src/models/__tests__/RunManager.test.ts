@@ -62,6 +62,16 @@ describe('RunManager', () => {
     expect(getRun()).toEqual(run);
   });
 
+  it('load fills permanentSuitBans default for legacy saves (李离伏剑跨局禁分兼容)', () => {
+    const run = startNewRun(4);
+    // 模拟旧存档：无 permanentSuitBans 字段（伏剑功能加入前保存的）
+    const { permanentSuitBans, ...legacy } = run;
+    void permanentSuitBans;
+    localStorage.setItem('uth_run_save', JSON.stringify({ version: 1, run: legacy }));
+    expect(load()).toBe(true);
+    expect(getRun()!.permanentSuitBans).toEqual([]);
+  });
+
   it('load returns false when there is no save', () => {
     expect(load()).toBe(false);
   });

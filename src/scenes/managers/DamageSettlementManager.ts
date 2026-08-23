@@ -76,7 +76,8 @@ export class DamageSettlementManager {
     //   - 青龙：单牌伤害得分计算时（stage1），该牌数字 +10；
     //   - 朱雀：系数亮出时（stage2），系数 +1/张（先于技能事件，保证章邯「绝守」等重算不丢失）；
     //   - 玄武：单牌伤害结算动画完成后（stage1），回复打出方等同该牌得分的气数；
-    //   - 白虎：单牌伤害结算后（stage1），额外触发一次该牌的单牌结算动画（该牌伤害 ×2）。
+    //   - 白虎：单牌伤害结算后（stage1），额外完整结算一次该牌（该牌伤害 ×2）——
+    //     经 settleSingleCard 的 extraSettlements 循环实现，额外结算会再次触发单牌结算技能。
     const seals: FourSeal[] = collectSeals(pattern.cards);
 
     const sourceCharId = target === 'enemy'
@@ -141,11 +142,50 @@ export class DamageSettlementManager {
   ): Promise<void> {
     for (let i = 0; i < cards.length; i++) {
       const card = cards[i]!;
-      const consideredAsRank = card.getData('consideredAsRank') as number | undefined;
-      const baseRank = card.getData('rank') as number ?? 0;
-      // 牌面分数基准：视为牌沿用视为点数；无视为时用卡牌 score（初始=点数，技能可单独修改）
-      const score = consideredAsRank ?? (card.getData('score') as number ?? baseRank);
-      const cardSeal = card.getData('seal') as FourSeal | undefined;
+      if (this.host.damageSettlementCancelled) break;
+      await this.settleSingleCard(
+        card, i, cards.length, counterText, damageInfo, pattern, target, sourceCharId,
+      );
+    }
+  }
+
+  /**
+   * 单张牌的伤害结算循环（放大 → 技能/青龙 → 累加 → 后续技能/白虎/玄武 → 缩小）。
+   *
+   * 「单牌伤害额外结算一次」类效果（白虎印、李清照「豪放」、戚继光「荡寇」等）通过
+   * singleCard.extraSettlements 声明次数：在**本轮放大动画结束、分数已累加**之后，
+   * 再完整播放一轮结算（重新触发 ON_SINGLE_CARD_SETTLEMENT / AFTER_SINGLE_CARD_SETTLEMENT
+   * 技能），因此额外结算同样会触发罗成「舞枪」、薛万彻「骁锐」等单牌结算技能；
+   * 多个效果叠加 = 额外结算多次。
+   */
+  private async settleSingleCard(
+    card: Phaser.GameObjects.Container,
+    index: number,
+    totalCards: number,
+    counterText: Phaser.GameObjects.Text,
+    damageInfo: NonNullable<SkillContext['damageInfo']>,
+    pattern: HandPattern,
+    target: 'enemy' | 'player',
+    sourceCharId: string,
+  ): Promise<void> {
+    const consideredAsRank = card.getData('consideredAsRank') as number | undefined;
+    const baseRank = card.getData('rank') as number ?? 0;
+    // 牌面分数基准：视为牌沿用视为点数；无视为时用卡牌 score（初始=点数，技能可单独修改）
+    const score = consideredAsRank ?? (card.getData('score') as number ?? baseRank);
+    const cardSeal = card.getData('seal') as FourSeal | undefined;
+
+    // 白虎印：带白虎印的牌在基础轮结算完成后，总是再额外结算一次该牌。
+    // 由本地 remainingExtra 控制（额外轮不再叠加白虎，避免无限递归）。
+    const baihuExtra = cardSeal === 'baihu' ? 1 : 0;
+
+    // 待执行的额外结算轮数（白虎 + 豪放/荡寇等技能声明的次数，可叠加）
+    let remainingExtra = 0;
+    // 当前轮是否为额外结算轮
+    let isExtraRound = false;
+    let round = 0;
+
+    do {
+      if (this.host.damageSettlementCancelled) return;
 
       GameAudioManager.playSfx(this.scene, 'sfx_card_reveal');
 
@@ -182,10 +222,15 @@ export class DamageSettlementManager {
         scoreText: floatText,
         baseScore: score,
         scoreBonus: 0,
-        // 是否为本手牌最后一张：荆轲「匕现」等结算末张触发的技能据此判定
-        isLastCard: i === cards.length - 1,
+        // 是否为本手牌最后一张：荆轲「匕现」等结算末张触发的技能据此判定。
+        // 额外结算轮保持与基础轮一致的 isLastCard，保证末张技能在额外结算同样触发。
+        isLastCard: index === totalCards - 1,
         // 本次结算中的序号（0 起）：程咬金「猛斧」等"前三张牌"技能据此判定
-        index: i,
+        index,
+        // 额外结算次数：本轮技能（豪放/荡寇）可累加声明需要额外结算的轮数
+        extraSettlements: 0,
+        // 当前轮是否为额外结算（基础轮 false，额外轮 true）
+        isExtraSettlement: isExtraRound,
       };
       const singleCardCtx: SkillContext = {
         gameScene: this.scene,
@@ -202,7 +247,23 @@ export class DamageSettlementManager {
         damageCounterText: counterText,
       };
       await this.host.skillEventBus.emit(SkillTiming.ON_SINGLE_CARD_SETTLEMENT, singleCardCtx);
-      if (this.host.damageSettlementCancelled) break;
+      if (this.host.damageSettlementCancelled) return;
+
+      // 李离「伏剑」永久禁分（管线兜底，脱离李离在场）：敌方打出的该花色牌
+      // 结算伤害永不计分。李离已离队的后续对局中 LiLiFuJianBan 技能不再注册，
+      // 故在技能 emit 之后覆盖式强制归零（幂等：李离在场时技能 priority 200
+      // 已归零，此处数值一致，不重复播动画）。
+      const suitBans = this.host.battle.permanentSuitBans;
+      if (target === 'player' && suitBans && suitBans.length > 0) {
+        const cardSuit = card.getData('suit') as string | undefined;
+        if (cardSuit && (suitBans as string[]).includes(cardSuit)) {
+          singleCard.scoreBonus = -singleCard.baseScore;
+        }
+      }
+
+      // 技能声明的额外结算次数累加进剩余轮数（豪放/荡寇等"额外结算一次"类技能；
+      // 它们在额外轮（isExtraSettlement）中 filter 返回 false，不会递归叠加）
+      remainingExtra += singleCard.extraSettlements ?? 0;
 
       // 青龙印：单牌伤害得分计算时触发（技能之后无条件 +10），
       // 印金光闪烁一下（伴金光音效），然后弹出的单牌伤害数字增加 10。
@@ -229,17 +290,14 @@ export class DamageSettlementManager {
       damageInfo.sumRanks += singleCard.scoreBonus;
 
       await this.host.skillEventBus.emit(SkillTiming.AFTER_SINGLE_CARD_SETTLEMENT, singleCardCtx);
-      if (this.host.damageSettlementCancelled) break;
+      if (this.host.damageSettlementCancelled) return;
 
-      // 白虎印：单牌伤害结算后触发，额外结算一次该牌（该牌伤害 ×2）。
-      // 印金光闪烁一下（伴金光音效），并重放一次单牌结算动画（数字再跳一次）。
-      if (cardSeal === 'baihu') {
+      // 白虎印：本张牌带白虎印时，在基础轮结算完成后额外结算一次该牌。
+      // 印金光闪烁一下作提示（基础轮触发一次，额外轮不再叠加）。
+      if (round === 0 && baihuExtra > 0) {
         GameAudioManager.playSfx(this.scene, 'sfx_seal_trigger');
         await this.flashSealGlow(card);
-        // 以当前显示值为起点重放（AFTER 技能如励心可能已放大显示值）
-        const beforeSum = parseInt(counterText.text, 10) || 0;
-        await this.extraCardSettlement(card, cardScore, counterText, beforeSum);
-        damageInfo.sumRanks += cardScore;
+        remainingExtra += baihuExtra;
       }
 
       // 玄武印：单牌伤害结算动画播放完成后触发。
@@ -259,6 +317,7 @@ export class DamageSettlementManager {
         onComplete: () => floatText.destroy(),
       });
 
+      // 放大动画结束、分数累加后，缩小动画（额外结算在该缩小动画之后开始）
       await waitForTween(this.scene, {
         targets: card,
         scaleX: 1,
@@ -266,7 +325,16 @@ export class DamageSettlementManager {
         duration: 180,
         ease: 'Sine.easeOut',
       });
-    }
+
+      // 本轮结束：若还有剩余额外结算轮，进入下一轮（重新放大 → 技能 → 累加）
+      round += 1;
+      if (remainingExtra > 0) {
+        remainingExtra -= 1;
+        isExtraRound = true;
+        continue;
+      }
+      break;
+    } while (!this.host.damageSettlementCancelled);
   }
 
   private async stage2ShowCoefficient(
@@ -609,70 +677,6 @@ export class DamageSettlementManager {
     if (flashTasks.length > 0) {
       await Promise.all(flashTasks);
     }
-  }
-
-  /**
-   * 白虎印：额外触发一次单牌结算动画 —— 该牌位置再弹一次 +N 数字，
-   * 计数器同步滚动累加，观感为该牌又结算了一次（数值上该牌伤害 ×2）。
-   */
-  private async extraCardSettlement(
-    card: Phaser.GameObjects.Container,
-    cardScore: number,
-    counterText: Phaser.GameObjects.Text,
-    beforeSum: number,
-  ): Promise<void> {
-    const floatText = this.host.add.text(card.x, card.y, `+${cardScore}`, {
-      fontSize: '40px',
-      fontFamily: FONT_FAMILY,
-      fontStyle: 'bold',
-      color: '#e09030',
-      stroke: '#1a0800',
-      strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(DEPTH_DAMAGE + 1).setAlpha(0).setScale(0.5);
-
-    await Promise.all([
-      waitForTween(this.scene, {
-        targets: floatText,
-        alpha: 1,
-        scaleX: 1.15,
-        scaleY: 1.15,
-        y: floatText.y - 40,
-        duration: 180,
-        ease: 'Back.easeOut',
-      }),
-      waitForTween(this.scene, {
-        targets: card,
-        scaleX: 1.25,
-        scaleY: 1.25,
-        duration: 180,
-        ease: 'Sine.easeIn',
-      }),
-    ]);
-
-    await waitForCounterTween(this.scene, {
-      from: beforeSum,
-      to: beforeSum + cardScore,
-      duration: 320,
-      ease: 'Cubic.easeOut',
-      onUpdate: (val) => counterText.setText(`${Math.round(val)}`),
-    });
-
-    this.host.tweens.add({
-      targets: floatText,
-      alpha: 0,
-      y: floatText.y - 90,
-      duration: 380,
-      ease: 'Sine.easeIn',
-      onComplete: () => floatText.destroy(),
-    });
-
-    await waitForTween(this.scene, {
-      targets: card,
-      scaleX: 1,
-      scaleY: 1,
-      duration: 180,
-      ease: 'Sine.easeOut',
-    });
   }
 
   /**

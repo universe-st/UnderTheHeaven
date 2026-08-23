@@ -1,4 +1,4 @@
-export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin' | 'suqin' | 'jingke' | 'yiyin' | 'hairui' | 'chengyaojin' | 'hanshizhong' | 'zhougongdan' | 'tianwen' | 'zhouyu' | 'dongfangshuo' | 'mengke' | 'diqing' | 'xuda' | 'sunwu' | 'xiangao' | 'tangyin' | 'yansong' | 'luyu' | 'huoqubing';
+export type PlayerCharacterId = 'bianque' | 'hanxin' | 'liubowen' | 'lishizhen' | 'zhugeliang' | 'wentianxiang' | 'libai' | 'niugao' | 'luocheng' | 'xuewanche' | 'gaoshun' | 'zhangfei' | 'zhanghan' | 'zuchongzhi' | 'guanyu' | 'lanyu' | 'zhaogao' | 'zhangjuzheng' | 'zhouchu' | 'baozheng' | 'lvbuwei' | 'huamulan' | 'shangguanwaner' | 'liqingzhao' | 'qijiguang' | 'zhuangzhou' | 'weizheng' | 'zhangliang' | 'xiangyu' | 'jiangshang' | 'sunbin' | 'suqin' | 'jingke' | 'yiyin' | 'hairui' | 'chengyaojin' | 'hanshizhong' | 'zhougongdan' | 'tianwen' | 'zhouyu' | 'dongfangshuo' | 'mengke' | 'diqing' | 'xuda' | 'sunwu' | 'xiangao' | 'tangyin' | 'yansong' | 'luyu' | 'huoqubing' | 'yuchigong' | 'lili';
 export type EnemyCharacterId = 'huangjinjun' | 'nanmanjun' | 'qiangdao' | 'shizu' | 'banner_army' | 'mongol_army' | 'xiliang_army' | 'xiongnu_army' | 'wokou' | 'qidan' | 'qingzhou';
 
 export interface CharacterAbility {
@@ -461,6 +461,18 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
       { skillId: 'xiangao_zhakao', name: '诈犒', description: '你即将受到对方的卡牌伤害时，你可以将等量的黑色牌交给对方，不进行伤害结算，随后你获得牌权，每局只能发动一次' },
     ],
   },
+  lili: {
+    id: 'lili',
+    name: '李离',
+    dynasty: '春秋',
+    bio: '春秋晋国司法官（晋文公朝大理），铁面无私、执法如山。因误判错杀一人，主动伏剑殉法、拒绝宽赦，以身正法。',
+    abilities: [
+      { skillId: 'lili_zunfa', name: '尊法', description: '你获得牌权时，若对方有手牌，你弃置对方一张手牌。直到本圈结束前，其不能打出相同花色的牌。' },
+      { skillId: 'lili_fujian', name: '伏剑', description: '（主动技）每次牌权限一次，你可以展示一张和「尊法」弃置的牌相同点数和花色的手牌，然后你将所有该花色的牌移除牌库，并移除本角色。在之后的所有对局中，对方该花色的牌结算伤害永不计分。' },
+      // 伏剑拆分的内部技能条目（永久禁分归零，用于注册；管线兜底保证李离离队后仍生效）
+      { skillId: 'lili_fujian_ban', name: '伏剑', description: '', hidden: true },
+    ],
+  },
   tangyin: {
     id: 'tangyin',
     name: '唐寅',
@@ -491,7 +503,14 @@ export const PLAYER_CHARACTERS: Record<PlayerCharacterId, PlayerCharacter> = {
     name: '霍去病',
     dynasty: '西汉',
     bio: '西汉名将，六出匈奴、封狼居胥，官至大司马骠骑将军，英年早逝。',
-    abilities: [{ skillId: 'huoqubing_guanjun', name: '冠军', description: '系数亮出时，你令系数+2X。X为整盘游戏中此技能触发的次数。X为6时，移除此角色。' }],
+    abilities: [{ skillId: 'huoqubing_guanjun', name: '冠军', description: '系数亮出时，若本次打出的牌数量至少为X+3张，你令系数+2X。X为整盘游戏中此技能触发的次数。X为6时，移除此角色。' }],
+  },
+  yuchigong: {
+    id: 'yuchigong',
+    name: '尉迟恭',
+    dynasty: '隋唐',
+    bio: '唐初名将，凌烟阁二十四功臣之一，勇武绝伦，曾于阵前空手夺槊，威震敌胆。',
+    abilities: [{ skillId: 'yuchigong_duoshuo', name: '夺槊', description: '你响应对方的牌后，若你手牌数不大于10张，你获得对方打出的牌，这些牌变为临时牌' }],
   },
 };
 
@@ -518,7 +537,7 @@ export const ENEMY_CHARACTERS: Record<EnemyCharacterId, EnemyCharacter> = {
     name: '强盗',
     dynasty: '敌军',
     bio: '占山为王的绿林匪众，劫掠商旅、行踪不定。',
-    abilities: [{ skillId: 'qiangdao_jianjing', name: '剪径', description: '造成伤害后，随机获得你的一张牌' }],
+    abilities: [{ skillId: 'qiangdao_jianjing', name: '剪径', description: '伤害系数+1；若你击败对方，随机抢夺其牌库中三张牌' }],
   },
   shizu: {
     id: 'shizu',

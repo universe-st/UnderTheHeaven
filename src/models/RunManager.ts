@@ -121,6 +121,7 @@ export function load(): boolean {
     data.run.characterMarkers ??= {};
     data.run.characterSkillFlags ??= {};
     data.run.scoreBoosts ??= {};
+    data.run.permanentSuitBans ??= [];
     currentRun = data.run;
     return true;
   } catch {

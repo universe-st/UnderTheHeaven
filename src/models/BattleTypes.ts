@@ -87,6 +87,12 @@ export interface BattleState {
   /**
    * 当前一圈敌方打出的所有牌（含临时牌）。敌方每手出牌时 append，
    * 每圈结算完成清桌时清空（清空点在 ON_ENEMY_PASS emit 之后，姜尚「垂钓」要读）。
+   *
+   * 玩家侧两个技能共享此状态、且必须互不冲突：
+   * - 姜尚「垂钓」（ON_ENEMY_PASS）：圈末读取全部非临时牌并夺走（置 isTemp）。
+   * - 尉迟恭「夺槊」（ON_PLAY 响应时）：立即夺走刚接住的敌方非临时牌，并**从本数组
+   *   按 uid 移出**（同时置 isTemp），防止本圈再次响应时重复夺取；被夺走的牌因已
+   *   置 isTemp，姜尚的 `!isTemp` 过滤天然跳过，不会双夺。两技能不共享相同牌。
    */
   roundEnemyCards: Card[];
   /** 孙膑「减灶」：本手牌周期弃置三张牌的总分数（默认 0） */
@@ -128,6 +134,28 @@ export interface BattleState {
    * undefined/false = 未用过，true = 本局已用过，之后不再触发。
    */
   xiangaoZhakaoUsed?: boolean;
+  /**
+   * 李离「尊法」：本次「你获得牌权」时弃置的敌方手牌的花色（如 'spade'）。
+   * 记录后到本圈结束前，敌方不能打出该花色的牌（AI 出牌决策拦截）。
+   * 每次玩家获得牌权重触发「尊法」时刷新为新弃牌的花色。undefined = 本圈未禁花色。
+   */
+  liliZunfaSuit?: Card['suit'];
+  /**
+   * 李离「尊法」：本次弃置的敌方手牌的点数（伏剑主动技需展示
+   * 「与尊法弃置的牌相同点数和花色」的手牌，故同时记录点数与花色）。
+   */
+  liliZunfaRank?: number;
+  /**
+   * 李离「伏剑」前置条件：本局「尊法」是否至少触发过一次。
+   * true 后主动技「伏剑」才可发动（展示与尊法弃牌同点同花色的手牌）。
+   */
+  liliZunfaTriggered?: boolean;
+  /**
+   * 李离「伏剑」永久禁分：本场战斗中敌方打出的该花色牌结算伤害永不计分。
+   * 发动「伏剑」时由 RunState.permanentSuitBans（跨局）注入本场，
+   * 隐藏技 LiLiFuJianBan 读取此字段判定 nullify；李离移除后依旧生效。
+   */
+  permanentSuitBans?: Card['suit'][];
 }
 
 /** Roguelike 局外循环进入战斗时由 MapScene 传入的节点信息 */

@@ -419,6 +419,7 @@ export function decidePlay(
   battleState: BattleState,
   adjustPlayScores?: (plays: { play: HandPattern; score: number }[], ctx: AIDecisionContext) => void,
   blockedResponseTypes?: HandType[],
+  blockedSuits?: Card['suit'][],
 ): Card[] | null {
   const aiHand = battleState.enemy.hand;
   const enemyCharId = battleState.enemyCharacterId;
@@ -438,9 +439,21 @@ export function decidePlay(
     return plays.filter(p => !blockedResponseTypes.includes(p.type));
   };
 
+  /**
+   * 过滤被李离「尊法」封锁的花色：本圈内敌方不能打出被禁花色的牌。
+   * 李离弃置敌方一张牌后记录其花色，本圈敌方任何牌型若含该花色牌则不可出/不出。
+   * （王 suit 为 null 不属于任何禁分花色。）
+   */
+  const filterBlockedSuits = (plays: HandPattern[]): HandPattern[] => {
+    if (!blockedSuits || blockedSuits.length === 0) return plays;
+    const blockedSet = new Set(blockedSuits.filter(s => s !== null));
+    if (blockedSet.size === 0) return plays;
+    return plays.filter(p => !p.cards.some(c => c.suit !== null && blockedSet.has(c.suit)));
+  };
+
   // ---- 主动出牌模式 ----
   if (battleState.phase === 'play') {
-    const allPlays = generateAllPlays(aiHand);
+    const allPlays = filterBlockedSuits(generateAllPlays(aiHand));
     if (allPlays.length === 0) return null;
 
     const bombs = allPlays.filter(
@@ -470,7 +483,7 @@ export function decidePlay(
   // ---- 接牌模式 ----
   if (!battleState.lastPlay) return null;
 
-  const beating = filterBlocked(generateBeatingPlays(aiHand, battleState.lastPlay));
+  const beating = filterBlockedSuits(filterBlocked(generateBeatingPlays(aiHand, battleState.lastPlay)));
   if (beating.length > 0) {
     // 战略放弃：passThreshold 高于最高评分时放弃接牌
     if (profile && profile.passThreshold > 0) {
@@ -527,9 +540,9 @@ export function decidePlay(
   const lastType = battleState.lastPlay.type;
   if (lastType !== HandType.Bomb && lastType !== HandType.Rocket) {
     const allPlays = generateAllPlays(aiHand);
-    const bombPlays = filterBlocked(allPlays.filter(
+    const bombPlays = filterBlockedSuits(filterBlocked(allPlays.filter(
       p => p.type === HandType.Bomb || p.type === HandType.Rocket,
-    ));
+    )));
 
     const bombCfg = profile?.bombOverride;
     const handSize = aiHand.length;

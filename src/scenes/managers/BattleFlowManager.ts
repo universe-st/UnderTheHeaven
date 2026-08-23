@@ -13,6 +13,7 @@ import { canPlayerRosterBeat } from '../../engine/CharacterAbilities';
 import { SkillTiming } from '../../skills';
 import type { SkillContext, SkillEventBus, SkillRunner } from '../../skills';
 import { getBlockedResponseTypes } from '../../skills/PassiveSkillUtils';
+import { plunderRandomCardsFromPool } from '../../skills/QiangdaoJianJing';
 import { findHintPlays } from '../../engine/findHintPlays';
 import { waitForDelay, waitForTween } from '../../utils/AnimationUtils';
 import type { CardDisplayManager } from './CardDisplayManager';
@@ -474,6 +475,10 @@ export class BattleFlowManager {
     this.host.battle.fanjianMarkedUid = undefined;
     // 徐达「镇北」封锁本圈结束：玩家获得牌权后失效，下一圈对方恢复正常响应
     this.host.battle.xudaResponseBlock = false;
+    // 李离「尊法」本圈禁花色结束：上一圈已结束（任意一方接不住牌受伤），
+    // 旧禁花色先失效；下方 emit ON_GAIN_TURN 时「尊法」若触发会重新写入新禁花色
+    // （敌方无手牌 / 李离不在阵容时不触发 → 旧禁花色保持清除，不会误禁新圈）。
+    this.host.battle.liliZunfaSuit = undefined;
     const gainTurnCtx: SkillContext = {
       gameScene: this.scene,
       battle: this.host.battle,
@@ -644,6 +649,16 @@ export class BattleFlowManager {
     return true;
   }
 
+  /**
+   * 李离「尊法」本圈禁花色：敌方本圈不能打出被禁花色的牌。
+   * 返回 [suit]（liliZunfaSuit 非空时），供 decidePlay 的 blockedSuits 过滤；
+   * 无禁花色返回 []。本圈结束后玩家再次获得牌权时尊法重触发刷新花色。
+   */
+  private getLiliZunfaBlockedSuits(): Card['suit'][] {
+    const suit = this.host.battle.liliZunfaSuit;
+    return suit ? [suit] : [];
+  }
+
   async aiRespond(): Promise<void> {
     await waitForDelay(this.scene, 300 + Math.random() * 300);
     this.host.battle.phase = 'respond';
@@ -669,7 +684,7 @@ export class BattleFlowManager {
       for (const skill of enemySkills) {
         skill.onAIDecision?.(plays, ctx);
       }
-    }, blockedResponseTypes);
+    }, blockedResponseTypes, this.getLiliZunfaBlockedSuits());
     if (!cards || cards.length === 0) {
       await waitForDelay(this.scene, 200 + Math.random() * 300);
       await this.executePass('enemy');
@@ -851,7 +866,7 @@ export class BattleFlowManager {
       for (const skill of enemySkills) {
         skill.onAIDecision?.(plays, ctx);
       }
-    });
+    }, undefined, this.getLiliZunfaBlockedSuits());
     if (!cards || cards.length === 0) {
       this.host.battle.lastPlay = null;
       this.host.battle.turnHolder = 'player';
@@ -1070,6 +1085,9 @@ export class BattleFlowManager {
     // 4) 本场战斗中玩家获得自对方的牌（如周处「除害」获得的红桃）进入玩家牌库，
     //    下场战斗发牌时会融合进玩家牌组。
     const pendingRun = getRun();
+    // 强盗「剪径」：被强盗击败后随机抢夺玩家牌库三张牌（永久失去）的提示文本；
+    // 玩家击败强盗（playerWin）时保持 null，无事发生
+    let plunderNotice: string | null = null;
     if (pendingRun) {
       const markers = { ...pendingRun.characterMarkers };
       markers.lanyu = this.host.battle.player.aoMarkers ?? 0;
@@ -1139,6 +1157,15 @@ export class BattleFlowManager {
         }
       }
 
+      // 强盗「剪径」：被强盗击败后，随机抢夺玩家牌库三张牌（永久失去）。
+      // 直接 splice 掉 run.cardPool 中的牌，本次 save 落盘；玩家击败强盗则不触发。
+      if (!playerWin && runMode.enemyId === 'qiangdao') {
+        const plundered = plunderRandomCardsFromPool(pendingRun.cardPool, 3);
+        if (plundered.length > 0) {
+          plunderNotice = `被洗劫：牌库 -${plundered.length} 张`;
+        }
+      }
+
       // 角色状态先落盘一次：即使后续 applyBattleResult 因节点缺失返回 null
       // （异常路径），"失去角色牌/标记"也已持久化，不会因未保存而回滚。
       save();
@@ -1172,7 +1199,7 @@ export class BattleFlowManager {
         : 0;
       const destinyLoss = calcDestinyLoss(percent, runMode.nodeType === 'boss');
       const run = applyBattleResult({ nodeId: runMode.nodeId, victory: false, enemyVitalityPercent: percent });
-      subText = `天命 -${destinyLoss}`;
+      subText = plunderNotice ? `天命 -${destinyLoss} · ${plunderNotice}` : `天命 -${destinyLoss}`;
       if (run && isRunOver(run)) {
         nextSceneKey = 'RunEndScene';
         nextSceneData = { victory: false };
