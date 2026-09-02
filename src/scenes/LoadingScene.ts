@@ -3,6 +3,7 @@ import { VoiceManager } from '../utils/VoiceManager';
 import { UIFactory } from '../utils/UIFactory';
 import { FONT_FAMILY, CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants/Layout';
 import { TRIGRAM_CODES, hexagramImageKey } from '../models/RunState';
+import { GAME_EVENTS } from '../models/Events';
 
 export class LoadingScene extends Phaser.Scene {
   private progressBar!: Phaser.GameObjects.Graphics;
@@ -135,6 +136,11 @@ export class LoadingScene extends Phaser.Scene {
         const key = hexagramImageKey(upper, lower);
         this.load.image(key, `${key}.png`);
       }
+    }
+
+    // 地图事件背景插画（public/events/event_bg_<id>.jpg）
+    for (const ev of GAME_EVENTS) {
+      this.load.image(`event_bg_${ev.id}`, `events/event_bg_${ev.id}.jpg`);
     }
 
     // 地图节点图标（古风水墨风格）
