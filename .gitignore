@@ -14,3 +14,6 @@ cordova/jks/
 
 # Reasonix 本地模型配置（不进版本库）
 reasonix.toml
+
+# OpenCode 数据目录
+.dsh/

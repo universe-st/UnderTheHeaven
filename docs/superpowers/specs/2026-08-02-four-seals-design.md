@@ -123,7 +123,7 @@ export function xuanwuHealAmount(sumRanks): number  // = sumRanks
 
 ## 5. 不做（本期范围外）
 
-- 敌方不带印；锦囊牌/事件牌不带印。
+- 敌方不带印。
 - 不接入技能事件总线（四印效果在结算链路内实现，不新增 SkillTiming）。
 - 扑克牌商品不参与「特价商品」等未实现机制。
 
