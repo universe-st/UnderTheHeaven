@@ -122,6 +122,9 @@ export function load(): boolean {
     data.run.characterSkillFlags ??= {};
     data.run.scoreBoosts ??= {};
     data.run.permanentSuitBans ??= [];
+    data.run.vitalityMaxBoost ??= 0;
+    data.run.eventsTriggered ??= [];
+    data.run.pendingEventBattleReward ??= 0;
     currentRun = data.run;
     return true;
   } catch {

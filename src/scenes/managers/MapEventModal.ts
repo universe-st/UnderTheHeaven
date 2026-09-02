@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import type { RunState } from '../../models/RunState';
 import type { GameEvent } from '../../models/Events';
-import { applyEventChoice, randomEvent } from '../../models/Events';
+import { applyEventChoice, rollEvent } from '../../models/Events';
 import { purchase } from '../../models/Shop';
 import { UIFactory } from '../../utils/UIFactory';
 import { GameAudioManager } from '../../utils/GameAudioManager';
@@ -41,7 +41,7 @@ export class MapEventModal {
   }
 
   open(run: RunState, callbacks: MapEventModalCallbacks): void {
-    const event = randomEvent(Math.random);
+    const event = rollEvent(run, Math.random);
     this.showChoices(run, event, callbacks);
   }
 

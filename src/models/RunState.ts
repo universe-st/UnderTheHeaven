@@ -103,6 +103,15 @@ export interface RunState {
    * 战斗开始时注入 BattleState / 由隐藏技能读取，李离移除后依旧生效。
    */
   permanentSuitBans?: Card['suit'][];
+  /**
+   * 事件系统 v2：气数上限永久加成（事件「气数上限 +N」累积，跨战斗生效）。
+   * 每场战斗玩家气数上限 = PLAYER_VITALITY(500) + vitalityMaxBoost。
+   */
+  vitalityMaxBoost?: number;
+  /** 事件系统 v2：本局已触发过的每局唯一事件 id 列表（可遇难求及以上） */
+  eventsTriggered?: string[];
+  /** 事件系统 v2：遭遇战胜利后的额外通宝奖励（battle_with_reward），战斗胜利结算后清零 */
+  pendingEventBattleReward?: number;
 }
 
 /** 玩家气数（单场战斗） */
@@ -146,6 +155,9 @@ export function createNewRun(rng: () => number): RunState {
     characterSkillFlags: {},
     scoreBoosts: {},
     permanentSuitBans: [],
+    vitalityMaxBoost: 0,
+    eventsTriggered: [],
+    pendingEventBattleReward: 0,
   };
 }
 

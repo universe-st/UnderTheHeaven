@@ -398,7 +398,7 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
     const enemyName = getCharacterEnemyName(enemyCharId);
     const playerChar = PLAYER_CHARACTERS[playerCharId];
 
-    const playerVit = runMode ? PLAYER_VITALITY : (this.testConfig?.playerVitality ?? 500);
+    const playerVit = runMode ? PLAYER_VITALITY + (run?.vitalityMaxBoost ?? 0) : (this.testConfig?.playerVitality ?? 500);
     const enemyVit = runMode ? runMode.enemyVitality : (this.testConfig?.enemyVitality ?? 500);
 
     return {

@@ -10,7 +10,7 @@ import { FONT_FAMILY, AVATAR_SOURCE_SIZE, DEPTH_OVERLAY, DEPTH_UI, DEPTH_OVERLAY
 import { MapEventModal } from './managers/MapEventModal';
 import { DeckModal } from './managers/DeckModal';
 import { BuciBarManager } from './managers/BuciBarManager';
-import { randomEvent, applyEventChoice } from '../models/Events';
+import { rollEvent, applyEventChoice } from '../models/Events';
 import { purchase } from '../models/Shop';
 import {
   triggerSkipBattle,
@@ -419,7 +419,7 @@ export class MapScene extends Phaser.Scene {
   private autoResolveEvent(node: MapNode): void {
     const run = RunManager.getRun();
     if (!run) return;
-    const event = randomEvent(Math.random);
+    const event = rollEvent(run, Math.random);
     const choiceIdx = Math.floor(Math.random() * event.choices.length);
     const result = applyEventChoice(run, event, choiceIdx, Math.random);
     if (result.shopItem) {

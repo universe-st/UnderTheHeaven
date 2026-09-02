@@ -1176,8 +1176,16 @@ export class BattleFlowManager {
       const rewardType: NodeType = runMode.nodeType === 'event' ? 'normal' : runMode.nodeType;
       const reward = tongbaoReward(rewardType, Math.random);
       const run = applyBattleResult({ nodeId: runMode.nodeId, victory: true, reward });
+      // 事件遭遇战（battle_with_reward）：胜利后发放事件承诺的额外通宝并清零
+      let extraReward = 0;
+      if (run && (run.pendingEventBattleReward ?? 0) > 0) {
+        extraReward = run.pendingEventBattleReward ?? 0;
+        run.pendingEventBattleReward = 0;
+        run.tongbao += extraReward;
+      }
       const interest = consumePendingInterest();
-      subText = interest > 0 ? `通宝 +${reward} · 利息 +${interest}` : `通宝 +${reward}`;
+      const totalReward = reward + extraReward;
+      subText = interest > 0 ? `通宝 +${totalReward} · 利息 +${interest}` : `通宝 +${totalReward}`;
 
       // 天火同人：战斗节点（normal/elite/boss）胜利回天命，弹提示
       const destinyUp = run ? triggerDestinyUpOnBattleWin(run, runMode.nodeType) : null;
