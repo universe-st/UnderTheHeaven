@@ -65,7 +65,7 @@ export const HaiRuiJianShu: SkillDefinition = {
       // 防御性 AI 策略：弃置点数最小的牌（hand 为降序排列，末张最小）
       aiPick: (aiHand) => (aiHand.length > 0 ? [aiHand[aiHand.length - 1]!] : null),
     });
-    if (!chosen || chosen.length !== 1) {
+    if (chosen?.length !== 1) {
       await removeHaiRui(ctx, visuals, '海瑞挂冠而去，离开队伍！');
       return;
     }

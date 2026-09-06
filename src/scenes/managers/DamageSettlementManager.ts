@@ -17,7 +17,6 @@ import { FONT_FAMILY, DEPTH_DAMAGE, DEPTH_CENTER_BASE } from '../../constants/La
 import { SkillTiming, type SkillContext, type SkillEventBus } from '../../skills';
 import type { PlayerCharacterId } from '../../models/Character';
 import type { BattleConfig } from '../../models/BattleTypes';
-import { getRun } from '../../models/RunManager';
 
 type GamePhase = 'player_init' | 'player_respond' | 'ai_init' | 'ai_respond' | 'animating' | 'game_over';
 

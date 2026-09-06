@@ -60,7 +60,7 @@ function healDestiny(run: RunState, amount: number): void {
 /** 获得天命护盾：山地剥（获得护盾时触发，护盾量 +50% 常驻） */
 function addShield(run: RunState, amount: number): void {
   const bo = findBuci(run, 'hex_shan_di_bo');
-  if (bo && bo.effect.kind === 'shield_power_up') {
+  if (bo?.effect.kind === 'shield_power_up') {
     applyMods(run, { shieldPowerUp: getBuciMods(run).shieldPowerUp + bo.effect.percent });
     consumeBuci(run, bo.id);
   }
@@ -201,7 +201,7 @@ export function applyDirectEffect(run: RunState, effect: BuCiEffect): string {
  */
 export function useSimpleActive(run: RunState, id: string): string | null {
   const card = findBuci(run, id);
-  if (!card || card.type !== 'active') return null;
+  if (card?.type !== 'active') return null;
   if (!isSimpleActiveEffect(card.effect)) return null;
   const desc = applyDirectEffect(run, card.effect);
   consumeBuci(run, id);
@@ -216,7 +216,7 @@ export function useSimpleActive(run: RunState, id: string): string | null {
  */
 export function consumeActiveBuci(run: RunState, id: string): BuCiCard | null {
   const card = findBuci(run, id);
-  if (!card || card.type !== 'active') return null;
+  if (card?.type !== 'active') return null;
   consumeBuci(run, id);
   return card;
 }
@@ -226,7 +226,7 @@ export function consumeActiveBuci(run: RunState, id: string): BuCiCard | null {
 /** 山泽损：移除牌库 1 张牌，天命 +N */
 export function resolveRemoveCardHeal(run: RunState, cardUid: string): string | null {
   const card = findBuci(run, 'hex_shan_ze_sun');
-  if (!card || card.effect.kind !== 'remove_card_heal') return null;
+  if (card?.effect.kind !== 'remove_card_heal') return null;
   const idx = run.cardPool.findIndex((c) => c.uid === cardUid);
   if (idx < 0) return null;
   run.cardPool.splice(idx, 1);
@@ -238,7 +238,7 @@ export function resolveRemoveCardHeal(run: RunState, cardUid: string): string | 
 /** 巽为风：从牌库移除最多 N 张牌，每张 +通宝 */
 export function resolveRemoveCardsForTongbao(run: RunState, cardUids: string[]): string | null {
   const card = findBuci(run, 'hex_xun_wei_feng');
-  if (!card || card.effect.kind !== 'remove_cards_for_tongbao') return null;
+  if (card?.effect.kind !== 'remove_cards_for_tongbao') return null;
   const effect = card.effect;
   const removed: string[] = [];
   for (const uid of cardUids.slice(0, effect.max)) {
@@ -257,7 +257,7 @@ export function resolveRemoveCardsForTongbao(run: RunState, cardUids: string[]):
 /** 风火家人：牌库选 1 张复制 1 张加入牌库 */
 export function resolveCopyCardToPool(run: RunState, cardUid: string): string | null {
   const card = findBuci(run, 'hex_feng_huo_jia_ren');
-  if (!card || card.effect.kind !== 'copy_card_to_pool') return null;
+  if (card?.effect.kind !== 'copy_card_to_pool') return null;
   const src = run.cardPool.find((c) => c.uid === cardUid);
   if (!src) return null;
   for (let i = 0; i < card.effect.count; i++) {
@@ -270,7 +270,7 @@ export function resolveCopyCardToPool(run: RunState, cardUid: string): string | 
 /** 坤为地：牌库随机 N 张中选 M 张赐玄武印（场景先提供候选池，玩家选完调用） */
 export function resolveGrantSealToPool(run: RunState, cardUids: string[]): string | null {
   const card = findBuci(run, 'hex_kun_wei_di');
-  if (!card || card.effect.kind !== 'grant_seal_to_pool') return null;
+  if (card?.effect.kind !== 'grant_seal_to_pool') return null;
   const picked = cardUids.slice(0, card.effect.pick);
   for (const uid of picked) {
     const c = run.cardPool.find((x) => x.uid === uid);
@@ -315,7 +315,7 @@ export function triggerDestinyUpOnBattleWin(run: RunState, nodeType: NodeType): 
 /** 泽水困：天命低于阈值时，战斗节点胜利回天命。命中则消耗并返回描述。 */
 export function triggerWinHealIfLow(run: RunState): string | null {
   const card = findBuci(run, 'hex_ze_shui_kun');
-  if (!card || card.effect.kind !== 'win_heal_if_low') return null;
+  if (card?.effect.kind !== 'win_heal_if_low') return null;
   if (run.destiny >= card.effect.threshold) return null;
   healDestiny(run, card.effect.amount);
   consumeBuci(run, card.id);
@@ -377,7 +377,7 @@ export function adjustBattleReward(run: RunState, nodeType: NodeType, baseReward
 /** 火天大有：战斗节点胜利时牌库随机 1 张扑克牌入牌库。命中则消耗并返回描述。 */
 export function triggerDropCardOnWin(run: RunState, rng: () => number = Math.random): string | null {
   const card = findBuci(run, 'hex_huo_tian_da_you');
-  if (!card || card.effect.kind !== 'drop_card_on_win') return null;
+  if (card?.effect.kind !== 'drop_card_on_win') return null;
   const mods = getBuciMods(run);
   for (let i = 0; i < card.effect.count; i++) {
     run.cardPool.push(makeRandomCard(rng, mods.sealChanceUp));
@@ -389,7 +389,7 @@ export function triggerDropCardOnWin(run: RunState, rng: () => number = Math.ran
 /** 火风鼎：战斗胜利时牌库随机 1 张获得随机四象印。命中则消耗并返回描述。 */
 export function triggerSealOnWin(run: RunState, rng: () => number = Math.random): string | null {
   const card = findBuci(run, 'hex_huo_feng_ding');
-  if (!card || card.effect.kind !== 'grant_seal_on_win') return null;
+  if (card?.effect.kind !== 'grant_seal_on_win') return null;
   const pool = run.cardPool;
   let granted = 0;
   for (let i = 0; i < card.effect.count && pool.length > 0; i++) {
@@ -404,7 +404,7 @@ export function triggerSealOnWin(run: RunState, rng: () => number = Math.random)
 /** 风泽中孚：战斗胜利时牌库随机 2 张各 +1 点数。命中则消耗并返回描述。 */
 export function triggerPoolScoreUpOnWin(run: RunState, rng: () => number = Math.random): string | null {
   const card = findBuci(run, 'hex_feng_ze_zhong_fu');
-  if (!card || card.effect.kind !== 'pool_score_up_on_win') return null;
+  if (card?.effect.kind !== 'pool_score_up_on_win') return null;
   const pool = [...run.cardPool];
   let boosted = 0;
   for (let i = 0; i < card.effect.count && pool.length > 0; i++) {
@@ -436,7 +436,7 @@ export function mitigateDefeat(run: RunState, loss: number): { loss: number; not
     return { loss: 0, notes };
   }
   const weiJi = findBuci(run, 'hex_huo_shui_wei_ji');
-  if (weiJi && weiJi.effect.kind === 'defeat_loss_to_max') {
+  if (weiJi?.effect.kind === 'defeat_loss_to_max') {
     run.destinyMax = Math.max(1, run.destinyMax - weiJi.effect.maxDown);
     consumeBuci(run, weiJi.id);
     notes.push(`【火水未济】天命上限 -${weiJi.effect.maxDown}，免扣天命`);
@@ -461,7 +461,7 @@ export function mitigateDefeat(run: RunState, loss: number): { loss: number; not
 /** 地火明夷：战败后下次招募费用 -50%。命中则消耗并返回描述。 */
 export function triggerRecruitDiscountAfterDefeat(run: RunState): string | null {
   const card = findBuci(run, 'hex_di_huo_ming_yi');
-  if (!card || card.effect.kind !== 'recruit_discount_after_defeat') return null;
+  if (card?.effect.kind !== 'recruit_discount_after_defeat') return null;
   applyMods(run, { recruitDiscountAfterDefeat: Math.max(getBuciMods(run).recruitDiscountAfterDefeat, card.effect.percent) });
   consumeBuci(run, card.id);
   return `【地火明夷】下次招募费用 -${card.effect.percent}%`;
@@ -502,7 +502,7 @@ export function applyEventCostHalf(run: RunState, cost: number): number {
 export function applyEventTongbaoMult(run: RunState, base: number): number {
   if (base <= 0) return base;
   const card = findBuci(run, 'hex_lei_huo_feng');
-  if (!card || card.effect.kind !== 'event_tongbao_mult') return base;
+  if (card?.effect.kind !== 'event_tongbao_mult') return base;
   consumeBuci(run, card.id);
   return base * card.effect.mult;
 }
@@ -518,7 +518,7 @@ export function blockEventDestinyLoss(run: RunState): boolean {
 /** 泽地萃：事件选择非负面选项时额外回 8 天命。命中则消耗并返回描述。 */
 export function triggerHealOnGoodEvent(run: RunState): string | null {
   const card = findBuci(run, 'hex_ze_di_cui');
-  if (!card || card.effect.kind !== 'heal_on_good_event') return null;
+  if (card?.effect.kind !== 'heal_on_good_event') return null;
   healDestiny(run, card.effect.amount);
   consumeBuci(run, card.id);
   return `【泽地萃】天命 +${card.effect.amount}`;
@@ -527,7 +527,7 @@ export function triggerHealOnGoodEvent(run: RunState): string | null {
 /** 泽山咸：使用其他主动卦时额外回 5 天命。命中则消耗并返回描述。 */
 export function triggerExtraHealOnActive(run: RunState): string | null {
   const card = findBuci(run, 'hex_ze_shan_xian');
-  if (!card || card.effect.kind !== 'extra_heal_on_active') return null;
+  if (card?.effect.kind !== 'extra_heal_on_active') return null;
   healDestiny(run, card.effect.amount);
   consumeBuci(run, card.id);
   return `【泽山咸】天命 +${card.effect.amount}`;
@@ -539,7 +539,7 @@ export function triggerExtraHealOnActive(run: RunState): string | null {
  */
 export function applyNodeEnterHooks(run: RunState): string | null {
   const card = findBuci(run, 'hex_shui_lei_tun');
-  if (!card || card.effect.kind !== 'tongbao_per_node') return null;
+  if (card?.effect.kind !== 'tongbao_per_node') return null;
   const mods = getBuciMods(run);
   applyMods(run, { tongbaoPerNode: mods.tongbaoPerNode + card.effect.amount });
   consumeBuci(run, card.id);
@@ -555,31 +555,31 @@ export function applyShopEnterHooks(run: RunState): string[] {
   const notes: string[] = [];
 
   const jing = findBuci(run, 'hex_shui_feng_jing');
-  if (jing && jing.effect.kind === 'tongbao_per_shop') {
+  if (jing?.effect.kind === 'tongbao_per_shop') {
     applyMods(run, { tongbaoPerShop: getBuciMods(run).tongbaoPerShop + jing.effect.amount });
     consumeBuci(run, jing.id);
     notes.push(`【水风井】每次进店 +${jing.effect.amount} 通宝`);
   }
   const sui = findBuci(run, 'hex_ze_lei_sui');
-  if (sui && sui.effect.kind === 'heal_on_shop') {
+  if (sui?.effect.kind === 'heal_on_shop') {
     applyMods(run, { healPerShop: getBuciMods(run).healPerShop + sui.effect.amount });
     consumeBuci(run, sui.id);
     notes.push(`【泽雷随】每次进店回 ${sui.effect.amount} 天命`);
   }
   const heng = findBuci(run, 'hex_lei_feng_heng');
-  if (heng && heng.effect.kind === 'refresh_fixed') {
+  if (heng?.effect.kind === 'refresh_fixed') {
     applyMods(run, { refreshFixed: heng.effect.price });
     consumeBuci(run, heng.id);
     notes.push(`【雷风恒】刷新费用固定为 ${heng.effect.price} 通宝`);
   }
   const jian = findBuci(run, 'hex_feng_shan_jian');
-  if (jian && jian.effect.kind === 'seal_chance_up') {
+  if (jian?.effect.kind === 'seal_chance_up') {
     applyMods(run, { sealChanceUp: getBuciMods(run).sealChanceUp + jian.effect.percent });
     consumeBuci(run, jian.id);
     notes.push(`【风山渐】带印概率 +${jian.effect.percent}%`);
   }
   const bi = findBuci(run, 'hex_shui_di_bi');
-  if (bi && bi.effect.kind === 'shop_discount') {
+  if (bi?.effect.kind === 'shop_discount') {
     applyMods(run, { shopDiscount: getBuciMods(run).shopDiscount + bi.effect.percent });
     consumeBuci(run, bi.id);
     notes.push(`【水地比】商店商品 -${bi.effect.percent}%`);
@@ -598,7 +598,7 @@ export function applyBuciSellHooks(run: RunState, baseRefund: number): number {
     consumeBuci(run, xu.id);
   }
   const qian = findBuci(run, 'hex_di_shan_qian');
-  if (qian && qian.effect.kind === 'sell_bonus') {
+  if (qian?.effect.kind === 'sell_bonus') {
     refund = Math.round(refund * (1 + qian.effect.percent / 100));
     consumeBuci(run, qian.id);
   }
@@ -616,7 +616,7 @@ export function applyBuciPurchaseHooks(run: RunState, item: { kind: string; pric
 
   if (item.kind === 'card') {
     const yi = findBuci(run, 'hex_feng_lei_yi');
-    if (yi && yi.effect.kind === 'card_buy_discount') {
+    if (yi?.effect.kind === 'card_buy_discount') {
       applyMods(run, { cardBuyDiscount: mods.cardBuyDiscount + yi.effect.amount });
       consumeBuci(run, yi.id);
       notes.push(`【风雷益】扑克牌 -${yi.effect.amount} 通宝`);
@@ -630,7 +630,7 @@ export function applyBuciPurchaseHooks(run: RunState, item: { kind: string; pric
       }
     }
     const chu = findBuci(run, 'hex_feng_tian_xiao_chu');
-    if (chu && chu.effect.kind === 'extra_card_on_buy') {
+    if (chu?.effect.kind === 'extra_card_on_buy') {
       applyMods(run, { extraCardOnBuy: getBuciMods(run).extraCardOnBuy + chu.effect.count });
       consumeBuci(run, chu.id);
       notes.push(`【风天小畜】购买扑克牌额外 +${chu.effect.count} 张`);
@@ -642,7 +642,7 @@ export function applyBuciPurchaseHooks(run: RunState, item: { kind: string; pric
   }
 
   const jie = findBuci(run, 'hex_shui_ze_jie');
-  if (jie && jie.effect.kind === 'cashback') {
+  if (jie?.effect.kind === 'cashback') {
     applyMods(run, { cashbackPercent: getBuciMods(run).cashbackPercent + jie.effect.percent });
     consumeBuci(run, jie.id);
     notes.push(`【水泽节】购买返还 ${jie.effect.percent}% 通宝`);
@@ -658,7 +658,7 @@ export function applyBuciPurchaseHooks(run: RunState, item: { kind: string; pric
 
   if (item.kind === 'character') {
     const shi = findBuci(run, 'hex_di_shui_shi');
-    if (shi && shi.effect.kind === 'grant_seal_on_recruit') {
+    if (shi?.effect.kind === 'grant_seal_on_recruit') {
       let granted = 0;
       for (let i = 0; i < shi.effect.count && run.cardPool.length > 0; i++) {
         const target = run.cardPool[Math.floor(Math.random() * run.cardPool.length)]!;
@@ -669,7 +669,7 @@ export function applyBuciPurchaseHooks(run: RunState, item: { kind: string; pric
       notes.push(`【地水师】牌库 ${granted} 张获玄武印`);
     }
     const sheng = findBuci(run, 'hex_di_feng_sheng');
-    if (sheng && sheng.effect.kind === 'destiny_up_on_recruit') {
+    if (sheng?.effect.kind === 'destiny_up_on_recruit') {
       healDestiny(run, sheng.effect.amount);
       consumeBuci(run, sheng.id);
       notes.push(`【地风升】天命 +${sheng.effect.amount}`);
@@ -730,7 +730,7 @@ export function resolveRemoveCharacter(run: RunState, characterId: PlayerCharact
   // 地雷复：角色被移除时返还通宝
   const fu = findBuci(run, 'hex_di_lei_fu');
   let refundNote = '';
-  if (fu && fu.effect.kind === 'refund_on_remove_character') {
+  if (fu?.effect.kind === 'refund_on_remove_character') {
     run.tongbao += fu.effect.amount;
     consumeBuci(run, fu.id);
     refundNote = `，返还 ${fu.effect.amount} 通宝`;
@@ -756,21 +756,21 @@ export function battleStartBuciMods(run: RunState): {
 
   const shiKe = findBuci(run, 'hex_huo_lei_shi_ke');
   let coefficientBoost = 0;
-  if (shiKe && shiKe.effect.kind === 'battle_coefficient_boost') {
+  if (shiKe?.effect.kind === 'battle_coefficient_boost') {
     coefficientBoost = shiKe.effect.amount;
     consumeBuci(run, shiKe.id);
     notes.push(`【火雷噬嗑】系数 +${coefficientBoost}`);
   }
   const guan = findBuci(run, 'hex_feng_di_guan');
   let handBonus = 0;
-  if (guan && guan.effect.kind === 'battle_start_hand') {
+  if (guan?.effect.kind === 'battle_start_hand') {
     handBonus = guan.effect.amount;
     consumeBuci(run, guan.id);
     notes.push(`【风地观】手牌 +${handBonus}`);
   }
   const huan = findBuci(run, 'hex_feng_shui_huan');
   let enemyHandDown = 0;
-  if (huan && huan.effect.kind === 'enemy_hand_down') {
+  if (huan?.effect.kind === 'enemy_hand_down') {
     enemyHandDown = huan.effect.amount;
     consumeBuci(run, huan.id);
     notes.push(`【风水涣】敌方手牌 -${enemyHandDown}`);

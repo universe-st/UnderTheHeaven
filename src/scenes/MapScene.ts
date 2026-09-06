@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { EnemyCharacterId } from '../models/Character';
 import { ENEMY_CHARACTER_LIST, PLAYER_CHARACTERS } from '../models/Character';
-import type { MapNode, NodeType, RunState } from '../models/RunState';
+import type { MapNode, NodeType, RunState, BuCiCard } from '../models/RunState';
 import { enemyVitalityFor, isRunComplete, MAP_FLOORS } from '../models/RunState';
 import * as RunManager from '../models/RunManager';
 import { UIFactory } from '../utils/UIFactory';
@@ -16,7 +16,6 @@ import { getBuciMods } from '../models/RunState';
 import {
   triggerSkipBattle,
   triggerEventAutopick,
-  triggerDestinyUpOnBattleWin,
   applyNodeEnterHooks,
   resolvePassAnyNode,
   resolveAdvanceFloor,
@@ -642,11 +641,11 @@ export class MapScene extends Phaser.Scene {
   }
 
   /** 地图行动卦：震为雷（选任意节点通过）/ 雷泽归妹（推进一层） */
-  private handleMapAction(card: import('../models/RunState').BuCiCard): void {
+  private handleMapAction(card: BuCiCard): void {
     const run = RunManager.getRun();
     if (!run) return;
     if (card.effect.kind === 'pass_any_node') {
-      this.showNodeChooser(run, card);
+      this.showNodeChooser();
       return;
     }
     if (card.effect.kind === 'advance_floor') {
@@ -669,7 +668,9 @@ export class MapScene extends Phaser.Scene {
   }
 
   /** 震为雷：列出所有未通过节点供选择（弹窗内点击即通过结算） */
-  private showNodeChooser(run: RunState, card: import('../models/RunState').BuCiCard): void {
+  private showNodeChooser(): void {
+    const run = RunManager.getRun();
+    if (!run) return;
     const { width, height } = this.scale;
     const cx = width / 2;
     const candidates = run.layers.flat().filter((n) => !n.cleared);

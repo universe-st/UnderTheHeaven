@@ -25,7 +25,7 @@ export const JiangShangChuiDiao: SkillDefinition = {
   filter: (ctx: SkillContext): boolean => {
     if (!ctx.playerCharacterIds.includes('jiangshang')) return false;
     // 仅单张牌型（最后接应的牌型为单张）
-    if (!ctx.pattern || ctx.pattern.type !== HandType.Single) return false;
+    if (ctx.pattern?.type !== HandType.Single) return false;
     // 这一圈对方打出过可获得的（非临时）牌
     const gained = (ctx.roundEnemyCards ?? []).filter(c => !c.isTemp);
     return gained.length > 0;

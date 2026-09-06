@@ -3,7 +3,7 @@ import { PLAYER_CHARACTERS } from '../models/Character';
 import { ROSTER_MAX, getBuciMods, hexagramImageKey, type BuCiCard } from '../models/RunState';
 import * as RunManager from '../models/RunManager';
 import type { ShopItem } from '../models/Shop';
-import { generateShopStock, purchase, refreshPrice, effectiveRefreshPrice } from '../models/Shop';
+import { generateShopStock, purchase, effectiveRefreshPrice } from '../models/Shop';
 import { applyShopEnterHooks, consumeActiveBuci } from '../engine/BuciEffects';
 import { UIFactory } from '../utils/UIFactory';
 import { createPokerCardVisual } from '../utils/CardVisual';

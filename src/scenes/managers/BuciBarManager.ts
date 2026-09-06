@@ -10,13 +10,14 @@
  * 交互类主动（山泽损/巽为风/风火家人/坤为地/天风姤）在场景弹选牌/选人 UI。
  * 同卦堆叠在同一格（显示 ×count），触发/出售消耗第一张（count-1，归零移出）。
  */
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import type { BuCiCard, BuCiRarity } from '../../models/RunState';
 import { hexagramImageKey } from '../../models/RunState';
 import * as RunManager from '../../models/RunManager';
 import { sellBuci } from '../../models/Shop';
 import type { Card } from '../../models/Card';
-import { PLAYER_CHARACTERS, type PlayerCharacterId } from '../../models/Character';
+import { PLAYER_CHARACTERS } from '../../models/Character';
+import type { PlayerCharacterId } from '../../models/Character';
 import {
   useSimpleActive,
   resolveRemoveCharacter,

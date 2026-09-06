@@ -692,8 +692,7 @@ function resolveEffectInner(run: RunState, effect: EventEffect, rng: () => numbe
         amount = effect.amountIfHasCharacter.amount;
         note = ' 众人气势大振，加成提高！';
       } else if (
-        effect.amountIfHasBothCharacters
-        && effect.amountIfHasBothCharacters.characterIds.every((id) => run.roster.includes(id))
+        effect.amountIfHasBothCharacters?.characterIds.every((id) => run.roster.includes(id))
       ) {
         amount = effect.amountIfHasBothCharacters.amount;
         note = ' 三人同心，义薄云天！';

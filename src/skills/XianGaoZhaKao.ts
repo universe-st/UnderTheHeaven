@@ -40,7 +40,7 @@ export const XianGaoZhaKao: SkillDefinition = {
     // b) 弦高在玩家阵容中
     if (!ctx.playerCharacterIds.includes('xiangao')) return false;
     // c) 需要敌方本次出牌的张数（等量 = 张数相等）
-    if (!ctx.pattern || !ctx.pattern.cards || ctx.pattern.cards.length === 0) return false;
+    if (!ctx.pattern?.cards || ctx.pattern.cards.length === 0) return false;
     // d) 玩家手牌中黑色牌数量 >= 敌方本次出牌张数
     //    黑色 = 黑桃/梅花；王（suit null）不是黑色，自动排除
     const blackCount = ctx.battle.player.hand.filter(
@@ -69,7 +69,7 @@ export const XianGaoZhaKao: SkillDefinition = {
     });
 
     // f) 玩家取消（chosen 为 null）→ 不交牌、不取消，伤害照常结算
-    if (!chosen || chosen.length !== N) return;
+    if (chosen?.length !== N) return;
 
     // d) 按 uid 在玩家手牌中找到这些牌的索引，一次性移除（skipDiscardPile 保证不进玩家弃牌堆）
     const hand = ctx.battle.player.hand;
