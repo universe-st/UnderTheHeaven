@@ -221,6 +221,11 @@ export class ShopScene extends Phaser.Scene {
         fontSize: '24px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: rarity.mark,
         stroke: '#1a0800', strokeThickness: 2,
       }).setOrigin(0.5));
+      // 上X下X 小标签（§16.7.1 布局首行，卦象图上方）
+      container.add(this.add.text(cx, cy - 200, `上${item.buci.upper}下${item.buci.lower}`, {
+        fontSize: '22px', fontFamily: FONT_FAMILY, color: '#c8b090',
+        stroke: '#1a0800', strokeThickness: 2,
+      }).setOrigin(0.5));
       const hexImg = this.add.image(cx, cy - 160, hexagramImageKey(item.buci.upper, item.buci.lower));
       hexImg.setScale(150 / hexImg.width);
       container.add(hexImg);

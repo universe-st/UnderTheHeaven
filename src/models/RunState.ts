@@ -34,12 +34,16 @@ export type BuCiType = 'active' | 'passive';
 /** 稀有度：普通 / 精良 / 稀有 / 传说（传说 = 八纯卦专属） */
 export type BuCiRarity = 'common' | 'fine' | 'rare' | 'legendary';
 
-/** 稀有度展示元数据（程序化卡面：卜辞栏 / 商店卡共用） */
+/**
+ * 稀有度展示元数据（程序化卡面：卜辞栏 / 商店卡共用）。
+ * 色值对齐 11-美术 §11.5 色板（16-六十四卦 §16.7.1）：
+ * 普通灰 #808080 · 精良蓝 #1e90ff · 稀有紫 #6a0dad · 传说金 #d4a017。
+ */
 export const BUCI_RARITY_META: Record<BuCiRarity, { label: string; border: number; mark: string }> = {
-  common: { label: '凡', border: 0x5a4030, mark: '#a89070' },
-  fine: { label: '良', border: 0x2f7d4f, mark: '#8fe0a8' },
-  rare: { label: '珍', border: 0x2f5d9f, mark: '#a0ccff' },
-  legendary: { label: '传', border: 0xc8a050, mark: '#ffd98a' },
+  common: { label: '凡', border: 0x808080, mark: '#c8c8c8' },
+  fine: { label: '良', border: 0x1e90ff, mark: '#6fb8ff' },
+  rare: { label: '珍', border: 0x6a0dad, mark: '#a06be0' },
+  legendary: { label: '传', border: 0xd4a017, mark: '#ffd98a' },
 };
 
 /** 主动卦使用场景：默认 ['shop','battle']；推进类（震为雷/雷泽归妹）含 'map' */
