@@ -17,3 +17,7 @@ reasonix.toml
 
 # OpenCode 数据目录
 .dsh/
+
+# Python 字节码
+__pycache__/
+*.pyc
