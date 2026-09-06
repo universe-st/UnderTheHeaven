@@ -64,7 +64,8 @@ export class DamageSettlementManager {
     const cards = [...this.host.centerCards];
     // 伤害得分基准为牌面分数 score（视为牌用视为点数；无视为时取 score，旧数据兜底 rank）
     const sumRanks = pattern.cards.reduce((sum, c) => sum + (c.consideredAs?.rank ?? c.score ?? c.rank), 0);
-    const coefficient = getCoefficient(pattern.type, pattern.length);
+    // 火雷噬嗑：本场战斗牌型系数 +N
+    const coefficient = getCoefficient(pattern.type, pattern.length) + (this.host.battle.coefficientBoost ?? 0);
     const baseCoefficient = coefficient;
     const damageMultiplier = isEmptyHand ? 5 : 1;
     const finalDamage = Math.round(sumRanks * coefficient * damageMultiplier);

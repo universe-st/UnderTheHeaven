@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { PLAYER_CHARACTERS } from '../models/Character';
-import { ROSTER_MAX, hexagramImageKey } from '../models/RunState';
+import { ROSTER_MAX, getBuciMods, hexagramImageKey, type BuCiCard } from '../models/RunState';
 import * as RunManager from '../models/RunManager';
 import type { ShopItem } from '../models/Shop';
-import { generateShopStock, purchase, refreshPrice } from '../models/Shop';
+import { generateShopStock, purchase, refreshPrice, effectiveRefreshPrice } from '../models/Shop';
+import { applyShopEnterHooks, consumeActiveBuci } from '../engine/BuciEffects';
 import { UIFactory } from '../utils/UIFactory';
 import { createPokerCardVisual } from '../utils/CardVisual';
 import { GameAudioManager } from '../utils/GameAudioManager';
@@ -32,6 +33,7 @@ export class ShopScene extends Phaser.Scene {
   private tongbaoIcon: Phaser.GameObjects.Image | null = null;
   private rosterText: Phaser.GameObjects.Text | null = null;
   private buciBar: BuciBarManager | null = null;
+  private replaceModal: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super({ key: 'ShopScene' });
@@ -55,6 +57,8 @@ export class ShopScene extends Phaser.Scene {
     this.rosterText = null;
     this.buciBar?.destroy();
     this.buciBar = null;
+    this.replaceModal?.destroy();
+    this.replaceModal = null;
     this.tweens.killAll();
   }
 
@@ -65,6 +69,12 @@ export class ShopScene extends Phaser.Scene {
       RunManager.startNewRun();
     }
     const run = RunManager.getRun()!;
+    // 进店卦象（一次性触发 + 常驻每次进店加成）：水风井/泽雷随/雷风恒/风山渐/水地比
+    applyShopEnterHooks(run);
+    const enterMods = getBuciMods(run);
+    if (enterMods.tongbaoPerShop > 0) run.tongbao += enterMods.tongbaoPerShop;
+    if (enterMods.healPerShop > 0) run.destiny = Math.min(run.destinyMax, run.destiny + enterMods.healPerShop);
+    RunManager.save();
     this.stock = generateShopStock(run, Math.random);
 
     const { width, height } = this.scale;
@@ -116,9 +126,11 @@ export class ShopScene extends Phaser.Scene {
       x: cx,
       y: 250,
       context: 'shop',
+      onReplaceShopItem: (card) => this.replaceShopItem(card),
       onStateChanged: () => {
         this.refreshStatus();
         this.buildStock();
+        this.buildRefreshButton();
       },
     });
     this.buciBar.refresh();
@@ -141,7 +153,8 @@ export class ShopScene extends Phaser.Scene {
     if (!run) return;
     this.destinyText?.setText(`❤ 天命 ${run.destiny}/${run.destinyMax}`);
     this.tongbaoText?.setText(`通宝 ${run.tongbao}`);
-    this.rosterText?.setText(`阵容 ${run.roster.length}/${ROSTER_MAX}`);
+    const rosterMax = ROSTER_MAX + getBuciMods(run).rosterMaxUp; // 地天泰：阵容上限 +1
+    this.rosterText?.setText(`阵容 ${run.roster.length}/${rosterMax}`);
   }
 
   // ── 商品区 ──
@@ -314,16 +327,89 @@ export class ShopScene extends Phaser.Scene {
     this.refreshStatus();
   }
 
+  /** 泽火革：选择一件商品替换为随机新商品，替换成功即消耗泽火革 */
+  private replaceShopItem(card: BuCiCard): void {
+    const run = RunManager.getRun();
+    if (!run || this.replaceModal || this.stock.length === 0) return;
+    const { width, height } = this.scale;
+    const cx = width / 2;
+    const panelW = 760;
+    const panelH = 440;
+    const px = (width - panelW) / 2;
+    const py = (height - panelH) / 2;
+
+    const container = this.add.container(0, 0).setDepth(905);
+    this.replaceModal = container;
+    const close = () => {
+      container.destroy();
+      this.replaceModal = null;
+    };
+    container.add(UIFactory.modalOverlay(this, width, height, close));
+    container.add(UIFactory.modalPanel(this, px, py, panelW, panelH, 10));
+    container.add(this.add.zone(px, py, panelW, panelH).setInteractive());
+    container.add(this.add.text(cx, py + 48, '选择要替换的商品（泽火革）', {
+      fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#3a2010',
+      stroke: '#f0e8d8', strokeThickness: 3,
+    }).setOrigin(0.5));
+
+    const rowH = 64;
+    this.stock.forEach((item, i) => {
+      const ry = py + 120 + i * (rowH + 14);
+      const label = this.itemLabel(item);
+      const bg = this.add.graphics();
+      bg.fillStyle(0x2a1508, 1);
+      bg.fillRoundedRect(px + 60, ry - rowH / 2, panelW - 120, rowH, 8);
+      container.add(bg);
+      container.add(this.add.text(px + 84, ry, label, {
+        fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0',
+        stroke: '#1a0800', strokeThickness: 2,
+      }).setOrigin(0, 0.5));
+      container.add(this.add.text(px + panelW - 100, ry, `${item.price} 通宝`, {
+        fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffd98a',
+        stroke: '#1a0800', strokeThickness: 2,
+      }).setOrigin(1, 0.5));
+      const zone = this.add.zone(px + 60, ry, panelW - 120, rowH).setInteractive({ cursor: 'pointer' });
+      zone.on('pointerdown', () => {
+        GameAudioManager.playSfx(this, 'sfx_button');
+        // 生成一件随机新商品替换之
+        const fresh = generateShopStock(run, Math.random)[0];
+        if (!fresh) return;
+        this.stock[i] = fresh;
+        this.purchased.delete(i);
+        consumeActiveBuci(run, card.id);
+        RunManager.save();
+        close();
+        this.buildStock();
+        this.refreshStatus();
+        this.buciBar?.refresh();
+      });
+      container.add(zone);
+    });
+  }
+
+  private itemLabel(item: ShopItem): string {
+    switch (item.kind) {
+      case 'character':
+        return `招募 · ${PLAYER_CHARACTERS[item.characterId].name}`;
+      case 'buci':
+        return `卜辞 · ${item.buci.name}`;
+      case 'card':
+        return `扑克牌 · ${item.card.rankLabel}${item.card.seal ? '（带印）' : ''}`;
+      case 'heal':
+        return '天命回复';
+    }
+  }
+
   // ── 刷新 ──
 
-  /** 刷新按钮：显示当前刷新价格（5 通宝起，每刷新一次 +1） */
+  /** 刷新按钮：显示当前刷新价格（基础 5 起每次 +1；雷风恒固定 / 水山蹇免费） */
   private buildRefreshButton(): void {
     this.refreshButton?.destroy();
     this.refreshButton = null;
     const { width, height } = this.scale;
     const cx = width / 2;
     const run = RunManager.getRun();
-    const price = refreshPrice(this.refreshCount);
+    const price = effectiveRefreshPrice(run!, this.refreshCount);
     const affordable = !!run && run.tongbao >= price;
     this.refreshButton = UIFactory.button(this, cx - 460, height - 90, '⟳', `刷 新  ${price}`, () => {
       GameAudioManager.playSfx(this, 'sfx_button');
@@ -338,16 +424,21 @@ export class ShopScene extends Phaser.Scene {
     });
   }
 
-  /** 花通宝重新生成 4 件商品；刷新价随次数递增 */
+  /** 花通宝重新生成 4 件商品；刷新价随次数递增（雷风恒固定 / 水山蹇免费次数优先抵扣） */
   private refreshStock(): void {
     const run = RunManager.getRun();
     if (!run) return;
-    const price = refreshPrice(this.refreshCount);
+    const price = effectiveRefreshPrice(run, this.refreshCount);
     if (run.tongbao < price) {
       this.flashNotice('通宝不足，无法刷新');
       return;
     }
     run.tongbao -= price;
+    const mods = getBuciMods(run);
+    if (mods.freeRefreshCount > 0) {
+      // 免费次数抵扣一次（本次刷新免费）
+      run.buciMods = { ...mods, freeRefreshCount: mods.freeRefreshCount - 1 };
+    }
     this.refreshCount += 1;
     this.stock = generateShopStock(run, Math.random);
     this.purchased.clear();

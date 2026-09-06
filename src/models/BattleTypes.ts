@@ -84,6 +84,8 @@ export interface BattleState {
   lastPlay: HandPattern | null;
   phase: 'play' | 'respond';
   turnCount: number;
+  /** 火雷噬嗑：本场战斗牌型系数 +N（卦象一次性触发，伤害结算时累加） */
+  coefficientBoost?: number;
   /**
    * 当前一圈敌方打出的所有牌（含临时牌）。敌方每手出牌时 append，
    * 每圈结算完成清桌时清空（清空点在 ON_ENEMY_PASS emit 之后，姜尚「垂钓」要读）。

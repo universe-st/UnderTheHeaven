@@ -3,6 +3,12 @@ import type { ShopItem } from './Shop';
 import { HEXAGRAM_CATALOG, addBuciToBar, characterPrice } from './Shop';
 import { PLAYER_CHARACTER_LIST, type PlayerCharacterId } from './Character';
 import { ROSTER_MAX } from './RunState';
+import {
+  applyEventCostHalf,
+  applyEventTongbaoMult,
+  blockEventDestinyLoss,
+  triggerHealOnGoodEvent,
+} from '../engine/BuciEffects';
 
 /**
  * 事件系统（v2 重设计）：
@@ -487,78 +493,127 @@ function gainRandomBuci(run: RunState, rng: () => number): string {
   return entry.buci.name;
 }
 
-/** 递归结算一个选项效果（conditional 会按当前状态二选一） */
+/**
+ * 是否属于「非负面」事件选项（用于泽地萃：事件选择非负面选项时额外回 8 天命）。
+ * 奖励/招募/增益类视为非负面；代价/风险/赌博/战斗类不算。
+ */
+function isBeneficialChoice(effect: EventEffect): boolean {
+  switch (effect.type) {
+    case 'destiny':
+      return effect.amount >= 0;
+    case 'tongbao':
+      return effect.amount >= 0;
+    case 'tongbao_and_destiny':
+      return effect.tongbao >= 0 && effect.destiny >= 0;
+    case 'trade':
+    case 'buci':
+    case 'recruit':
+    case 'recruit_character':
+    case 'vitality_max_up':
+    case 'battle_with_reward':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * 递归结算一个选项效果（conditional 会按当前状态二选一）。
+ * 外层包装：泽地萃（非负面选项额外回天命）——内层负责具体的成本/扣减/通宝卦象修正。
+ */
 function resolveEffect(run: RunState, effect: EventEffect, rng: () => number): { description: string; success?: boolean; shopItem?: ShopItem; startBattle?: boolean } {
+  const goodNote = isBeneficialChoice(effect) ? triggerHealOnGoodEvent(run) : null;
+  const result = resolveEffectInner(run, effect, rng);
+  if (goodNote !== null) {
+    result.description = `${result.description} ${goodNote}`;
+  }
+  return result;
+}
+
+/** 事件卦象修正 + 原结算（雷水解减半 / 山水蒙抵挡天命扣减 / 雷火丰通宝翻倍） */
+function resolveEffectInner(run: RunState, effect: EventEffect, rng: () => number): { description: string; success?: boolean; shopItem?: ShopItem; startBattle?: boolean } {
   switch (effect.type) {
     case 'none':
       return { description: '你没有停留，继续赶路。' };
 
     case 'tongbao': {
-      const amount = effect.amountMax !== undefined
+      let amount = effect.amountMax !== undefined
         ? effect.amount + Math.floor(rng() * (effect.amountMax - effect.amount + 1))
         : effect.amount;
+      if (amount > 0) amount = applyEventTongbaoMult(run, amount); // 雷火丰：事件通宝奖励翻倍（一次）
       run.tongbao += amount;
       clampTongbao(run);
       return { description: amount >= 0 ? `获得 ${amount} 通宝。` : `损失 ${-amount} 通宝。` };
     }
 
     case 'destiny': {
-      run.destiny += effect.amount;
+      let amount = effect.amount;
+      if (amount < 0 && blockEventDestinyLoss(run)) amount = 0; // 山水蒙：抵挡一次事件天命扣减
+      run.destiny += amount;
       clampDestiny(run);
       return {
         description: effect.amount >= 0
           ? `天命恢复 ${effect.amount} 点。`
-          : `天命损失 ${-effect.amount} 点。`,
+          : amount === 0
+            ? '山水蒙显灵，天命未损。'
+            : `天命损失 ${-amount} 点。`,
       };
     }
 
     case 'tongbao_with_risk': {
-      const amount = effect.amount + Math.floor(rng() * (effect.amountMax - effect.amount + 1));
+      let amount = effect.amount + Math.floor(rng() * (effect.amountMax - effect.amount + 1));
+      if (amount > 0) amount = applyEventTongbaoMult(run, amount); // 雷火丰
       run.tongbao += amount;
       clampTongbao(run);
       if (rng() < effect.riskChance) {
-        run.destiny += effect.riskDestiny;
+        const riskDestiny = effect.riskDestiny < 0 && blockEventDestinyLoss(run) ? 0 : effect.riskDestiny; // 山水蒙
+        run.destiny += riskDestiny;
         clampDestiny(run);
-        return { description: `翻出 ${amount} 通宝，却被毒蛇咬伤（天命 ${effect.riskDestiny}）。` };
+        return { description: `翻出 ${amount} 通宝，却被毒蛇咬伤（天命 ${riskDestiny}）。` };
       }
       return { description: `获得 ${amount} 通宝。` };
     }
 
     case 'destiny_random': {
-      if (run.tongbao < effect.cost) {
+      const cost = applyEventCostHalf(run, effect.cost); // 雷水解：事件代价减半（一次）
+      if (run.tongbao < cost) {
         return { description: '通宝不足，卦钱付不起。', success: false };
       }
-      run.tongbao -= effect.cost;
+      run.tongbao -= cost;
       if (rng() < effect.winChance) {
         run.destiny += effect.win;
         clampDestiny(run);
         return { description: `大吉大利！（天命 +${effect.win}）` };
       }
-      run.destiny += effect.lose;
+      const lose = effect.lose < 0 && blockEventDestinyLoss(run) ? 0 : effect.lose; // 山水蒙
+      run.destiny += lose;
       clampDestiny(run);
-      return { description: `先生摇头叹息：“此路凶险，客官小心。”（天命 ${effect.lose}）` };
+      return { description: `先生摇头叹息：“此路凶险，客官小心。”（天命 ${lose}）` };
     }
 
     case 'buy_buci': {
-      if (run.tongbao < effect.cost) {
-        return { description: `通宝不足（需 ${effect.cost}）。`, success: false };
+      const cost = applyEventCostHalf(run, effect.cost); // 雷水解
+      if (run.tongbao < cost) {
+        return { description: `通宝不足（需 ${cost}）。`, success: false };
       }
-      run.tongbao -= effect.cost;
+      run.tongbao -= cost;
       const name = gainRandomBuci(run, rng);
       if (name === '') {
-        run.tongbao += effect.cost; // 卜辞栏满且无同卦可堆叠：退还卦钱
+        run.tongbao += cost; // 卜辞栏满且无同卦可堆叠：退还卦钱
         return { description: '卜辞栏已满，无卦可放，卦钱退还。' };
       }
-      return { description: `花 ${effect.cost} 通宝，获得卜辞【${name}】。` };
+      return { description: `花 ${cost} 通宝，获得卜辞【${name}】。` };
     }
 
     case 'tongbao_and_destiny': {
-      run.tongbao += effect.tongbao;
+      const tongbao = effect.tongbao > 0 ? applyEventTongbaoMult(run, effect.tongbao) : effect.tongbao; // 雷火丰
+      const destiny = effect.destiny < 0 && blockEventDestinyLoss(run) ? 0 : effect.destiny; // 山水蒙
+      run.tongbao += tongbao;
       clampTongbao(run);
-      run.destiny += effect.destiny;
+      run.destiny += destiny;
       clampDestiny(run);
       return {
-        description: `通宝 +${effect.tongbao}，天命 ${effect.destiny >= 0 ? '+' : ''}${effect.destiny}。`,
+        description: `通宝 +${tongbao}，天命 ${destiny >= 0 ? '+' : ''}${destiny}。`,
       };
     }
 
@@ -607,20 +662,22 @@ function resolveEffect(run: RunState, effect: EventEffect, rng: () => number): {
     }
 
     case 'trade': {
-      if (run.tongbao < effect.tongbaoCost) {
+      const cost = applyEventCostHalf(run, effect.tongbaoCost); // 雷水解
+      if (run.tongbao < cost) {
         return { description: '通宝不足，交易作罢。', success: false };
       }
-      run.tongbao -= effect.tongbaoCost;
+      run.tongbao -= cost;
       run.destiny += effect.destinyGain;
       clampDestiny(run);
-      return { description: `以 ${effect.tongbaoCost} 通宝换得 ${effect.destinyGain} 点天命。` };
+      return { description: `以 ${cost} 通宝换得 ${effect.destinyGain} 点天命。` };
     }
 
     case 'gamble': {
-      if (run.tongbao < effect.tongbaoCost) {
+      const cost = applyEventCostHalf(run, effect.tongbaoCost); // 雷水解
+      if (run.tongbao < cost) {
         return { description: '通宝不足，无法下注。', success: false };
       }
-      run.tongbao -= effect.tongbaoCost;
+      run.tongbao -= cost;
       if (rng() < effect.winChance) {
         run.tongbao += effect.winAmount;
         return { description: `赌赢了！获得 ${effect.winAmount} 通宝。` };

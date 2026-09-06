@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { createNewRun, getBuciMods } from '../../models/RunState';
-import type { BuCiCard, RunState } from '../../models/RunState';
+import type { BuCiCard, RunState, MapNode } from '../../models/RunState';
 import { HEXAGRAM_CATALOG, generateShopStock, purchase, sellBuci, effectiveRefreshPrice, REFRESH_BASE_PRICE } from '../../models/Shop';
 import type { ShopItem } from '../../models/Shop';
 import { createRng } from '../MapGenerator';
+import { applyEventChoice } from '../../models/Events';
+import type { GameEvent } from '../../models/Events';
 import {
   useSimpleActive,
   findBuci,
@@ -25,6 +27,8 @@ import {
   resolveCopyCardToPool,
   resolveRemoveCardHeal,
   battleStartBuciMods,
+  resolvePassAnyNode,
+  resolveAdvanceFloor,
 } from '../BuciEffects';
 
 /** 从目录取一张卦，注入栏位 */
@@ -365,7 +369,7 @@ describe('商店 / 出售 / 刷新钩子', () => {
     expect(getBuciMods(run).shopDiscount).toBe(15);
   });
 
-  it('applyShopEnterHooks：水风井 +10 通宝、泽雷随回 10 天命、雷风恒固定刷新价、风山渐带印概率、水地比折扣', () => {
+  it('applyShopEnterHooks：只触发+设置常驻（水风井/泽雷随/雷风恒/风山渐/水地比），发放由场景按常驻值统一处理', () => {
     const run = makeRun([
       cardFromCatalog('hex_shui_feng_jing'),
       cardFromCatalog('hex_ze_lei_sui'),
@@ -373,12 +377,11 @@ describe('商店 / 出售 / 刷新钩子', () => {
       cardFromCatalog('hex_feng_shan_jian'),
       cardFromCatalog('hex_shui_di_bi'),
     ]);
-    run.destiny = 50;
     const t0 = run.tongbao;
     applyShopEnterHooks(run);
     const mods = getBuciMods(run);
-    expect(run.tongbao).toBe(t0 + 10);
-    expect(run.destiny).toBe(60);
+    // 不重复发放：本次进店实际加成由场景读取常驻值执行
+    expect(run.tongbao).toBe(t0);
     expect(mods.tongbaoPerShop).toBe(10);
     expect(mods.healPerShop).toBe(10);
     expect(mods.refreshFixed).toBe(5);
@@ -387,12 +390,27 @@ describe('商店 / 出售 / 刷新钩子', () => {
     expect(run.buciCards).toHaveLength(0); // 全部消耗
   });
 
-  it('applyNodeEnterHooks：水雷屯 每节点 +2 通宝（常驻 + 本次）', () => {
+  it('applyNodeEnterHooks：水雷屯 只设置常驻每节点 +2', () => {
     const run = makeRun([cardFromCatalog('hex_shui_lei_tun')]);
     const t0 = run.tongbao;
     applyNodeEnterHooks(run);
-    expect(run.tongbao).toBe(t0 + 2);
     expect(getBuciMods(run).tongbaoPerNode).toBe(2);
+    expect(run.tongbao).toBe(t0); // 实际发放由场景按常驻值执行
+    expect(findBuci(run, 'hex_shui_lei_tun')).toBeNull();
+  });
+
+  it('场景按常驻值发放：水雷屯每节点 / 水风井每进店 / 泽雷随每进店', () => {
+    const run = makeRun([cardFromCatalog('hex_shui_lei_tun'), cardFromCatalog('hex_shui_feng_jing'), cardFromCatalog('hex_ze_lei_sui')]);
+    run.destiny = 50;
+    applyNodeEnterHooks(run);
+    applyShopEnterHooks(run);
+    // 场景统一发放
+    const mods = getBuciMods(run);
+    run.tongbao += mods.tongbaoPerNode;
+    run.tongbao += mods.tongbaoPerShop;
+    run.destiny = Math.min(run.destinyMax, run.destiny + mods.healPerShop);
+    expect(run.tongbao).toBe(1000 + 2 + 10);
+    expect(run.destiny).toBe(60);
   });
 });
 
@@ -422,6 +440,93 @@ describe('battleStartBuciMods 局内战斗开始', () => {
     expect(mods2.coefficientBoost).toBe(0);
     expect(mods2.removeEnemyCards).toBe(false);
     expect(mods2.vitalityBonus).toBe(150); // 离为火常驻仍在
+  });
+});
+
+// ═══ 地图行动卦 ═══
+
+describe('地图行动卦（震为雷 / 雷泽归妹）', () => {
+  it('震为雷：任意通过一个节点，按类型结算胜利并消耗', () => {
+    const run = makeRun([cardFromCatalog('hex_zhen_wei_lei')]);
+    const node: MapNode = { id: 'n1', type: 'normal', floor: 1, index: 0, cleared: false };
+    const t0 = run.tongbao;
+    const result = resolvePassAnyNode(run, node);
+    expect(result).not.toBeNull();
+    expect(node.cleared).toBe(true);
+    expect(run.tongbao).toBeGreaterThan(t0); // 通宝 + 利息
+    expect(findBuci(run, 'hex_zhen_wei_lei')).toBeNull();
+    // 已通过节点不可重复结算
+    expect(resolvePassAnyNode(run, node)).toBeNull();
+  });
+
+  it('雷泽归妹：跳过本层剩余节点，推进一层；最后一层不可用', () => {
+    const run = makeRun([cardFromCatalog('hex_lei_ze_gui_mei')]);
+    run.layers[0] = [
+      { id: 'a', type: 'normal', floor: 1, index: 0, cleared: false },
+      { id: 'b', type: 'normal', floor: 1, index: 1, cleared: true },
+    ];
+    const f0 = run.floor;
+    expect(resolveAdvanceFloor(run)).toBe(f0 + 1);
+    expect(run.layers[0]!.find((n) => n.id === 'a')!.cleared).toBe(true); // 被跳节点标记为通过
+    expect(findBuci(run, 'hex_lei_ze_gui_mei')).toBeNull();
+    // 最后一层不可推进
+    const run2 = makeRun([cardFromCatalog('hex_lei_ze_gui_mei')]);
+    run2.floor = 36;
+    expect(resolveAdvanceFloor(run2)).toBeNull();
+    expect(findBuci(run2, 'hex_lei_ze_gui_mei')).not.toBeNull(); // 不消耗
+  });
+});
+
+// ═══ 事件卦象钩子（Events.applyEventChoice 集成） ═══
+
+describe('事件卦象钩子', () => {
+  function eventWith(choice: { label: string; effect: GameEvent['choices'][0]['effect'] }): GameEvent {
+    return {
+      id: 'test_event', title: '测试事件', pool: 'common', floors: [1, 36],
+      trigger: [], oncePerRun: false, description: '测试',
+      choices: [choice],
+    };
+  }
+
+  it('雷水解：事件通宝代价减半（问前程 10 → 5）', () => {
+    const run = makeRun([cardFromCatalog('hex_lei_shui_jie')]);
+    const t0 = run.tongbao;
+    const result = applyEventChoice(run, eventWith({ label: 'x', effect: { type: 'destiny_random', cost: 10, winChance: 1, win: 15, lose: 0 } }), 0, createRng(1));
+    expect(result.success).toBe(true);
+    expect(run.tongbao).toBe(t0 - 5);
+    expect(findBuci(run, 'hex_lei_shui_jie')).toBeNull();
+  });
+
+  it('山水蒙：抵挡一次事件天命扣减（天命 -8 → 0）', () => {
+    const run = makeRun([cardFromCatalog('hex_shan_shui_meng')]);
+    run.destiny = 50;
+    applyEventChoice(run, eventWith({ label: 'x', effect: { type: 'destiny', amount: -8 } }), 0, createRng(1));
+    expect(run.destiny).toBe(50);
+    expect(findBuci(run, 'hex_shan_shui_meng')).toBeNull();
+  });
+
+  it('雷火丰：事件通宝奖励翻倍（+10 → +20）', () => {
+    const run = makeRun([cardFromCatalog('hex_lei_huo_feng')]);
+    const t0 = run.tongbao;
+    applyEventChoice(run, eventWith({ label: 'x', effect: { type: 'tongbao', amount: 10 } }), 0, createRng(1));
+    expect(run.tongbao).toBe(t0 + 20);
+    expect(findBuci(run, 'hex_lei_huo_feng')).toBeNull();
+  });
+
+  it('泽地萃：非负面选项额外回 8 天命（天命 +8 → +16）', () => {
+    const run = makeRun([cardFromCatalog('hex_ze_di_cui')]);
+    run.destiny = 50;
+    applyEventChoice(run, eventWith({ label: 'x', effect: { type: 'destiny', amount: 8 } }), 0, createRng(1));
+    expect(run.destiny).toBe(66);
+    expect(findBuci(run, 'hex_ze_di_cui')).toBeNull();
+  });
+
+  it('泽地萃：负面选项不触发（未消耗）', () => {
+    const run = makeRun([cardFromCatalog('hex_ze_di_cui')]);
+    run.destiny = 50;
+    applyEventChoice(run, eventWith({ label: 'x', effect: { type: 'destiny', amount: -8 } }), 0, createRng(1));
+    expect(run.destiny).toBe(42);
+    expect(findBuci(run, 'hex_ze_di_cui')).not.toBeNull();
   });
 });
 

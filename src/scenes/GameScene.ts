@@ -7,7 +7,8 @@ import type { PlayerCharacterId, EnemyCharacterId} from '../models/Character';
 import { PLAYER_CHARACTERS, ENEMY_CHARACTERS, ENEMY_CHARACTER_LIST, randomPlayerCharacter } from '../models/Character';
 import { getCharacterEnemyName } from '../engine/CharacterAbilities';
 import { PLAYER_VITALITY } from '../models/RunState';
-import { getRun } from '../models/RunManager';
+import { getRun, save as saveRun } from '../models/RunManager';
+import { battleStartBuciMods } from '../engine/BuciEffects';
 import { BuciBarManager } from './managers/BuciBarManager';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, type SkillContext, type ActiveSkillDefinition } from '../skills';
 import { clearPassiveSkills, registerAllPassiveSkills } from '../skills/PassiveSkillUtils';
@@ -366,6 +367,24 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
     const runMode = this.testConfig?.runMode;
     const run = runMode ? getRun() : null;
 
+    // 局内卦象（战斗开始时触发一次性 + 读取常驻）：
+    // 火雷噬嗑（系数 +1）/ 风地观（手牌 +1）/ 风水涣（敌方手牌 -1）/
+    // 火泽睽（移除敌方 1 张牌）/ 离为火（本局所有战斗气数上限 +N）
+    let buciCoeffBoost = 0;
+    let handBonus = 0;
+    let enemyHandDown = 0;
+    let removeEnemyCards = false;
+    let vitalityUp = 0;
+    if (runMode && run) {
+      const bmods = battleStartBuciMods(run);
+      buciCoeffBoost = bmods.coefficientBoost;
+      handBonus = bmods.handBonus;
+      enemyHandDown = bmods.enemyHandDown;
+      removeEnemyCards = bmods.removeEnemyCards;
+      vitalityUp = bmods.vitalityBonus;
+      saveRun();
+    }
+
     // 融合购买的卡牌（仅加入玩家牌组）：测试模式优先，局外循环从存档牌池取
     const purchased = this.testConfig?.purchasedCards
       ?? (runMode ? run?.cardPool : undefined);
@@ -387,18 +406,23 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
       }
     }
 
-    const playerHand = playerDeck.splice(0, 17);
-    const enemyHand = enemyDeck.splice(0, 17);
+    const playerHand = playerDeck.splice(0, 17 + handBonus);
+    const enemyHand = enemyDeck.splice(0, Math.max(1, 17 - enemyHandDown));
 
     sortHand(playerHand);
     sortHand(enemyHand);
+
+    // 火泽睽：战斗开始时移除敌方 1 张牌
+    if (removeEnemyCards && enemyHand.length > 1) {
+      enemyHand.splice(Math.floor(Math.random() * enemyHand.length), 1);
+    }
 
     const playerCharId = this.selectPlayerCharacter();
     const enemyCharId = this.selectEnemyCharacter();
     const enemyName = getCharacterEnemyName(enemyCharId);
     const playerChar = PLAYER_CHARACTERS[playerCharId];
 
-    const playerVit = runMode ? PLAYER_VITALITY + (run?.vitalityMaxBoost ?? 0) : (this.testConfig?.playerVitality ?? 500);
+    const playerVit = runMode ? PLAYER_VITALITY + (run?.vitalityMaxBoost ?? 0) + vitalityUp : (this.testConfig?.playerVitality ?? 500);
     const enemyVit = runMode ? runMode.enemyVitality : (this.testConfig?.enemyVitality ?? 500);
 
     return {
@@ -430,6 +454,8 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
       lastPlay: null,
       phase: 'play',
       turnCount: 1,
+      // 火雷噬嗑：本场战斗牌型系数 +1（一次性卦象，DamageSettlement 结算系数时累加）
+      coefficientBoost: buciCoeffBoost,
       // 当前一圈敌方打出的牌（敌方出牌时由 BattleFlowManager append，圈结束清空）
       roundEnemyCards: [],
       // 孙膑「减灶」状态：发动后写入弃牌总分并置 active，玩家打光手牌后复位

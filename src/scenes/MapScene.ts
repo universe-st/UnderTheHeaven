@@ -12,10 +12,14 @@ import { DeckModal } from './managers/DeckModal';
 import { BuciBarManager } from './managers/BuciBarManager';
 import { rollEvent, applyEventChoice } from '../models/Events';
 import { purchase } from '../models/Shop';
+import { getBuciMods } from '../models/RunState';
 import {
   triggerSkipBattle,
   triggerEventAutopick,
   triggerDestinyUpOnBattleWin,
+  applyNodeEnterHooks,
+  resolvePassAnyNode,
+  resolveAdvanceFloor,
 } from '../engine/BuciEffects';
 
 /** 与 GameScene 的 runMode 契约负载 */
@@ -361,6 +365,13 @@ export class MapScene extends Phaser.Scene {
     const run = RunManager.getRun();
     if (!run) return;
 
+    // 水雷屯：本局每进入节点 +N 通宝（触发一次性卦 + 按常驻值发放）
+    applyNodeEnterHooks(run);
+    const enterMods = getBuciMods(run);
+    if (enterMods.tongbaoPerNode > 0) run.tongbao += enterMods.tongbaoPerNode;
+    RunManager.save();
+    this.refreshTopBar();
+
     if (node.type === 'shop') {
       this.scene.start('ShopScene', { nodeId: node.id });
       return;
@@ -610,7 +621,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
-   * 卜辞栏（仅展示，context:'map' 不可点击）。
+   * 卜辞栏（地图行动卦可点「使用」：震为雷选任意节点通过 / 雷泽归妹直接推进一层；其余仅展示）。
    * 摆放在顶栏下方右侧：
    *   顶栏（TOP_BAR_H=96）: y ∈ [0, 96]
    *   卜辞栏（SLOT_H=100）: 中心 y=158 → y ∈ [108, 208]，与顶栏底 gap=12 ≥ 10 ✅
@@ -624,9 +635,97 @@ export class MapScene extends Phaser.Scene {
       x: width - 190,
       y: 158,
       context: 'map',
+      onMapAction: (card) => this.handleMapAction(card),
       onStateChanged: () => this.refreshTopBar(),
     });
     this.buciBar.refresh();
+  }
+
+  /** 地图行动卦：震为雷（选任意节点通过）/ 雷泽归妹（推进一层） */
+  private handleMapAction(card: import('../models/RunState').BuCiCard): void {
+    const run = RunManager.getRun();
+    if (!run) return;
+    if (card.effect.kind === 'pass_any_node') {
+      this.showNodeChooser(run, card);
+      return;
+    }
+    if (card.effect.kind === 'advance_floor') {
+      const nextFloor = resolveAdvanceFloor(run);
+      if (nextFloor === null) {
+        this.showBuciHint('雷泽归妹：当前不可推进');
+        return;
+      }
+      RunManager.save();
+      this.showBuciHint(`【雷泽归妹】直接推进到第 ${nextFloor} 层`);
+      this.buciBar?.refresh();
+      if (isRunComplete(run)) {
+        this.scene.start('RunEndScene', { victory: true });
+        return;
+      }
+      this.buildMap();
+      this.refreshTopBar();
+      return;
+    }
+  }
+
+  /** 震为雷：列出所有未通过节点供选择（弹窗内点击即通过结算） */
+  private showNodeChooser(run: RunState, card: import('../models/RunState').BuCiCard): void {
+    const { width, height } = this.scale;
+    const cx = width / 2;
+    const candidates = run.layers.flat().filter((n) => !n.cleared);
+    if (candidates.length === 0) {
+      this.showBuciHint('震为雷：没有可通过的节点');
+      return;
+    }
+    const panelW = 760;
+    const panelH = 560;
+    const px = (width - panelW) / 2;
+    const py = (height - panelH) / 2;
+
+    const container = this.add.container(0, 0).setDepth(DEPTH_OVERLAY);
+    container.add(UIFactory.modalOverlay(this, width, height, () => container.destroy()));
+    container.add(UIFactory.modalPanel(this, px, py, panelW, panelH, 10));
+    container.add(this.add.zone(px, py, panelW, panelH).setInteractive());
+    container.add(this.add.text(cx, py + 50, '选择要直接通过的节点（震为雷）', {
+      fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#3a2010',
+      stroke: '#f0e8d8', strokeThickness: 3,
+    }).setOrigin(0.5));
+
+    const shown = candidates.slice(0, 8);
+    const rowH = 58;
+    shown.forEach((n, i) => {
+      const ry = py + 128 + i * (rowH + 12);
+      const label = `${NODE_LABELS[n.type]} · 第 ${n.floor} 层`;
+      const bg = this.add.graphics();
+      bg.fillStyle(0x2a1508, 1);
+      bg.fillRoundedRect(px + 70, ry - rowH / 2, panelW - 140, rowH, 8);
+      container.add(bg);
+      container.add(this.add.text(px + 96, ry, label, {
+        fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0',
+        stroke: '#1a0800', strokeThickness: 2,
+      }).setOrigin(0, 0.5));
+      const zone = this.add.zone(px + 70, ry, panelW - 140, rowH).setInteractive({ cursor: 'pointer' });
+      zone.on('pointerdown', () => {
+        GameAudioManager.playSfx(this, 'sfx_button');
+        container.destroy();
+        const result = resolvePassAnyNode(run, n);
+        if (!result) {
+          this.showBuciHint('震为雷：该节点已通过');
+          return;
+        }
+        RunManager.save();
+        this.showBuciHint(`【震为雷】通过${NODE_LABELS[n.type]}：通宝 +${result.reward}`);
+        this.buciBar?.refresh();
+        if (isRunComplete(run)) {
+          this.scene.start('RunEndScene', { victory: true });
+          return;
+        }
+        this.buildMap();
+        this.refreshTopBar();
+        this.showPendingInterest();
+      });
+      container.add(zone);
+    });
   }
 
   // ── 阵容弹窗 ──

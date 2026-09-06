@@ -6,8 +6,8 @@
  *
  * 设计定稿：docs/design/game/16-六十四卦卜辞牌设计.md（§16.5 效果 kind 清单）。
  */
-import type { RunState, BuCiCard, BuCiEffect, NodeType, BuciModifiers } from '../models/RunState';
-import { getBuciMods } from '../models/RunState';
+import type { RunState, BuCiCard, BuCiEffect, NodeType, BuciModifiers, MapNode } from '../models/RunState';
+import { getBuciMods, applyVictory, MAP_FLOORS } from '../models/RunState';
 import type { PlayerCharacterId } from '../models/Character';
 import type { Card } from '../models/Card';
 import { getNextCardId, rankToLabel, SUITS, CARD_RANKS } from '../models/Card';
@@ -491,6 +491,7 @@ export function triggerSkipBattle(run: RunState): string | null {
 
 /** 雷水解：事件扣天命/通宝类代价减半（一次）。命中则消耗并返回修正后代价。 */
 export function applyEventCostHalf(run: RunState, cost: number): number {
+  if (cost <= 0) return cost;
   const card = findBuci(run, 'hex_lei_shui_jie');
   if (!card) return cost;
   consumeBuci(run, card.id);
@@ -499,6 +500,7 @@ export function applyEventCostHalf(run: RunState, cost: number): number {
 
 /** 雷火丰：事件节点获得通宝奖励时翻倍（一次）。命中则消耗并返回修正后奖励。 */
 export function applyEventTongbaoMult(run: RunState, base: number): number {
+  if (base <= 0) return base;
   const card = findBuci(run, 'hex_lei_huo_feng');
   if (!card || card.effect.kind !== 'event_tongbao_mult') return base;
   consumeBuci(run, card.id);
@@ -531,40 +533,38 @@ export function triggerExtraHealOnActive(run: RunState): string | null {
   return `【泽山咸】天命 +${card.effect.amount}`;
 }
 
-/** 进入节点时触发：水雷屯 每节点 +N 通宝（命中则设置常驻并立即生效）。 */
+/**
+ * 进入节点时触发：水雷屯 本局每节点 +N 通宝（触发即设置常驻；每次进入的实际发放由场景按
+ * mods.tongbaoPerNode 统一处理，避免首次重复发放）。命中则消耗并返回描述。
+ */
 export function applyNodeEnterHooks(run: RunState): string | null {
   const card = findBuci(run, 'hex_shui_lei_tun');
   if (!card || card.effect.kind !== 'tongbao_per_node') return null;
   const mods = getBuciMods(run);
-  const amount = card.effect.amount;
-  applyMods(run, { tongbaoPerNode: mods.tongbaoPerNode + amount });
-  run.tongbao += amount;
+  applyMods(run, { tongbaoPerNode: mods.tongbaoPerNode + card.effect.amount });
   consumeBuci(run, card.id);
-  return `【水雷屯】每节点 +${amount} 通宝（本次 +${amount}）`;
+  return `【水雷屯】本局每节点 +${card.effect.amount} 通宝`;
 }
 
 /**
- * 进入黄金台时触发（场景在生成库存前调用）：
+ * 进入黄金台时触发（场景在生成库存前调用，每次进店按常驻值统一发放）：
  * 水风井 每次进店 +N 通宝 / 泽雷随 每次进店回 N 天命 /
  * 雷风恒 刷新价固定 / 风山渐 带印概率 +25% / 水地比 商品 -15%。
  */
 export function applyShopEnterHooks(run: RunState): string[] {
   const notes: string[] = [];
-  const mods = getBuciMods(run);
 
   const jing = findBuci(run, 'hex_shui_feng_jing');
   if (jing && jing.effect.kind === 'tongbao_per_shop') {
-    applyMods(run, { tongbaoPerShop: mods.tongbaoPerShop + jing.effect.amount });
-    run.tongbao += jing.effect.amount;
+    applyMods(run, { tongbaoPerShop: getBuciMods(run).tongbaoPerShop + jing.effect.amount });
     consumeBuci(run, jing.id);
-    notes.push(`【水风井】每次进店 +${jing.effect.amount} 通宝（本次 +${jing.effect.amount}）`);
+    notes.push(`【水风井】每次进店 +${jing.effect.amount} 通宝`);
   }
   const sui = findBuci(run, 'hex_ze_lei_sui');
   if (sui && sui.effect.kind === 'heal_on_shop') {
     applyMods(run, { healPerShop: getBuciMods(run).healPerShop + sui.effect.amount });
-    healDestiny(run, sui.effect.amount);
     consumeBuci(run, sui.id);
-    notes.push(`【泽雷随】每次进店回 ${sui.effect.amount} 天命（本次 +${sui.effect.amount}）`);
+    notes.push(`【泽雷随】每次进店回 ${sui.effect.amount} 天命`);
   }
   const heng = findBuci(run, 'hex_lei_feng_heng');
   if (heng && heng.effect.kind === 'refresh_fixed') {
@@ -682,6 +682,37 @@ export function applyBuciPurchaseHooks(run: RunState, item: { kind: string; pric
   }
 
   return notes;
+}
+
+// ── 地图行动卦（震为雷 / 雷泽归妹，场景选择节点后调用） ──
+
+/**
+ * 震为雷：任意通过一个节点（按该节点类型结算胜利：清节点/推进层数/通宝/利息）。
+ * 节点不可重复结算；无卦或节点已通过返回 null。
+ */
+export function resolvePassAnyNode(run: RunState, node: MapNode): { reward: number; interest: number } | null {
+  const card = findBuci(run, 'hex_zhen_wei_lei');
+  if (!card || node.cleared) return null;
+  consumeBuci(run, card.id);
+  return applyVictory(run, node, Math.random);
+}
+
+/**
+ * 雷泽归妹：跳过本层剩余节点，直接推进一层（被跳节点不结算奖励）。
+ * 已在最后一层（36）时不可用，返回 null 不消耗。
+ */
+export function resolveAdvanceFloor(run: RunState): number | null {
+  const card = findBuci(run, 'hex_lei_ze_gui_mei');
+  if (!card) return null;
+  if (run.floor >= MAP_FLOORS) return null;
+  for (const layer of run.layers) {
+    for (const n of layer) {
+      if (!n.cleared && n.floor === run.floor) n.cleared = true;
+    }
+  }
+  run.floor += 1;
+  consumeBuci(run, card.id);
+  return run.floor;
 }
 
 // ── 战斗开始（局内，场景调用） ──
