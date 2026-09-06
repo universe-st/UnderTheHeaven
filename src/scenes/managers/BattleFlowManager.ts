@@ -21,8 +21,7 @@ import type { DamageSettlementManager } from './DamageSettlementManager';
 import type { BattleConfig, RunModeConfig } from '../../models/BattleTypes';
 import type { NodeType } from '../../models/RunState';
 import { tongbaoReward, calcDestinyLoss, isRunOver, isRunComplete } from '../../models/RunState';
-import { applyBattleResult, consumePendingInterest, getRun, save } from '../../models/RunManager';
-import { triggerDestinyUpOnBattleWin } from '../../engine/BuciEffects';
+import { applyBattleResult, consumePendingInterest, consumeBuciNotes, consumeLastBattleReward, consumeLastDestinyLoss, getRun, save } from '../../models/RunManager';
 import { UIFactory } from '../../utils/UIFactory';
 import {
   FONT_FAMILY, CARD_W, CARD_H,
@@ -1074,6 +1073,7 @@ export class BattleFlowManager {
   private showRunModeResult(playerWin: boolean, runMode: RunModeConfig): void {
     const { width, height } = this.scene.scale;
     let subText: string;
+    let buciSubText: string;
     let nextSceneKey: string;
     let nextSceneData: { victory: boolean } | undefined;
 
@@ -1176,6 +1176,10 @@ export class BattleFlowManager {
       const rewardType: NodeType = runMode.nodeType === 'event' ? 'normal' : runMode.nodeType;
       const reward = tongbaoReward(rewardType, Math.random);
       const run = applyBattleResult({ nodeId: runMode.nodeId, victory: true, reward });
+      // 卦象提示（雷地豫 ×2 / 天火同人回天命 等，已由 applyBattleResult 结算并消耗）
+      const buciNotes = consumeBuciNotes();
+      // 实际发放奖励 = 卦象修正后的通宝（雷地豫/雷山小过/泽风大过等）
+      const adjustedReward = consumeLastBattleReward() || reward;
       // 事件遭遇战（battle_with_reward）：胜利后发放事件承诺的额外通宝并清零
       let extraReward = 0;
       if (run && (run.pendingEventBattleReward ?? 0) > 0) {
@@ -1184,15 +1188,9 @@ export class BattleFlowManager {
         run.tongbao += extraReward;
       }
       const interest = consumePendingInterest();
-      const totalReward = reward + extraReward;
+      const totalReward = adjustedReward + extraReward;
       subText = interest > 0 ? `通宝 +${totalReward} · 利息 +${interest}` : `通宝 +${totalReward}`;
-
-      // 天火同人：战斗节点（normal/elite/boss）胜利回天命，弹提示
-      const destinyUp = run ? triggerDestinyUpOnBattleWin(run, runMode.nodeType) : null;
-      if (destinyUp) {
-        subText = `${subText} · ${destinyUp}`;
-        save();
-      }
+      buciSubText = buciNotes.join(' · ');
 
       if (run && isRunComplete(run)) {
         nextSceneKey = 'RunEndScene';
@@ -1207,7 +1205,12 @@ export class BattleFlowManager {
         : 0;
       const destinyLoss = calcDestinyLoss(percent, runMode.nodeType === 'boss');
       const run = applyBattleResult({ nodeId: runMode.nodeId, victory: false, enemyVitalityPercent: percent });
-      subText = plunderNotice ? `天命 -${destinyLoss} · ${plunderNotice}` : `天命 -${destinyLoss}`;
+      // 卦象提示（山雷颐免扣 / 天水讼抵挡 / 护盾吸收 / 天泽履回天 等）
+      const buciNotes = consumeBuciNotes();
+      // 实际扣减 = 卦象修正链后的天命（山雷颐/天水讼/山风蛊/护盾）
+      const actualLoss = consumeLastDestinyLoss() || destinyLoss;
+      subText = plunderNotice ? `天命 -${actualLoss} · ${plunderNotice}` : `天命 -${actualLoss}`;
+      buciSubText = buciNotes.join(' · ');
       if (run && isRunOver(run)) {
         nextSceneKey = 'RunEndScene';
         nextSceneData = { victory: false };
@@ -1216,7 +1219,7 @@ export class BattleFlowManager {
       }
     }
 
-    this.scene.add.text(width / 2, height / 2 + 30, subText, {
+    this.scene.add.text(width / 2, height / 2 + 24, subText, {
       fontSize: '38px',
       fontFamily: FONT_FAMILY,
       fontStyle: 'bold',
@@ -1225,7 +1228,21 @@ export class BattleFlowManager {
       strokeThickness: 4,
     }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
 
-    this.scene.add.text(width / 2, height / 2 + 90, '点击继续', {
+    if (buciSubText) {
+      // 卦象触发提示行（若超长自动换行，最多两行）
+      this.scene.add.text(width / 2, height / 2 + 64, buciSubText, {
+        fontSize: '26px',
+        fontFamily: FONT_FAMILY,
+        fontStyle: 'bold',
+        color: '#ffd700',
+        stroke: '#1a0800',
+        strokeThickness: 3,
+        align: 'center',
+        wordWrap: { width: width * 0.8 },
+      }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+    }
+
+    this.scene.add.text(width / 2, height / 2 + (buciSubText ? 108 : 90), '点击继续', {
       fontSize: '30px',
       fontFamily: FONT_FAMILY,
       fontStyle: 'bold',

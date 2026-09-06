@@ -34,6 +34,14 @@ export type BuCiType = 'active' | 'passive';
 /** 稀有度：普通 / 精良 / 稀有 / 传说（传说 = 八纯卦专属） */
 export type BuCiRarity = 'common' | 'fine' | 'rare' | 'legendary';
 
+/** 稀有度展示元数据（程序化卡面：卜辞栏 / 商店卡共用） */
+export const BUCI_RARITY_META: Record<BuCiRarity, { label: string; border: number; mark: string }> = {
+  common: { label: '凡', border: 0x5a4030, mark: '#a89070' },
+  fine: { label: '良', border: 0x2f7d4f, mark: '#8fe0a8' },
+  rare: { label: '珍', border: 0x2f5d9f, mark: '#a0ccff' },
+  legendary: { label: '传', border: 0xc8a050, mark: '#ffd98a' },
+};
+
 /** 主动卦使用场景：默认 ['shop','battle']；推进类（震为雷/雷泽归妹）含 'map' */
 export type BuCiUsage = 'shop' | 'battle' | 'map';
 

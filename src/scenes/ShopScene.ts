@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { PLAYER_CHARACTERS } from '../models/Character';
-import { ROSTER_MAX, getBuciMods, hexagramImageKey, type BuCiCard } from '../models/RunState';
+import { ROSTER_MAX, getBuciMods, hexagramImageKey, BUCI_RARITY_META, type BuCiCard } from '../models/RunState';
 import * as RunManager from '../models/RunManager';
 import type { ShopItem } from '../models/Shop';
 import { generateShopStock, purchase, effectiveRefreshPrice } from '../models/Shop';
@@ -209,6 +209,18 @@ export class ShopScene extends Phaser.Scene {
         stroke: '#1a0800', strokeThickness: 2,
       }).setOrigin(0.5));
     } else if (item.kind === 'buci') {
+      const rarity = BUCI_RARITY_META[item.buci.rarity];
+      const isLegendary = item.buci.rarity === 'legendary';
+      // 稀有度边框（传说金框加粗）
+      const frame = this.add.graphics();
+      frame.lineStyle(isLegendary ? 3 : 1.5, rarity.border, 0.9);
+      frame.strokeRoundedRect(cx - CARD_W / 2, cy - CARD_H / 2, CARD_W, CARD_H, 10);
+      container.add(frame);
+      // 稀有度角标（左上）
+      container.add(this.add.text(cx - CARD_W / 2 + 34, cy - CARD_H / 2 + 30, `【${rarity.label}】`, {
+        fontSize: '24px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: rarity.mark,
+        stroke: '#1a0800', strokeThickness: 2,
+      }).setOrigin(0.5));
       const hexImg = this.add.image(cx, cy - 160, hexagramImageKey(item.buci.upper, item.buci.lower));
       hexImg.setScale(150 / hexImg.width);
       container.add(hexImg);

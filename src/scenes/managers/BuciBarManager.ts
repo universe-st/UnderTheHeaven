@@ -11,8 +11,8 @@
  * 同卦堆叠在同一格（显示 ×count），触发/出售消耗第一张（count-1，归零移出）。
  */
 import type Phaser from 'phaser';
-import type { BuCiCard, BuCiRarity } from '../../models/RunState';
-import { hexagramImageKey } from '../../models/RunState';
+import type { BuCiCard } from '../../models/RunState';
+import { hexagramImageKey, BUCI_RARITY_META } from '../../models/RunState';
 import * as RunManager from '../../models/RunManager';
 import { sellBuci } from '../../models/Shop';
 import type { Card } from '../../models/Card';
@@ -50,14 +50,6 @@ const SLOT_W = 116;
 const SLOT_H = 100;
 const SLOT_GAP = 14;
 const HEX_DISPLAY = 56;
-
-/** 稀有度样式：边框色 / 角标 / 角标色 */
-const RARITY_STYLE: Record<BuCiRarity, { border: number; label: string; mark: string }> = {
-  common: { border: 0x5a4030, label: '凡', mark: '#a89070' },
-  fine: { border: 0x2f7d4f, label: '良', mark: '#8fe0a8' },
-  rare: { border: 0x2f5d9f, label: '珍', mark: '#a0ccff' },
-  legendary: { border: 0xc8a050, label: '传', mark: '#ffd98a' },
-};
 
 /** 地图行动卦（只能在 MapScene 使用，需节点选择等交互） */
 function isMapAction(card: BuCiCard): boolean {
@@ -108,7 +100,7 @@ export class BuciBarManager {
 
   private renderSlot(container: Phaser.GameObjects.Container, card: BuCiCard, cx: number): void {
     const selected = this.openCardId === card.id;
-    const rarity = RARITY_STYLE[card.rarity];
+    const rarity = BUCI_RARITY_META[card.rarity];
     const isLegendary = card.rarity === 'legendary';
 
     const bg = this.scene.add.graphics();

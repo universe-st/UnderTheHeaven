@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { startNewRun, getRun, setRun, hasSave, save, load, clear, applyBattleResult, consumePendingInterest, settleNodeClear } from '../RunManager';
+import { startNewRun, getRun, setRun, hasSave, save, load, clear, applyBattleResult, consumePendingInterest, consumeBuciNotes, consumeLastBattleReward, consumeLastDestinyLoss, settleNodeClear } from '../RunManager';
 import type { RunState, BuCiCard } from '../RunState';
-import { INITIAL_TONGBAO, INITIAL_DESTINY, TONGBAO_REWARD, interestOn } from '../RunState';
+import { INITIAL_TONGBAO, INITIAL_DESTINY, TONGBAO_REWARD, calcDestinyLoss, interestOn } from '../RunState';
 
 function createMemoryLocalStorage(): Storage {
   const map = new Map<string, string>();
@@ -70,6 +70,32 @@ describe('RunManager', () => {
     localStorage.setItem('uth_run_save', JSON.stringify({ version: 1, run: legacy }));
     expect(load()).toBe(true);
     expect(getRun()!.permanentSuitBans).toEqual([]);
+  });
+
+  it('load 迁移：旧格式卜辞栏（8 天宫，无 rarity/usage）全量作废重置为空栏（§16.8）', () => {
+    const run = startNewRun(4);
+    // 模拟六十四卦重做前保存的旧格式卡（有 count/effect 但无 rarity）
+    run.buciCards = [
+      { id: 'hex_qian_wei_tian', name: '乾为天', upper: '乾', lower: '乾', price: 30, type: 'active', count: 1, desc: '旧', effect: { kind: 'destiny_up', maxInc: 10, curInc: 10 } },
+      { id: 'hex_tian_ze_lv', name: '天泽履', upper: '乾', lower: '兑', price: 50, type: 'passive', count: 1, desc: '旧', effect: { kind: 'save_from_zero' } },
+    ] as unknown as BuCiCard[]; // 旧格式（升级前存档）：故意无 rarity/usage
+    localStorage.setItem('uth_run_save', JSON.stringify({ version: 1, run }));
+    expect(load()).toBe(true);
+    expect(getRun()!.buciCards).toEqual([]); // 旧栏作废
+    expect(getRun()!.buciMods).toEqual({}); // 修饰默认
+  });
+
+  it('load 保留新格式卜辞栏（含 rarity/usage）并兜底 buciMods', () => {
+    const run = startNewRun(4);
+    run.buciCards = [
+      { id: 'hex_qian_wei_tian', name: '乾为天', upper: '乾', lower: '乾', price: 50, type: 'active', rarity: 'legendary', usage: ['shop', 'battle'], count: 1, desc: '天命上限+15，天命+15', effect: { kind: 'destiny_up', maxInc: 15, curInc: 15 } },
+    ];
+    run.buciMods = { shopDiscount: 15 };
+    localStorage.setItem('uth_run_save', JSON.stringify({ version: 1, run }));
+    expect(load()).toBe(true);
+    expect(getRun()!.buciCards).toHaveLength(1);
+    expect(getRun()!.buciCards[0]!.rarity).toBe('legendary');
+    expect(getRun()!.buciMods).toEqual({ shopDiscount: 15 });
   });
 
   it('load returns false when there is no save', () => {
@@ -299,6 +325,55 @@ describe('applyBattleResult', () => {
     expect(run.destiny).toBe(10);
     expect(run.buciCards.some((c) => c.id === 'hex_tian_shui_song')).toBe(false);
     expect(run.buciCards.some((c) => c.id === 'hex_tian_ze_lv')).toBe(true);
+  });
+
+  it('victory records the adjusted reward and buci notes (雷地豫 ×2)', () => {
+    const run = makeRun();
+    run.buciCards.push({
+      id: 'hex_lei_di_yu', name: '雷地豫', upper: '震', lower: '坤', price: 40,
+      type: 'passive', rarity: 'rare', usage: [],
+      desc: '本场战斗节点胜利通宝奖励 ×2',
+      effect: { kind: 'battle_reward_mult', mult: 2 }, count: 1,
+    });
+    setRun(run);
+
+    applyBattleResult({ nodeId: 'n1', victory: true, reward: 12 });
+
+    // 实际奖励已含卦象修正（12 ×2），供战斗结束浮层展示
+    expect(consumeLastBattleReward()).toBe(24);
+    expect(consumeBuciNotes().some((n) => n.includes('雷地豫'))).toBe(true);
+    expect(consumePendingInterest()).toBe(interestOn(INITIAL_TONGBAO + 24));
+  });
+
+  it('victory without buci cards records the raw reward and no notes', () => {
+    const run = makeRun();
+    setRun(run);
+
+    applyBattleResult({ nodeId: 'n1', victory: true, reward: 12 });
+
+    expect(consumeLastBattleReward()).toBe(12);
+    expect(consumeBuciNotes()).toEqual([]);
+  });
+
+  it('defeat records the mitigated destiny loss and notes (天水讼 blocks → 0)', () => {
+    const run = makeRun();
+    run.buciCards.push({ ...HEX_TIAN_SHUI_SONG });
+    setRun(run);
+
+    applyBattleResult({ nodeId: 'n1', victory: false, enemyVitalityPercent: 80 });
+
+    expect(consumeLastDestinyLoss()).toBe(0);
+    expect(consumeBuciNotes().some((n) => n.includes('天水讼'))).toBe(true);
+  });
+
+  it('defeat without buci cards records the raw loss and no notes', () => {
+    const run = makeRun();
+    setRun(run);
+
+    applyBattleResult({ nodeId: 'n1', victory: false, enemyVitalityPercent: 80 });
+
+    expect(consumeLastDestinyLoss()).toBe(calcDestinyLoss(80, false));
+    expect(consumeBuciNotes()).toEqual([]);
   });
 
   it('settleNodeClear applies victory and records interest for the animation hint', () => {

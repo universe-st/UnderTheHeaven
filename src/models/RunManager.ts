@@ -13,9 +13,17 @@ import {
   triggerSaveFromZero,
 } from '../engine/BuciEffects';
 
-/** 旧版卜辞牌（handType/coefficientBonus 结构）整体作废，加载时丢弃重置为空栏 */
+/**
+ * 旧版卜辞牌迁移（§16.8）：
+ * - 旧格式卡（8 天宫，无 `rarity`/`usage` 字段）**全量作废重置为空栏**；
+ *   判别：栏内任一卡缺 `rarity` 即视为升级前存档，整体丢弃。
+ * - 新格式卡（含 `rarity`）仅做结构校验保留。
+ */
 function migrateBuciCards(buciCards: unknown): BuCiCard[] {
   if (!Array.isArray(buciCards)) return [];
+  const anyLegacy = buciCards.some((c) =>
+    !!c && typeof c === 'object' && typeof (c as BuCiCard).rarity !== 'string');
+  if (anyLegacy) return [];
   return buciCards.filter((c): c is BuCiCard =>
     !!c && typeof c === 'object'
     && typeof (c as BuCiCard).count === 'number'
@@ -67,6 +75,15 @@ let currentRun: RunState | null = null;
  */
 let pendingInterest = 0;
 
+/** 最近一次战斗结算的卦象提示文本（战斗结束浮层展示，消费后清零） */
+let pendingBuciNotes: string[] = [];
+
+/** 最近一次战斗胜利的实际通宝奖励（已含卦象修正，不含利息；失败为 0） */
+let pendingBattleReward = 0;
+
+/** 最近一次战斗失败的实际天命扣减（已含卦象修正链；胜利为 0） */
+let pendingDestinyLoss = 0;
+
 /** 读取并清零待展示的利息 */
 export function consumePendingInterest(): number {
   const v = pendingInterest;
@@ -74,9 +91,34 @@ export function consumePendingInterest(): number {
   return v;
 }
 
+/** 读取并清零待展示的卦象提示文本 */
+export function consumeBuciNotes(): string[] {
+  const v = pendingBuciNotes;
+  pendingBuciNotes = [];
+  return v;
+}
+
+/** 读取并清零最近战斗胜利的实际通宝奖励（已含卦象修正，不含利息） */
+export function consumeLastBattleReward(): number {
+  const v = pendingBattleReward;
+  pendingBattleReward = 0;
+  return v;
+}
+
+/** 读取并清零最近战斗失败的实际天命扣减（已含卦象修正链） */
+export function consumeLastDestinyLoss(): number {
+  const v = pendingDestinyLoss;
+  pendingDestinyLoss = 0;
+  return v;
+}
+
 /** 开启新一局（可选种子，相同种子生成相同地图与初始角色） */
 export function startNewRun(seed?: number): RunState {
   currentRun = createNewRun(createRng(seed ?? Date.now()));
+  pendingInterest = 0;
+  pendingBuciNotes = [];
+  pendingBattleReward = 0;
+  pendingDestinyLoss = 0;
   return currentRun;
 }
 
@@ -192,28 +234,41 @@ export function applyBattleResult(result: BattleResultInput): RunState | null {
     const baseReward = result.reward ?? tongbaoReward(rewardType, Math.random);
     // 卦象奖励修正（雷地豫 ×2 / 雷山小过 +5 / 泽风大过惩罚等），仅战斗节点
     const isBattleNode = node.type === 'normal' || node.type === 'elite' || node.type === 'boss';
-    const reward = isBattleNode ? adjustBattleReward(run, node.type, baseReward).reward : baseReward;
+    const adj = isBattleNode ? adjustBattleReward(run, node.type, baseReward) : null;
+    const reward = adj ? adj.reward : baseReward;
     const settlement = applyVictory(run, node, Math.random, reward);
     pendingInterest = settlement.interest;
+    pendingBattleReward = reward;
+    pendingDestinyLoss = 0;
+    const notes = [...(adj?.notes ?? [])];
     if (isBattleNode) {
       // 战斗节点胜利卦象（一次性，触发即消耗）
-      triggerDestinyUpOnBattleWin(run, node.type); // 天火同人
-      triggerWinHealIfLow(run); // 泽水困
-      triggerDropCardOnWin(run); // 火天大有
-      triggerSealOnWin(run); // 火风鼎
-      triggerPoolScoreUpOnWin(run); // 风泽中孚
+      const triggers = [
+        triggerDestinyUpOnBattleWin(run, node.type), // 天火同人
+        triggerWinHealIfLow(run), // 泽水困
+        triggerDropCardOnWin(run), // 火天大有
+        triggerSealOnWin(run), // 火风鼎
+        triggerPoolScoreUpOnWin(run), // 风泽中孚
+      ];
+      for (const t of triggers) if (t) notes.push(t);
     }
+    pendingBuciNotes = notes;
   } else {
     // 战败不结算利息；清空此前悬挂的提示，避免错位显示
     pendingInterest = 0;
+    pendingBattleReward = 0;
     const rawLoss = calcDestinyLoss(result.enemyVitalityPercent ?? 100, node.type === 'boss');
     // 卦象扣减修正链：山雷颐（首败免扣）→ 天水讼（抵挡）→ 火水未济（改扣上限）→ 山风蛊（减半）→ 护盾吸收
-    const { loss } = mitigateDefeat(run, rawLoss);
+    const { loss, notes } = mitigateDefeat(run, rawLoss);
     run.destiny = Math.max(0, run.destiny - loss);
+    pendingDestinyLoss = loss;
+    const notes2 = [...notes];
     // 天泽履：天命被扣到 ≤0 时回 1，避免游戏失败（覆盖战斗失败主要归零路径）
-    triggerSaveFromZero(run);
+    if (triggerSaveFromZero(run)) notes2.push('【天泽履】天命归零之际回天有术（天命 → 1）');
     // 地火明夷：战败后下次招募费用折扣
-    triggerRecruitDiscountAfterDefeat(run);
+    const recruitNote = triggerRecruitDiscountAfterDefeat(run);
+    if (recruitNote) notes2.push(recruitNote);
+    pendingBuciNotes = notes2;
   }
 
   save();
