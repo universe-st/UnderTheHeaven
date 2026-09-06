@@ -7,28 +7,51 @@ import { SEAL_PRICE_EXTRA } from '../FourSeal';
 import { createRng } from '../../engine/MapGenerator';
 
 describe('HEXAGRAM_CATALOG', () => {
-  it('第一批 = 天宫 8 卦，上卦皆「乾」，含主/被动与效果定义', () => {
-    expect(HEXAGRAM_CATALOG).toHaveLength(8);
+  it('全量 64 卦：按上卦分 8 宫各 8 卦，含主/被动/稀有度/效果定义', () => {
+    expect(HEXAGRAM_CATALOG).toHaveLength(64);
+    const byPalace = new Map<string, number>();
     for (const e of HEXAGRAM_CATALOG) {
-      expect(e.buci.upper).toBe('乾');
       expect(e.buci.name).toBeTruthy();
       expect(e.buci.desc).toBeTruthy();
       expect(e.buci.effect).toBeTruthy();
       expect(['active', 'passive']).toContain(e.buci.type);
+      expect(['common', 'fine', 'rare', 'legendary']).toContain(e.buci.rarity);
       expect(e.buci.count).toBeGreaterThanOrEqual(1);
       expect(e.price).toBe(e.buci.price);
       expect(e.price).toBeGreaterThanOrEqual(20);
       expect(e.price).toBeLessThanOrEqual(50);
+      byPalace.set(e.buci.upper, (byPalace.get(e.buci.upper) ?? 0) + 1);
     }
+    expect(byPalace.size).toBe(8);
+    for (const count of byPalace.values()) {
+      expect(count).toBe(8);
+    }
+  });
+
+  it('64 卦上下卦组合唯一，稀有度档位与设计一致（传说 8 = 纯卦）', () => {
+    const combos = new Set<string>();
+    for (const e of HEXAGRAM_CATALOG) {
+      combos.add(`${e.buci.upper}/${e.buci.lower}`);
+    }
+    expect(combos.size).toBe(64);
+    const legendaries = HEXAGRAM_CATALOG.filter((e) => e.buci.rarity === 'legendary');
+    expect(legendaries).toHaveLength(8);
+    for (const e of legendaries) {
+      expect(e.buci.upper).toBe(e.buci.lower); // 纯卦
+    }
+    expect(HEXAGRAM_CATALOG.filter((e) => e.buci.rarity === 'rare')).toHaveLength(18);
+    expect(HEXAGRAM_CATALOG.filter((e) => e.buci.rarity === 'fine')).toHaveLength(22);
+    expect(HEXAGRAM_CATALOG.filter((e) => e.buci.rarity === 'common')).toHaveLength(16);
   });
 
   it('覆盖主/被动两类与全部天宫卦名', () => {
     const names = HEXAGRAM_CATALOG.map((e) => e.buci.name);
-    expect(names).toEqual(['乾为天', '天水讼', '天泽履', '天地否', '天火同人', '天雷无妄', '天山遁', '天风姤']);
+    // 天宫（上乾）8 卦
+    expect(names.slice(0, 8)).toEqual(['乾为天', '天水讼', '天泽履', '天地否', '天火同人', '天雷无妄', '天山遁', '天风姤']);
     const actives = HEXAGRAM_CATALOG.filter((e) => e.buci.type === 'active');
     const passives = HEXAGRAM_CATALOG.filter((e) => e.buci.type === 'passive');
-    expect(actives).toHaveLength(3); // 乾为天 / 天地否 / 天风姤
-    expect(passives).toHaveLength(5);
+    expect(actives).toHaveLength(23);
+    expect(passives).toHaveLength(41);
   });
 });
 

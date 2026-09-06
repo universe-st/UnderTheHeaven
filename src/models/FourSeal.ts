@@ -46,9 +46,11 @@ export const CARD_SLOT_CHANCE = 0.35;
 
 /**
  * 掷印：SEAL_CHANCE 概率返回四印之一（等概率），否则 null。
+ * extraChance 为卦象（风山渐）带来的带印概率额外加成（百分数，如 25）。
  */
-export function randomSeal(rng: () => number): FourSeal | null {
-  if (rng() >= SEAL_CHANCE) {
+export function randomSeal(rng: () => number, extraChance = 0): FourSeal | null {
+  const chance = Math.min(1, SEAL_CHANCE + extraChance / 100);
+  if (rng() >= chance) {
     return null;
   }
   return FOUR_SEALS[Math.floor(rng() * FOUR_SEALS.length)]!;

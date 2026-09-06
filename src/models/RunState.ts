@@ -31,19 +31,169 @@ export function hexagramImageKey(upper: Trigram, lower: Trigram): string {
 /** 卜辞卦象类型：主动（手动使用） / 被动（触发即用） */
 export type BuCiType = 'active' | 'passive';
 
+/** 稀有度：普通 / 精良 / 稀有 / 传说（传说 = 八纯卦专属） */
+export type BuCiRarity = 'common' | 'fine' | 'rare' | 'legendary';
+
+/** 主动卦使用场景：默认 ['shop','battle']；推进类（震为雷/雷泽归妹）含 'map' */
+export type BuCiUsage = 'shop' | 'battle' | 'map';
+
 /**
  * 卦象效果定义（判别联合）。
  * 一次性：主动使用或被动触发都会消耗（count - 1）。
+ * 分组对应 [16-六十四卦卜辞牌设计] §16.5。
  */
 export type BuCiEffect =
-  | { kind: 'destiny_up'; maxInc: number; curInc: number } // 乾为天：天命上限+，天命+
-  | { kind: 'block_battle_lose_deduction' } // 天水讼：抵挡一次战败天命扣减
-  | { kind: 'save_from_zero' } // 天泽履：天命≤0 时回 1，避免失败
-  | { kind: 'destiny_max_down_cur_up'; maxDown: number; curUp: number } // 天地否：上限-，天命+
-  | { kind: 'destiny_up_on_battle_win'; amount: number } // 天火同人：战斗节点胜利回天命
-  | { kind: 'event_autopick'; amount: number } // 天雷无妄：事件出选项随机选 + 回天命
-  | { kind: 'skip_battle'; amount: number } // 天山遁：选战斗节点跳过 + 回天命
-  | { kind: 'remove_character'; amount: number }; // 天风姤：移除角色牌 + 回天命
+  // ── 天命数值（天宫） ──
+  | { kind: 'destiny_up'; maxInc: number; curInc: number } // 乾为天
+  | { kind: 'destiny_max_down_cur_up'; maxDown: number; curUp: number } // 天地否
+  // ── 天命防护（山宫 / 天宫） ──
+  | { kind: 'block_battle_lose_deduction' } // 天水讼
+  | { kind: 'save_from_zero' } // 天泽履
+  | { kind: 'destiny_shield'; amount: number } // 艮为山
+  | { kind: 'heal_and_shield'; heal: number; shield: number } // 山火贲
+  | { kind: 'shield_power_up'; percent: number } // 山地剥
+  | { kind: 'defeat_loss_half' } // 山风蛊
+  | { kind: 'first_defeat_no_loss' } // 山雷颐
+  | { kind: 'defeat_loss_to_max'; maxDown: number } // 火水未济
+  | { kind: 'block_event_destiny_loss' } // 山水蒙
+  | { kind: 'destiny_max_up'; amount: number } // 山天大畜
+  // ── 天命回复（泽宫） ──
+  | { kind: 'destiny_heal_regen'; heal: number; regenBonus: number } // 兑为泽
+  | { kind: 'overdraw_heal'; heal: number; penalty: number } // 泽风大过
+  | { kind: 'remove_card_heal'; heal: number } // 山泽损
+  | { kind: 'destiny_up_on_battle_win'; amount: number } // 天火同人
+  | { kind: 'win_heal_if_low'; amount: number; threshold: number } // 泽水困
+  | { kind: 'heal_on_shop'; amount: number } // 泽雷随
+  | { kind: 'extra_heal_on_active'; amount: number } // 泽山咸
+  | { kind: 'heal_on_good_event'; amount: number } // 泽地萃
+  | { kind: 'destiny_up_on_recruit'; amount: number } // 地风升
+  // ── 事件 / 节点（天宫·雷宫） ──
+  | { kind: 'event_autopick'; amount: number } // 天雷无妄
+  | { kind: 'skip_battle'; amount: number } // 天山遁
+  | { kind: 'pass_any_node' } // 震为雷
+  | { kind: 'advance_floor' } // 雷泽归妹
+  | { kind: 'event_cost_half' } // 雷水解
+  | { kind: 'event_tongbao_mult'; mult: number } // 雷火丰
+  // ── 阵容 / 招募（地宫） ──
+  | { kind: 'remove_character'; amount: number } // 天风姤
+  | { kind: 'roster_max_up'; amount: number } // 地天泰
+  | { kind: 'recruit_discount'; percent: number } // 地泽临
+  | { kind: 'recruit_discount_after_defeat'; percent: number } // 地火明夷
+  | { kind: 'refund_on_remove_character'; amount: number } // 地雷复
+  // ── 通宝 / 经济（水宫） ──
+  | { kind: 'tongbao_gain_interest'; amount: number; interestPercent: number } // 坎为水
+  | { kind: 'tongbao_gain_discount'; amount: number; nextShopDiscount: number } // 水火既济
+  | { kind: 'sell_full_price' } // 水天需
+  | { kind: 'sell_bonus'; percent: number } // 地山谦
+  | { kind: 'shop_discount'; percent: number } // 水地比
+  | { kind: 'cashback'; percent: number } // 水泽节
+  | { kind: 'refresh_free' } // 水山蹇
+  | { kind: 'refresh_fixed'; price: number } // 雷风恒
+  | { kind: 'tongbao_per_node'; amount: number } // 水雷屯
+  | { kind: 'tongbao_per_shop'; amount: number } // 水风井
+  | { kind: 'replace_shop_item' } // 泽火革
+  // ── 战斗奖励（雷宫·火宫） ──
+  | { kind: 'battle_reward_mult'; mult: number } // 雷地豫
+  | { kind: 'boss_reward_mult'; mult: number } // 雷天大壮
+  | { kind: 'battle_reward_extra'; amount: number } // 雷山小过
+  | { kind: 'next_battle_reward_extra'; amount: number } // 火山旅
+  | { kind: 'elite_reward_extra'; amount: number } // 火地晋
+  // ── 牌库（cardPool）操作（风宫·地宫·火宫） ──
+  | { kind: 'grant_seal_to_pool'; pick: number; candidates: number } // 坤为地
+  | { kind: 'grant_seal_on_recruit'; count: number } // 地水师
+  | { kind: 'grant_seal_on_win'; count: number } // 火风鼎
+  | { kind: 'drop_card_on_win'; count: number } // 火天大有
+  | { kind: 'pool_score_up_on_win'; count: number; inc: number } // 风泽中孚
+  | { kind: 'remove_cards_for_tongbao'; max: number; per: number } // 巽为风
+  | { kind: 'copy_card_to_pool'; count: number } // 风火家人
+  | { kind: 'extra_card_on_buy'; count: number } // 风天小畜
+  | { kind: 'card_buy_discount'; amount: number } // 风雷益
+  | { kind: 'seal_chance_up'; percent: number } // 风山渐
+  // ── 局内（战斗状态，共 5 张） ──
+  | { kind: 'vitality_up_all_battle'; amount: number } // 离为火
+  | { kind: 'battle_coefficient_boost'; amount: number } // 火雷噬嗑
+  | { kind: 'remove_enemy_card'; count: number } // 火泽睽
+  | { kind: 'battle_start_hand'; amount: number } // 风地观
+  | { kind: 'enemy_hand_down'; amount: number }; // 风水涣
+
+/**
+ * 六十四卦·本局修饰状态：需要跨时点保存的常驻/一次性效果。
+ * 纯一次性触发（卦在栏位即触发、触发即消耗）不占用此结构，直接由引擎函数处理。
+ * 全部字段有默认值（DEFAULT_BUCI_MODS），读取请用 getBuciMods()。
+ */
+export interface BuciModifiers {
+  /** 天命护盾（抵挡后续天命扣减）——艮为山 / 山火贲 */
+  destinyShield: number;
+  /** 本局天命恢复效果 +N ——兑为泽 */
+  regenBonus: number;
+  /** 护盾量 +N% ——山地剥 */
+  shieldPowerUp: number;
+  /** 阵容上限 +N——地天泰 */
+  rosterMaxUp: number;
+  /** 下次招募费用 -N%（地泽临使用后，招募时消耗） */
+  recruitDiscount: number;
+  /** 战败后下次招募 -N%（地火明夷触发后，招募时消耗） */
+  recruitDiscountAfterDefeat: number;
+  /** 通宝利息 +N%——坎为水 */
+  interestBonusPercent: number;
+  /** 下一次商店商品 -N%（水火既济，生成库存时消耗） */
+  nextShopDiscount: number;
+  /** 商店商品常驻 -N%——水地比 */
+  shopDiscount: number;
+  /** 购买返还 N% 通宝——水泽节 */
+  cashbackPercent: number;
+  /** 带印牌出现概率 +N%——风山渐 */
+  sealChanceUp: number;
+  /** 商店刷新价固定（不再递增）——雷风恒 */
+  refreshFixed: number | null;
+  /** 免费刷新次数——水山蹇 */
+  freeRefreshCount: number;
+  /** 购买扑克牌 -N 通宝——风雷益 */
+  cardBuyDiscount: number;
+  /** 购买扑克牌额外 +N 张——风天小畜 */
+  extraCardOnBuy: number;
+  /** 每进入节点 +N 通宝——水雷屯 */
+  tongbaoPerNode: number;
+  /** 每次进店 +N 通宝——水风井 */
+  tongbaoPerShop: number;
+  /** 每次进店回 N 天命——泽雷随 */
+  healPerShop: number;
+  /** 下一场战斗胜利通宝 -N（泽风大过使用后，胜利时消耗） */
+  nextBattleRewardPenalty: number;
+  /** 本局所有战斗气数上限 +N——离为火 */
+  vitalityUpAllBattle: number;
+  /** 下一场战斗开始时移除敌方 N 张牌（火泽睽使用后，战斗开始消耗） */
+  removeEnemyCardNext: boolean;
+}
+
+export const DEFAULT_BUCI_MODS: BuciModifiers = {
+  destinyShield: 0,
+  regenBonus: 0,
+  shieldPowerUp: 0,
+  rosterMaxUp: 0,
+  recruitDiscount: 0,
+  recruitDiscountAfterDefeat: 0,
+  interestBonusPercent: 0,
+  nextShopDiscount: 0,
+  shopDiscount: 0,
+  cashbackPercent: 0,
+  sealChanceUp: 0,
+  refreshFixed: null,
+  freeRefreshCount: 0,
+  cardBuyDiscount: 0,
+  extraCardOnBuy: 0,
+  tongbaoPerNode: 0,
+  tongbaoPerShop: 0,
+  healPerShop: 0,
+  nextBattleRewardPenalty: 0,
+  vitalityUpAllBattle: 0,
+  removeEnemyCardNext: false,
+};
+
+/** 读取某局卦象修饰状态（合并默认值，缺省字段安全） */
+export function getBuciMods(run: RunState): BuciModifiers {
+  return { ...DEFAULT_BUCI_MODS, ...(run.buciMods ?? {}) };
+}
 
 export interface BuCiCard {
   id: string;
@@ -54,6 +204,10 @@ export interface BuCiCard {
   lower: Trigram;
   price: number;
   type: BuCiType;
+  /** 稀有度（普通/精良/稀有/传说，卡面边框色区分） */
+  rarity: BuCiRarity;
+  /** 主动卦使用场景：默认 ['shop','battle']；推进类含 'map' */
+  usage: BuCiUsage[];
   /** 效果描述文本（商店 / 栏位展示） */
   desc: string;
   effect: BuCiEffect;
@@ -112,6 +266,8 @@ export interface RunState {
   eventsTriggered?: string[];
   /** 事件系统 v2：遭遇战胜利后的额外通宝奖励（battle_with_reward），战斗胜利结算后清零 */
   pendingEventBattleReward?: number;
+  /** 六十四卦·本局修饰状态（一次性卦触发后留下的常驻/一次性效果），读取用 getBuciMods() */
+  buciMods?: Partial<BuciModifiers>;
 }
 
 /** 玩家气数（单场战斗） */
@@ -158,6 +314,7 @@ export function createNewRun(rng: () => number): RunState {
     vitalityMaxBoost: 0,
     eventsTriggered: [],
     pendingEventBattleReward: 0,
+    buciMods: {},
   };
 }
 

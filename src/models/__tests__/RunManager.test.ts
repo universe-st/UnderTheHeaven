@@ -153,12 +153,14 @@ function makeRun(): RunState {
 /** 测试用卦象卡（天水讼 / 天泽履） */
 const HEX_TIAN_SHUI_SONG: BuCiCard = {
   id: 'hex_tian_shui_song', name: '天水讼', upper: '乾', lower: '坎', price: 30,
-  type: 'passive', desc: '抵挡一次战斗失败引起的天命扣减',
+  type: 'passive', rarity: 'fine', usage: [],
+  desc: '抵挡一次战斗失败引起的天命扣减',
   effect: { kind: 'block_battle_lose_deduction' }, count: 1,
 };
 const HEX_TIAN_ZE_LV: BuCiCard = {
-  id: 'hex_tian_ze_lv', name: '天泽履', upper: '乾', lower: '兑', price: 50,
-  type: 'passive', desc: '天命被扣减到 0 以下时恢复到 1，避免游戏失败',
+  id: 'hex_tian_ze_lv', name: '天泽履', upper: '乾', lower: '兑', price: 40,
+  type: 'passive', rarity: 'rare', usage: [],
+  desc: '天命被扣减到 0 以下时恢复到 1，避免游戏失败',
   effect: { kind: 'save_from_zero' }, count: 1,
 };
 

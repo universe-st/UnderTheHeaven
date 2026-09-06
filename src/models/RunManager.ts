@@ -1,7 +1,17 @@
 import type { MapNode, NodeType, RunState, BuCiCard } from './RunState';
-import { createNewRun, applyDefeat, applyVictory, tongbaoReward } from './RunState';
+import { createNewRun, applyVictory, tongbaoReward, calcDestinyLoss } from './RunState';
 import { createRng } from '../engine/MapGenerator';
-import { triggerBlockBattleLose, triggerSaveFromZero } from '../engine/BuciEffects';
+import {
+  adjustBattleReward,
+  triggerDestinyUpOnBattleWin,
+  triggerWinHealIfLow,
+  triggerDropCardOnWin,
+  triggerSealOnWin,
+  triggerPoolScoreUpOnWin,
+  mitigateDefeat,
+  triggerRecruitDiscountAfterDefeat,
+  triggerSaveFromZero,
+} from '../engine/BuciEffects';
 
 /** 旧版卜辞牌（handType/coefficientBonus 结构）整体作废，加载时丢弃重置为空栏 */
 function migrateBuciCards(buciCards: unknown): BuCiCard[] {
@@ -125,6 +135,7 @@ export function load(): boolean {
     data.run.vitalityMaxBoost ??= 0;
     data.run.eventsTriggered ??= [];
     data.run.pendingEventBattleReward ??= 0;
+    data.run.buciMods ??= {};
     currentRun = data.run;
     return true;
   } catch {
@@ -178,19 +189,31 @@ export function applyBattleResult(result: BattleResultInput): RunState | null {
 
   if (result.victory) {
     const rewardType: NodeType = node.type === 'event' ? 'normal' : node.type;
-    const reward = result.reward ?? tongbaoReward(rewardType, Math.random);
+    const baseReward = result.reward ?? tongbaoReward(rewardType, Math.random);
+    // 卦象奖励修正（雷地豫 ×2 / 雷山小过 +5 / 泽风大过惩罚等），仅战斗节点
+    const isBattleNode = node.type === 'normal' || node.type === 'elite' || node.type === 'boss';
+    const reward = isBattleNode ? adjustBattleReward(run, node.type, baseReward).reward : baseReward;
     const settlement = applyVictory(run, node, Math.random, reward);
     pendingInterest = settlement.interest;
+    if (isBattleNode) {
+      // 战斗节点胜利卦象（一次性，触发即消耗）
+      triggerDestinyUpOnBattleWin(run, node.type); // 天火同人
+      triggerWinHealIfLow(run); // 泽水困
+      triggerDropCardOnWin(run); // 火天大有
+      triggerSealOnWin(run); // 火风鼎
+      triggerPoolScoreUpOnWin(run); // 风泽中孚
+    }
   } else {
     // 战败不结算利息；清空此前悬挂的提示，避免错位显示
     pendingInterest = 0;
-    // 天水讼：抵挡一次战败天命扣减（命中则消耗，本次不扣天命）
-    const blocked = triggerBlockBattleLose(run);
-    if (!blocked) {
-      applyDefeat(run, result.enemyVitalityPercent ?? 100, node.type === 'boss');
-      // 天泽履：天命被扣到 ≤0 时回 1，避免游戏失败（覆盖战斗失败主要归零路径）
-      triggerSaveFromZero(run);
-    }
+    const rawLoss = calcDestinyLoss(result.enemyVitalityPercent ?? 100, node.type === 'boss');
+    // 卦象扣减修正链：山雷颐（首败免扣）→ 天水讼（抵挡）→ 火水未济（改扣上限）→ 山风蛊（减半）→ 护盾吸收
+    const { loss } = mitigateDefeat(run, rawLoss);
+    run.destiny = Math.max(0, run.destiny - loss);
+    // 天泽履：天命被扣到 ≤0 时回 1，避免游戏失败（覆盖战斗失败主要归零路径）
+    triggerSaveFromZero(run);
+    // 地火明夷：战败后下次招募费用折扣
+    triggerRecruitDiscountAfterDefeat(run);
   }
 
   save();

@@ -22,6 +22,8 @@ function makeCard(partial: Partial<BuCiCard> & { id: string; effect: BuCiCard['e
     lower: '乾',
     price: 30,
     type: 'active',
+    rarity: 'common',
+    usage: ['shop', 'battle'],
     desc: '',
     count: 1,
     ...partial,
