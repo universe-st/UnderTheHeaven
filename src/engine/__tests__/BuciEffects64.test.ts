@@ -63,16 +63,16 @@ describe('新主动卦（useSimpleActive）', () => {
     expect(run.buciCards.find((c) => c.id === 'hex_shan_di_bo')).toBeUndefined(); // 山地剥已消耗
   });
 
-  it('兑为泽：天命 +40 且本局恢复效果 +5；后续天火同人胜利回 10+5=15', () => {
+  it('兑为泽：天命 +60（一次性，无常驻恢复加成）', () => {
     const run = makeRun([cardFromCatalog('hex_dui_wei_ze'), cardFromCatalog('hex_tian_huo_tong_ren')]);
     run.destinyMax = 200;
     run.destiny = 50;
     useSimpleActive(run, 'hex_dui_wei_ze');
-    expect(run.destiny).toBe(90);
-    expect(getBuciMods(run).regenBonus).toBe(5);
+    expect(run.destiny).toBe(110); // +60
+    expect(findBuci(run, 'hex_dui_wei_ze')).toBeNull(); // 主动使用后消耗
     const d0 = run.destiny;
     triggerDestinyUpOnBattleWin(run, 'normal');
-    expect(run.destiny).toBe(d0 + 15); // 10 + regen 5
+    expect(run.destiny).toBe(d0 + 10); // 天火同人无恢复加成
   });
 
   it('泽风大过：天命 +35，下一场战斗胜利奖励 -20', () => {
@@ -84,15 +84,15 @@ describe('新主动卦（useSimpleActive）', () => {
     expect(getBuciMods(run).nextBattleRewardPenalty).toBe(20);
   });
 
-  it('坎为水：通宝 +60 且利息 +50%', () => {
+  it('坎为水：通宝 +150（一次性，无常驻利息）', () => {
     const run = makeRun([cardFromCatalog('hex_kan_wei_shui')]);
     const t0 = run.tongbao;
     useSimpleActive(run, 'hex_kan_wei_shui');
-    expect(run.tongbao).toBe(t0 + 60);
-    expect(getBuciMods(run).interestBonusPercent).toBe(50);
+    expect(run.tongbao).toBe(t0 + 150);
+    expect(findBuci(run, 'hex_kan_wei_shui')).toBeNull(); // 主动使用后消耗
   });
 
-  it('地天泰：阵容上限 +1；地泽临：下次招募折扣；水山蹇：免费刷新；离为火：气数上限；火泽睽：移敌牌', () => {
+  it('地天泰：随机招募一名未招募角色入阵容；地泽临：下次招募折扣；水山蹇：免费刷新；离为火：下一场气数上限；火泽睽：移敌牌', () => {
     const run = makeRun([
       cardFromCatalog('hex_di_tian_tai'),
       cardFromCatalog('hex_di_ze_lin'),
@@ -100,17 +100,20 @@ describe('新主动卦（useSimpleActive）', () => {
       cardFromCatalog('hex_li_wei_huo'),
       cardFromCatalog('hex_huo_ze_kui'),
     ]);
+    run.roster = ['hanxin'];
+    const rosterBefore = run.roster.length;
     useSimpleActive(run, 'hex_di_tian_tai');
+    expect(run.roster.length).toBe(rosterBefore + 1); // 随机招募一名
     useSimpleActive(run, 'hex_di_ze_lin');
     useSimpleActive(run, 'hex_shui_shan_jian');
     useSimpleActive(run, 'hex_li_wei_huo');
     useSimpleActive(run, 'hex_huo_ze_kui');
     const mods = getBuciMods(run);
-    expect(mods.rosterMaxUp).toBe(1);
     expect(mods.recruitDiscount).toBe(30);
     expect(mods.freeRefreshCount).toBe(1);
-    expect(mods.vitalityUpAllBattle).toBe(150);
+    expect(mods.vitalityUpNextBattle).toBe(150);
     expect(mods.removeEnemyCardNext).toBe(true);
+    expect(findBuci(run, 'hex_di_tian_tai')).toBeNull(); // 地天泰主动使用后消耗
   });
 
   it('泽山咸：使用其他主动卦时额外回 5 天命', () => {
@@ -335,7 +338,7 @@ describe('商店 / 出售 / 刷新钩子', () => {
     expect(getBuciMods(run).recruitDiscountAfterDefeat).toBe(0);
   });
 
-  it('purchase 扑克牌：风雷益本次即享 -5，风天小畜额外 +1 张，水泽节返利', () => {
+  it('purchase 扑克牌：风雷益本次即享 -5，风天小畜额外 +1 张，水泽节返利（均一次性，购买后卡片消耗）', () => {
     const run = makeRun([cardFromCatalog('hex_feng_lei_yi'), cardFromCatalog('hex_feng_tian_xiao_chu'), cardFromCatalog('hex_shui_ze_jie')]);
     const t0 = run.tongbao;
     const item: ShopItem = { kind: 'card', card: { uid: 'x', suit: 'spade', rank: 10, rankLabel: '10', score: 10 }, price: 10 };
@@ -343,11 +346,13 @@ describe('商店 / 出售 / 刷新钩子', () => {
     // 10 支出；风雷益 -5（返 5）；水泽节返利 10%×10=1；风天小畜 +1 张随机
     expect(run.tongbao).toBe(t0 - 10 + 5 + 1);
     expect(run.cardPool.length).toBe(2);
-    expect(getBuciMods(run).cardBuyDiscount).toBe(5);
-    expect(getBuciMods(run).extraCardOnBuy).toBe(1);
+    // 三张卦卡片均一次性消耗
+    expect(findBuci(run, 'hex_feng_lei_yi')).toBeNull();
+    expect(findBuci(run, 'hex_feng_tian_xiao_chu')).toBeNull();
+    expect(findBuci(run, 'hex_shui_ze_jie')).toBeNull();
   });
 
-  it('effectiveRefreshPrice：雷风恒固定 5 / 水山蹇免费优先', () => {
+  it('effectiveRefreshPrice：雷风恒固定 5（仅本次刷新后清除） / 水山蹇免费优先', () => {
     const run = makeRun([]);
     run.buciMods = { refreshFixed: 5 };
     expect(effectiveRefreshPrice(run, 9)).toBe(5);
@@ -356,21 +361,27 @@ describe('商店 / 出售 / 刷新钩子', () => {
     expect(effectiveRefreshPrice(makeRun([]), 3)).toBe(REFRESH_BASE_PRICE + 3);
   });
 
-  it('generateShopStock：水地比折扣计入商品价', () => {
+  it('generateShopStock：水地比下一次商店折扣只作用一次库存（一次性）', () => {
     const run = makeRun([cardFromCatalog('hex_shui_di_bi')]);
     applyShopEnterHooks(run);
-    for (let seed = 1; seed <= 30; seed++) {
-      const stock = generateShopStock(run, createRng(seed));
-      for (const item of stock) {
-        if (item.kind === 'heal') {
-          expect(item.price).toBe(26); // 30 × 0.85 = 25.5 → round 26
-        }
+    expect(getBuciMods(run).nextShopDiscount).toBe(15); // 进店触发已设下一次折扣
+    // 第一次生成库存：水地比折扣计入商品价（若出天命回复则 30×0.85=26）
+    const first = generateShopStock(run, createRng(1));
+    for (const item of first) {
+      if (item.kind === 'heal') expect(item.price).toBe(26);
+    }
+    expect(getBuciMods(run).nextShopDiscount).toBe(0); // 折扣只作用本次库存后清空
+    // 第二次生成：折扣已清空，恢复正常价
+    for (let seed = 2; seed <= 30; seed++) {
+      const later = generateShopStock(run, createRng(seed));
+      for (const item of later) {
+        if (item.kind === 'heal') expect(item.price).toBe(30);
       }
     }
-    expect(getBuciMods(run).shopDiscount).toBe(15);
+    expect(findBuci(run, 'hex_shui_di_bi')).toBeNull(); // 卡片进店时已消耗
   });
 
-  it('applyShopEnterHooks：只触发+设置常驻（水风井/泽雷随/雷风恒/风山渐/水地比），发放由场景按常驻值统一处理', () => {
+  it('applyShopEnterHooks：进店触发卦象均一次性并直接结算', () => {
     const run = makeRun([
       cardFromCatalog('hex_shui_feng_jing'),
       cardFromCatalog('hex_ze_lei_sui'),
@@ -378,40 +389,36 @@ describe('商店 / 出售 / 刷新钩子', () => {
       cardFromCatalog('hex_feng_shan_jian'),
       cardFromCatalog('hex_shui_di_bi'),
     ]);
+    run.destiny = 50;
     const t0 = run.tongbao;
     applyShopEnterHooks(run);
     const mods = getBuciMods(run);
-    // 不重复发放：本次进店实际加成由场景读取常驻值执行
-    expect(run.tongbao).toBe(t0);
-    expect(mods.tongbaoPerShop).toBe(10);
-    expect(mods.healPerShop).toBe(10);
+    // 水风井：本次进店直接 +10 通宝；泽雷随：本次进店直接回 12 天命
+    expect(run.tongbao).toBe(t0 + 10);
+    expect(run.destiny).toBe(62);
+    // 雷风恒：设下一次刷新费固定；风山渐：设下一次带印概率；水地比：设下一次折扣
     expect(mods.refreshFixed).toBe(5);
     expect(mods.sealChanceUp).toBe(25);
-    expect(mods.shopDiscount).toBe(15);
-    expect(run.buciCards).toHaveLength(0); // 全部消耗
+    expect(mods.nextShopDiscount).toBe(15);
+    expect(run.buciCards).toHaveLength(0); // 全部一次性消耗
   });
 
-  it('applyNodeEnterHooks：水雷屯 只设置常驻每节点 +2', () => {
+  it('applyNodeEnterHooks：水雷屯 进入节点直接 +10 通宝（一次性）', () => {
     const run = makeRun([cardFromCatalog('hex_shui_lei_tun')]);
     const t0 = run.tongbao;
     applyNodeEnterHooks(run);
-    expect(getBuciMods(run).tongbaoPerNode).toBe(2);
-    expect(run.tongbao).toBe(t0); // 实际发放由场景按常驻值执行
+    expect(run.tongbao).toBe(t0 + 10);
     expect(findBuci(run, 'hex_shui_lei_tun')).toBeNull();
   });
 
-  it('场景按常驻值发放：水雷屯每节点 / 水风井每进店 / 泽雷随每进店', () => {
+  it('场景发放：水雷屯进节点 / 水风井进店 / 泽雷随进店均一次性直接结算', () => {
     const run = makeRun([cardFromCatalog('hex_shui_lei_tun'), cardFromCatalog('hex_shui_feng_jing'), cardFromCatalog('hex_ze_lei_sui')]);
     run.destiny = 50;
     applyNodeEnterHooks(run);
     applyShopEnterHooks(run);
-    // 场景统一发放
-    const mods = getBuciMods(run);
-    run.tongbao += mods.tongbaoPerNode;
-    run.tongbao += mods.tongbaoPerShop;
-    run.destiny = Math.min(run.destinyMax, run.destiny + mods.healPerShop);
-    expect(run.tongbao).toBe(1000 + 2 + 10);
-    expect(run.destiny).toBe(60);
+    expect(run.tongbao).toBe(1000 + 10 + 10);
+    expect(run.destiny).toBe(62);
+    expect(run.buciCards).toHaveLength(0); // 三张均消耗
   });
 });
 
@@ -426,7 +433,7 @@ describe('battleStartBuciMods 局内战斗开始', () => {
       cardFromCatalog('hex_feng_shui_huan'),
       cardFromCatalog('hex_huo_ze_kui'),
     ]);
-    // 主动卦先使用（离为火设常驻气数、火泽睽设移敌牌标记）
+    // 主动卦先使用（离为火设下一场气数、火泽睽设移敌牌标记）
     useSimpleActive(run, 'hex_li_wei_huo');
     useSimpleActive(run, 'hex_huo_ze_kui');
     const mods = battleStartBuciMods(run);
@@ -436,11 +443,11 @@ describe('battleStartBuciMods 局内战斗开始', () => {
     expect(mods.enemyHandDown).toBe(1);
     expect(mods.removeEnemyCards).toBe(true);
     expect(run.buciCards).toHaveLength(0); // 一次性全部消耗
-    // 二次调用不再有一/次性效果
+    // 二次调用不再有一/次性效果（离为火也按下一场一次性，已清除）
     const mods2 = battleStartBuciMods(run);
     expect(mods2.coefficientBoost).toBe(0);
     expect(mods2.removeEnemyCards).toBe(false);
-    expect(mods2.vitalityBonus).toBe(150); // 离为火常驻仍在
+    expect(mods2.vitalityBonus).toBe(0);
   });
 });
 

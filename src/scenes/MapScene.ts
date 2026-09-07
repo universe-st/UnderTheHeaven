@@ -364,10 +364,8 @@ export class MapScene extends Phaser.Scene {
     const run = RunManager.getRun();
     if (!run) return;
 
-    // 水雷屯：本局每进入节点 +N 通宝（触发一次性卦 + 按常驻值发放）
+    // 水雷屯：进入节点 +N 通宝（一次性触发并结算、消耗）
     applyNodeEnterHooks(run);
-    const enterMods = getBuciMods(run);
-    if (enterMods.tongbaoPerNode > 0) run.tongbao += enterMods.tongbaoPerNode;
     RunManager.save();
     this.refreshTopBar();
 

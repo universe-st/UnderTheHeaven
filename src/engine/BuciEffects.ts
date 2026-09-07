@@ -7,8 +7,9 @@
  * 设计定稿：docs/design/game/16-六十四卦卜辞牌设计.md（§16.5 效果 kind 清单）。
  */
 import type { RunState, BuCiCard, BuCiEffect, NodeType, BuciModifiers, MapNode } from '../models/RunState';
-import { getBuciMods, applyVictory, MAP_FLOORS } from '../models/RunState';
+import { getBuciMods, applyVictory, MAP_FLOORS, ROSTER_MAX } from '../models/RunState';
 import type { PlayerCharacterId } from '../models/Character';
+import { PLAYER_CHARACTER_LIST } from '../models/Character';
 import type { Card } from '../models/Card';
 import { getNextCardId, rankToLabel, SUITS, CARD_RANKS } from '../models/Card';
 import { randomFourSeal, randomSeal } from '../models/FourSeal';
@@ -50,23 +51,21 @@ function addDestiny(run: RunState, amount: number): void {
   clampDestiny(run);
 }
 
-/** 恢复类加天命：额外叠加兑为泽的"本局恢复效果 +N" */
+/** 恢复类加天命（兑为泽已改为一次性 +60，此处不再叠加恢复加成） */
 function healDestiny(run: RunState, amount: number): void {
-  const mods = getBuciMods(run);
-  run.destiny += amount + mods.regenBonus;
+  run.destiny += amount;
   clampDestiny(run);
 }
 
-/** 获得天命护盾：山地剥（获得护盾时触发，护盾量 +50% 常驻） */
+/** 获得天命护盾：山地剥（下一次获得护盾时护盾量 +50%，一次性，触发即消耗） */
 function addShield(run: RunState, amount: number): void {
   const bo = findBuci(run, 'hex_shan_di_bo');
-  if (bo?.effect.kind === 'shield_power_up') {
-    applyMods(run, { shieldPowerUp: getBuciMods(run).shieldPowerUp + bo.effect.percent });
+  let boosted = amount;
+  if (bo?.effect.kind === 'shield_power_up_next') {
+    boosted = Math.round(amount * (1 + bo.effect.percent / 100));
     consumeBuci(run, bo.id);
   }
-  const mods = getBuciMods(run);
-  const boosted = mods.shieldPowerUp > 0 ? Math.round(amount * (1 + mods.shieldPowerUp / 100)) : amount;
-  applyMods(run, { destinyShield: mods.destinyShield + boosted });
+  applyMods(run, { destinyShield: getBuciMods(run).destinyShield + boosted });
 }
 
 /** 生成一张随机标准扑克牌（风天小畜加牌 / 火天大有掉落用；风山渐加成带印概率） */
@@ -105,16 +104,15 @@ export function isSimpleActiveEffect(effect: BuCiEffect): boolean {
     case 'destiny_up':
     case 'destiny_max_down_cur_up':
     case 'destiny_max_up':
-    case 'destiny_heal_regen':
     case 'overdraw_heal':
     case 'heal_and_shield':
     case 'destiny_shield':
-    case 'tongbao_gain_interest':
+    case 'tongbao_gain':
     case 'tongbao_gain_discount':
-    case 'roster_max_up':
+    case 'instant_recruit':
     case 'recruit_discount':
     case 'refresh_free':
-    case 'vitality_up_all_battle':
+    case 'vitality_up_next_battle':
     case 'remove_enemy_card':
       return true;
     default:
@@ -141,11 +139,6 @@ export function applyDirectEffect(run: RunState, effect: BuCiEffect): string {
       run.destinyMax += effect.amount;
       return `天命上限 +${effect.amount}`;
     }
-    case 'destiny_heal_regen': {
-      healDestiny(run, effect.heal);
-      applyMods(run, { regenBonus: getBuciMods(run).regenBonus + effect.regenBonus });
-      return `天命 +${effect.heal}，本局恢复效果 +${effect.regenBonus}`;
-    }
     case 'overdraw_heal': {
       healDestiny(run, effect.heal);
       applyMods(run, { nextBattleRewardPenalty: getBuciMods(run).nextBattleRewardPenalty + effect.penalty });
@@ -160,19 +153,22 @@ export function applyDirectEffect(run: RunState, effect: BuCiEffect): string {
       addShield(run, effect.amount);
       return `护盾 +${effect.amount}`;
     }
-    case 'tongbao_gain_interest': {
+    case 'tongbao_gain': {
       run.tongbao += effect.amount;
-      applyMods(run, { interestBonusPercent: getBuciMods(run).interestBonusPercent + effect.interestPercent });
-      return `通宝 +${effect.amount}，本局利息 +${effect.interestPercent}%`;
+      return `通宝 +${effect.amount}`;
     }
     case 'tongbao_gain_discount': {
       run.tongbao += effect.amount;
       applyMods(run, { nextShopDiscount: getBuciMods(run).nextShopDiscount + effect.nextShopDiscount });
       return `通宝 +${effect.amount}，下次商店商品 -${effect.nextShopDiscount}%`;
     }
-    case 'roster_max_up': {
-      applyMods(run, { rosterMaxUp: getBuciMods(run).rosterMaxUp + effect.amount });
-      return `阵容上限 +${effect.amount}`;
+    case 'instant_recruit': {
+      if (run.roster.length >= ROSTER_MAX) return '阵容已满，无法招募';
+      const unrecruited = PLAYER_CHARACTER_LIST.filter((c) => !run.roster.includes(c.id));
+      if (unrecruited.length === 0) return '阵容已无未招募角色';
+      const pick = unrecruited[Math.floor(Math.random() * unrecruited.length)]!;
+      run.roster.push(pick.id);
+      return `招募【${pick.name}】入阵容`;
     }
     case 'recruit_discount': {
       applyMods(run, { recruitDiscount: Math.max(getBuciMods(run).recruitDiscount, effect.percent) });
@@ -182,9 +178,9 @@ export function applyDirectEffect(run: RunState, effect: BuCiEffect): string {
       applyMods(run, { freeRefreshCount: getBuciMods(run).freeRefreshCount + 1 });
       return '商店刷新免费 1 次';
     }
-    case 'vitality_up_all_battle': {
-      applyMods(run, { vitalityUpAllBattle: getBuciMods(run).vitalityUpAllBattle + effect.amount });
-      return `本局所有战斗气数上限 +${effect.amount}`;
+    case 'vitality_up_next_battle': {
+      applyMods(run, { vitalityUpNextBattle: getBuciMods(run).vitalityUpNextBattle + effect.amount });
+      return `下一场战斗气数上限 +${effect.amount}`;
     }
     case 'remove_enemy_card': {
       applyMods(run, { removeEnemyCardNext: true });
@@ -534,55 +530,55 @@ export function triggerExtraHealOnActive(run: RunState): string | null {
 }
 
 /**
- * 进入节点时触发：水雷屯 本局每节点 +N 通宝（触发即设置常驻；每次进入的实际发放由场景按
- * mods.tongbaoPerNode 统一处理，避免首次重复发放）。命中则消耗并返回描述。
+ * 进入节点时触发：水雷屯 下一次进入节点 +N 通宝（触发即结算 + 消耗，一次性）。
+ * 命中则消耗并返回描述。
  */
 export function applyNodeEnterHooks(run: RunState): string | null {
   const card = findBuci(run, 'hex_shui_lei_tun');
-  if (card?.effect.kind !== 'tongbao_per_node') return null;
-  const mods = getBuciMods(run);
-  applyMods(run, { tongbaoPerNode: mods.tongbaoPerNode + card.effect.amount });
+  if (card?.effect.kind !== 'tongbao_per_node_next') return null;
+  run.tongbao += card.effect.amount;
   consumeBuci(run, card.id);
-  return `【水雷屯】本局每节点 +${card.effect.amount} 通宝`;
+  return `【水雷屯】进入节点 +${card.effect.amount} 通宝`;
 }
 
 /**
- * 进入黄金台时触发（场景在生成库存前调用，每次进店按常驻值统一发放）：
- * 水风井 每次进店 +N 通宝 / 泽雷随 每次进店回 N 天命 /
- * 雷风恒 刷新价固定 / 风山渐 带印概率 +25% / 水地比 商品 -15%。
+ * 进店时触发的卦象（全部一次性：触发即结算并消耗，不留常驻）：
+ * 水风井 进店 +N 通宝 / 泽雷随 进店回 N 天命 / 水地比 下一次商店商品 -15% /
+ * 雷诺恒 下一次刷新价固定（由刷新按钮按 refreshFixed 结算后清除）。
+ * 返回提示数组。
  */
 export function applyShopEnterHooks(run: RunState): string[] {
   const notes: string[] = [];
 
   const jing = findBuci(run, 'hex_shui_feng_jing');
-  if (jing?.effect.kind === 'tongbao_per_shop') {
-    applyMods(run, { tongbaoPerShop: getBuciMods(run).tongbaoPerShop + jing.effect.amount });
+  if (jing?.effect.kind === 'tongbao_per_shop_next') {
+    run.tongbao += jing.effect.amount;
     consumeBuci(run, jing.id);
-    notes.push(`【水风井】每次进店 +${jing.effect.amount} 通宝`);
+    notes.push(`【水风井】进店 +${jing.effect.amount} 通宝`);
   }
   const sui = findBuci(run, 'hex_ze_lei_sui');
-  if (sui?.effect.kind === 'heal_on_shop') {
-    applyMods(run, { healPerShop: getBuciMods(run).healPerShop + sui.effect.amount });
+  if (sui?.effect.kind === 'heal_on_shop_next') {
+    healDestiny(run, sui.effect.amount);
     consumeBuci(run, sui.id);
-    notes.push(`【泽雷随】每次进店回 ${sui.effect.amount} 天命`);
+    notes.push(`【泽雷随】进店回 ${sui.effect.amount} 天命`);
   }
   const heng = findBuci(run, 'hex_lei_feng_heng');
-  if (heng?.effect.kind === 'refresh_fixed') {
+  if (heng?.effect.kind === 'refresh_fixed_next') {
     applyMods(run, { refreshFixed: heng.effect.price });
     consumeBuci(run, heng.id);
-    notes.push(`【雷风恒】刷新费用固定为 ${heng.effect.price} 通宝`);
+    notes.push(`【雷风恒】下一次刷新费固定为 ${heng.effect.price} 通宝`);
   }
   const jian = findBuci(run, 'hex_feng_shan_jian');
-  if (jian?.effect.kind === 'seal_chance_up') {
+  if (jian?.effect.kind === 'seal_chance_up_next') {
     applyMods(run, { sealChanceUp: getBuciMods(run).sealChanceUp + jian.effect.percent });
     consumeBuci(run, jian.id);
-    notes.push(`【风山渐】带印概率 +${jian.effect.percent}%`);
+    notes.push(`【风山渐】下一次商店带印概率 +${jian.effect.percent}%`);
   }
   const bi = findBuci(run, 'hex_shui_di_bi');
-  if (bi?.effect.kind === 'shop_discount') {
-    applyMods(run, { shopDiscount: getBuciMods(run).shopDiscount + bi.effect.percent });
+  if (bi?.effect.kind === 'shop_discount_next') {
+    applyMods(run, { nextShopDiscount: getBuciMods(run).nextShopDiscount + bi.effect.percent });
     consumeBuci(run, bi.id);
-    notes.push(`【水地比】商店商品 -${bi.effect.percent}%`);
+    notes.push(`【水地比】下一次商店商品 -${bi.effect.percent}%`);
   }
   return notes;
 }
@@ -615,45 +611,36 @@ export function applyBuciPurchaseHooks(run: RunState, item: { kind: string; pric
   const mods = getBuciMods(run);
 
   if (item.kind === 'card') {
+    // 风雷益：下一次购买扑克牌价 -N（一次性，本次即享并消耗卡片）
     const yi = findBuci(run, 'hex_feng_lei_yi');
-    if (yi?.effect.kind === 'card_buy_discount') {
-      applyMods(run, { cardBuyDiscount: mods.cardBuyDiscount + yi.effect.amount });
-      consumeBuci(run, yi.id);
-      notes.push(`【风雷益】扑克牌 -${yi.effect.amount} 通宝`);
-    }
-    const newMods = getBuciMods(run);
-    if (newMods.cardBuyDiscount > 0) {
-      // 本次购买即享（价格在生成库存时未含此折扣）
-      const rebate = Math.min(newMods.cardBuyDiscount, item.price - 1);
+    if (yi?.effect.kind === 'card_buy_discount_next') {
+      const rebate = Math.min(yi.effect.amount, item.price - 1);
       if (rebate > 0) {
         run.tongbao += rebate;
+        notes.push(`【风雷益】扑克牌 -${rebate} 通宝`);
       }
+      consumeBuci(run, yi.id);
     }
+    // 风天小畜：下一次购买扑克牌额外 +N 张（一次性，本次发放并消耗卡片）
     const chu = findBuci(run, 'hex_feng_tian_xiao_chu');
-    if (chu?.effect.kind === 'extra_card_on_buy') {
-      applyMods(run, { extraCardOnBuy: getBuciMods(run).extraCardOnBuy + chu.effect.count });
-      consumeBuci(run, chu.id);
+    if (chu?.effect.kind === 'extra_card_on_buy_next') {
+      for (let i = 0; i < chu.effect.count; i++) {
+        run.cardPool.push(makeRandomCard(Math.random, getBuciMods(run).sealChanceUp));
+      }
       notes.push(`【风天小畜】购买扑克牌额外 +${chu.effect.count} 张`);
-    }
-    const extra = getBuciMods(run).extraCardOnBuy;
-    for (let i = 0; i < extra; i++) {
-      run.cardPool.push(makeRandomCard(Math.random, getBuciMods(run).sealChanceUp));
+      consumeBuci(run, chu.id);
     }
   }
 
+  // 水泽节：下一次购买返还 N% 通宝（一次性，本次结算并消耗卡片）
   const jie = findBuci(run, 'hex_shui_ze_jie');
-  if (jie?.effect.kind === 'cashback') {
-    applyMods(run, { cashbackPercent: getBuciMods(run).cashbackPercent + jie.effect.percent });
-    consumeBuci(run, jie.id);
-    notes.push(`【水泽节】购买返还 ${jie.effect.percent}% 通宝`);
-  }
-  const cashback = getBuciMods(run).cashbackPercent;
-  if (cashback > 0) {
-    const refund = Math.round((item.price * cashback) / 100);
+  if (jie?.effect.kind === 'cashback_next') {
+    const refund = Math.round((item.price * jie.effect.percent) / 100);
     if (refund > 0) {
       run.tongbao += refund;
-      notes.push(`返利 +${refund} 通宝`);
+      notes.push(`【水泽节】购买返还 +${refund} 通宝`);
     }
+    consumeBuci(run, jie.id);
   }
 
   if (item.kind === 'character') {
@@ -780,8 +767,14 @@ export function battleStartBuciMods(run: RunState): {
     applyMods(run, { removeEnemyCardNext: false });
     notes.push('【火泽睽】移除敌方 1 张牌');
   }
+  // 离为火：下一场战斗气数上限 +N（一次性，本次战斗读取后清除，卡片已在主动使用时消耗）
+  const vitalityBonus = mods.vitalityUpNextBattle;
+  if (vitalityBonus > 0) {
+    applyMods(run, { vitalityUpNextBattle: 0 });
+    notes.push(`【离为火】本场战斗气数上限 +${vitalityBonus}`);
+  }
   return {
-    vitalityBonus: mods.vitalityUpAllBattle,
+    vitalityBonus,
     coefficientBoost,
     handBonus,
     enemyHandDown,

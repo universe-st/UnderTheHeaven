@@ -91,12 +91,12 @@ describe('RunManager', () => {
     run.buciCards = [
       { id: 'hex_qian_wei_tian', name: '乾为天', upper: '乾', lower: '乾', price: 50, type: 'active', rarity: 'legendary', usage: ['shop', 'battle'], count: 1, desc: '天命上限+15，天命+15', effect: { kind: 'destiny_up', maxInc: 15, curInc: 15 } },
     ];
-    run.buciMods = { shopDiscount: 15 };
+    run.buciMods = { nextShopDiscount: 15 };
     localStorage.setItem('uth_run_save', JSON.stringify({ version: 1, run }));
     expect(load()).toBe(true);
     expect(getRun()!.buciCards).toHaveLength(1);
     expect(getRun()!.buciCards[0]!.rarity).toBe('legendary');
-    expect(getRun()!.buciMods).toEqual({ shopDiscount: 15 });
+    expect(getRun()!.buciMods).toEqual({ nextShopDiscount: 15 });
   });
 
   it('load returns false when there is no save', () => {

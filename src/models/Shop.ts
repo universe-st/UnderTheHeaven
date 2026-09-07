@@ -33,7 +33,7 @@ export const HEXAGRAM_CATALOG: { buci: BuCiCard; price: number }[] = [
 
   // ═══ 地宫（上坤 · 阵容与招募）═══
   { buci: { id: 'hex_kun_wei_di', name: '坤为地', upper: '坤', lower: '坤', price: 50, type: 'active', rarity: 'legendary', usage: [...DEFAULT_USAGE], desc: '牌库随机 7 张中选 2 张赐玄武印（不足则全选）', effect: { kind: 'grant_seal_to_pool', pick: 2, candidates: 7 }, count: 1 }, price: 50 },
-  { buci: { id: 'hex_di_tian_tai', name: '地天泰', upper: '坤', lower: '乾', price: 40, type: 'active', rarity: 'rare', usage: [...DEFAULT_USAGE], desc: '阵容上限 +1（本局，可叠加）', effect: { kind: 'roster_max_up', amount: 1 }, count: 1 }, price: 40 },
+  { buci: { id: 'hex_di_tian_tai', name: '地天泰', upper: '坤', lower: '乾', price: 40, type: 'active', rarity: 'rare', usage: [...DEFAULT_USAGE], desc: '随机招募一名未招募角色入阵容（一次性，阵容未满时可用）', effect: { kind: 'instant_recruit' }, count: 1 }, price: 40 },
   { buci: { id: 'hex_di_shui_shi', name: '地水师', upper: '坤', lower: '坎', price: 40, type: 'passive', rarity: 'rare', usage: [], desc: '招募一名角色时，牌库随机 2 张获玄武印', effect: { kind: 'grant_seal_on_recruit', count: 2 }, count: 1 }, price: 40 },
   { buci: { id: 'hex_di_lei_fu', name: '地雷复', upper: '坤', lower: '震', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '角色被移除时返还 15 通宝', effect: { kind: 'refund_on_remove_character', amount: 15 }, count: 1 }, price: 30 },
   { buci: { id: 'hex_di_ze_lin', name: '地泽临', upper: '坤', lower: '兑', price: 30, type: 'active', rarity: 'fine', usage: [...DEFAULT_USAGE], desc: '下次招募角色费用 -30%', effect: { kind: 'recruit_discount', percent: 30 }, count: 1 }, price: 30 },
@@ -44,7 +44,7 @@ export const HEXAGRAM_CATALOG: { buci: BuCiCard; price: number }[] = [
   // ═══ 雷宫（上震 · 速度与推进）═══
   { buci: { id: 'hex_zhen_wei_lei', name: '震为雷', upper: '震', lower: '震', price: 50, type: 'active', rarity: 'legendary', usage: ['map', ...DEFAULT_USAGE], desc: '选择任一未通过节点，按胜利结算直接通过', effect: { kind: 'pass_any_node' }, count: 1 }, price: 50 },
   { buci: { id: 'hex_lei_di_yu', name: '雷地豫', upper: '震', lower: '坤', price: 40, type: 'passive', rarity: 'rare', usage: [], desc: '本场战斗节点胜利通宝奖励 ×2', effect: { kind: 'battle_reward_mult', mult: 2 }, count: 1 }, price: 40 },
-  { buci: { id: 'hex_lei_feng_heng', name: '雷风恒', upper: '震', lower: '巽', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '商店刷新费用固定为 5 通宝（不再递增）', effect: { kind: 'refresh_fixed', price: 5 }, count: 1 }, price: 30 },
+  { buci: { id: 'hex_lei_feng_heng', name: '雷风恒', upper: '震', lower: '巽', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '下一次商店刷新费用固定为 5 通宝（一次性）', effect: { kind: 'refresh_fixed_next', price: 5 }, count: 1 }, price: 30 },
   { buci: { id: 'hex_lei_tian_da_zhuang', name: '雷天大壮', upper: '震', lower: '乾', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: 'Boss 节点胜利通宝奖励 ×2', effect: { kind: 'boss_reward_mult', mult: 2 }, count: 1 }, price: 30 },
   { buci: { id: 'hex_lei_shui_jie', name: '雷水解', upper: '震', lower: '坎', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '事件节点扣天命/通宝类选项代价减半（一次）', effect: { kind: 'event_cost_half' }, count: 1 }, price: 20 },
   { buci: { id: 'hex_lei_ze_gui_mei', name: '雷泽归妹', upper: '震', lower: '兑', price: 40, type: 'active', rarity: 'rare', usage: ['map', ...DEFAULT_USAGE], desc: '立即推进一层（跳过本层剩余节点，无奖励）', effect: { kind: 'advance_floor' }, count: 1 }, price: 40 },
@@ -53,26 +53,26 @@ export const HEXAGRAM_CATALOG: { buci: BuCiCard; price: number }[] = [
 
   // ═══ 风宫（上巽 · 牌库与牌组）═══
   { buci: { id: 'hex_xun_wei_feng', name: '巽为风', upper: '巽', lower: '巽', price: 50, type: 'active', rarity: 'legendary', usage: [...DEFAULT_USAGE], desc: '从牌库移除最多 3 张牌，每移除 1 张 +8 通宝', effect: { kind: 'remove_cards_for_tongbao', max: 3, per: 8 }, count: 1 }, price: 50 },
-  { buci: { id: 'hex_feng_tian_xiao_chu', name: '风天小畜', upper: '巽', lower: '乾', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '购买扑克牌时额外获得 1 张随机扑克牌', effect: { kind: 'extra_card_on_buy', count: 1 }, count: 1 }, price: 30 },
+  { buci: { id: 'hex_feng_tian_xiao_chu', name: '风天小畜', upper: '巽', lower: '乾', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '下一次购买扑克牌时，额外获得 1 张随机扑克牌（一次性）', effect: { kind: 'extra_card_on_buy_next', count: 1 }, count: 1 }, price: 30 },
   { buci: { id: 'hex_feng_di_guan', name: '风地观', upper: '巽', lower: '坤', price: 40, type: 'passive', rarity: 'rare', usage: [], desc: '每场战斗开始手牌 +1', effect: { kind: 'battle_start_hand', amount: 1 }, count: 1 }, price: 40 },
   { buci: { id: 'hex_feng_huo_jia_ren', name: '风火家人', upper: '巽', lower: '离', price: 30, type: 'active', rarity: 'fine', usage: [...DEFAULT_USAGE], desc: '牌库选 1 张复制 1 张加入牌库', effect: { kind: 'copy_card_to_pool', count: 1 }, count: 1 }, price: 30 },
-  { buci: { id: 'hex_feng_lei_yi', name: '风雷益', upper: '巽', lower: '震', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '购买扑克牌价格 -5', effect: { kind: 'card_buy_discount', amount: 5 }, count: 1 }, price: 20 },
-  { buci: { id: 'hex_feng_shan_jian', name: '风山渐', upper: '巽', lower: '艮', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '带印扑克牌出现概率 +25%（商店）', effect: { kind: 'seal_chance_up', percent: 25 }, count: 1 }, price: 30 },
+  { buci: { id: 'hex_feng_lei_yi', name: '风雷益', upper: '巽', lower: '震', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '下一次购买扑克牌价格 -5（一次性）', effect: { kind: 'card_buy_discount_next', amount: 5 }, count: 1 }, price: 20 },
+  { buci: { id: 'hex_feng_shan_jian', name: '风山渐', upper: '巽', lower: '艮', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '下一次商店带印扑克牌出现概率 +25%（一次性）', effect: { kind: 'seal_chance_up_next', percent: 25 }, count: 1 }, price: 30 },
   { buci: { id: 'hex_feng_shui_huan', name: '风水涣', upper: '巽', lower: '坎', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '战斗开始时敌方手牌 -1', effect: { kind: 'enemy_hand_down', amount: 1 }, count: 1 }, price: 20 },
   { buci: { id: 'hex_feng_ze_zhong_fu', name: '风泽中孚', upper: '巽', lower: '兑', price: 40, type: 'passive', rarity: 'rare', usage: [], desc: '战斗胜利时牌库随机 2 张各 +1 点数', effect: { kind: 'pool_score_up_on_win', count: 2, inc: 1 }, count: 1 }, price: 40 },
 
   // ═══ 水宫（上坎 · 经济与通宝）═══
-  { buci: { id: 'hex_kan_wei_shui', name: '坎为水', upper: '坎', lower: '坎', price: 50, type: 'active', rarity: 'legendary', usage: [...DEFAULT_USAGE], desc: '通宝 +60，且本局通宝利息 +50%', effect: { kind: 'tongbao_gain_interest', amount: 60, interestPercent: 50 }, count: 1 }, price: 50 },
-  { buci: { id: 'hex_shui_lei_tun', name: '水雷屯', upper: '坎', lower: '震', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '每进入一个节点 +2 通宝', effect: { kind: 'tongbao_per_node', amount: 2 }, count: 1 }, price: 20 },
+  { buci: { id: 'hex_kan_wei_shui', name: '坎为水', upper: '坎', lower: '坎', price: 50, type: 'active', rarity: 'legendary', usage: [...DEFAULT_USAGE], desc: '通宝 +150（一次性）', effect: { kind: 'tongbao_gain', amount: 150 }, count: 1 }, price: 50 },
+  { buci: { id: 'hex_shui_lei_tun', name: '水雷屯', upper: '坎', lower: '震', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '下一次进入节点 +10 通宝（一次性）', effect: { kind: 'tongbao_per_node_next', amount: 10 }, count: 1 }, price: 20 },
   { buci: { id: 'hex_shui_tian_xu', name: '水天需', upper: '坎', lower: '乾', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '下次出售物品返还全价（一次）', effect: { kind: 'sell_full_price' }, count: 1 }, price: 30 },
-  { buci: { id: 'hex_shui_di_bi', name: '水地比', upper: '坎', lower: '坤', price: 40, type: 'passive', rarity: 'rare', usage: [], desc: '商店商品价格 -15%', effect: { kind: 'shop_discount', percent: 15 }, count: 1 }, price: 40 },
+  { buci: { id: 'hex_shui_di_bi', name: '水地比', upper: '坎', lower: '坤', price: 40, type: 'passive', rarity: 'rare', usage: [], desc: '下一次商店商品价格 -15%（一次性）', effect: { kind: 'shop_discount_next', percent: 15 }, count: 1 }, price: 40 },
   { buci: { id: 'hex_shui_shan_jian', name: '水山蹇', upper: '坎', lower: '艮', price: 30, type: 'active', rarity: 'fine', usage: [...DEFAULT_USAGE], desc: '商店刷新免费 1 次', effect: { kind: 'refresh_free' }, count: 1 }, price: 30 },
-  { buci: { id: 'hex_shui_feng_jing', name: '水风井', upper: '坎', lower: '巽', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '每次进入黄金台 +10 通宝', effect: { kind: 'tongbao_per_shop', amount: 10 }, count: 1 }, price: 20 },
-  { buci: { id: 'hex_shui_ze_jie', name: '水泽节', upper: '坎', lower: '兑', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '购买物品返还 10% 通宝（节流）', effect: { kind: 'cashback', percent: 10 }, count: 1 }, price: 30 },
+  { buci: { id: 'hex_shui_feng_jing', name: '水风井', upper: '坎', lower: '巽', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '下一次进入黄金台 +10 通宝（一次性）', effect: { kind: 'tongbao_per_shop_next', amount: 10 }, count: 1 }, price: 20 },
+  { buci: { id: 'hex_shui_ze_jie', name: '水泽节', upper: '坎', lower: '兑', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '下一次购买物品返还 10% 通宝（一次性）', effect: { kind: 'cashback_next', percent: 10 }, count: 1 }, price: 30 },
   { buci: { id: 'hex_shui_huo_ji_ji', name: '水火既济', upper: '坎', lower: '离', price: 40, type: 'active', rarity: 'rare', usage: [...DEFAULT_USAGE], desc: '通宝 +40，且本局下一次商店商品 -20%', effect: { kind: 'tongbao_gain_discount', amount: 40, nextShopDiscount: 20 }, count: 1 }, price: 40 },
 
   // ═══ 火宫（上离 · 战斗与伤害）═══
-  { buci: { id: 'hex_li_wei_huo', name: '离为火', upper: '离', lower: '离', price: 50, type: 'active', rarity: 'legendary', usage: [...DEFAULT_USAGE], desc: '本局所有战斗气数上限 +150', effect: { kind: 'vitality_up_all_battle', amount: 150 }, count: 1 }, price: 50 },
+  { buci: { id: 'hex_li_wei_huo', name: '离为火', upper: '离', lower: '离', price: 50, type: 'active', rarity: 'legendary', usage: [...DEFAULT_USAGE], desc: '下一场战斗气数上限 +150（一次性）', effect: { kind: 'vitality_up_next_battle', amount: 150 }, count: 1 }, price: 50 },
   { buci: { id: 'hex_huo_tian_da_you', name: '火天大有', upper: '离', lower: '乾', price: 40, type: 'passive', rarity: 'rare', usage: [], desc: '战斗节点胜利时牌库随机 1 张扑克牌入牌库', effect: { kind: 'drop_card_on_win', count: 1 }, count: 1 }, price: 40 },
   { buci: { id: 'hex_huo_lei_shi_ke', name: '火雷噬嗑', upper: '离', lower: '震', price: 40, type: 'passive', rarity: 'rare', usage: [], desc: '下一场战斗牌型系数 +1', effect: { kind: 'battle_coefficient_boost', amount: 1 }, count: 1 }, price: 40 },
   { buci: { id: 'hex_huo_di_jin', name: '火地晋', upper: '离', lower: '坤', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '精英节点胜利额外 +20 通宝', effect: { kind: 'elite_reward_extra', amount: 20 }, count: 1 }, price: 30 },
@@ -85,15 +85,15 @@ export const HEXAGRAM_CATALOG: { buci: BuCiCard; price: number }[] = [
   { buci: { id: 'hex_gen_wei_shan', name: '艮为山', upper: '艮', lower: '艮', price: 50, type: 'active', rarity: 'legendary', usage: [...DEFAULT_USAGE], desc: '获得 60 点天命护盾（抵挡后续天命扣减）', effect: { kind: 'destiny_shield', amount: 60 }, count: 1 }, price: 50 },
   { buci: { id: 'hex_shan_feng_gu', name: '山风蛊', upper: '艮', lower: '巽', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '战斗失败天命扣减减半（一次）', effect: { kind: 'defeat_loss_half' }, count: 1 }, price: 30 },
   { buci: { id: 'hex_shan_huo_bi', name: '山火贲', upper: '艮', lower: '离', price: 30, type: 'active', rarity: 'fine', usage: [...DEFAULT_USAGE], desc: '天命 +15，并获得 15 点护盾', effect: { kind: 'heal_and_shield', heal: 15, shield: 15 }, count: 1 }, price: 30 },
-  { buci: { id: 'hex_shan_di_bo', name: '山地剥', upper: '艮', lower: '坤', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '天命护盾效果 +50%（获得护盾时生效）', effect: { kind: 'shield_power_up', percent: 50 }, count: 1 }, price: 20 },
+  { buci: { id: 'hex_shan_di_bo', name: '山地剥', upper: '艮', lower: '坤', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '下一次获得天命护盾时，护盾量 +50%（一次性）', effect: { kind: 'shield_power_up_next', percent: 50 }, count: 1 }, price: 20 },
   { buci: { id: 'hex_shan_tian_da_xu', name: '山天大畜', upper: '艮', lower: '乾', price: 40, type: 'active', rarity: 'rare', usage: [...DEFAULT_USAGE], desc: '天命上限 +20', effect: { kind: 'destiny_max_up', amount: 20 }, count: 1 }, price: 40 },
   { buci: { id: 'hex_shan_lei_yi', name: '山雷颐', upper: '艮', lower: '震', price: 40, type: 'passive', rarity: 'rare', usage: [], desc: '本局第一次战斗失败不扣天命', effect: { kind: 'first_defeat_no_loss' }, count: 1 }, price: 40 },
   { buci: { id: 'hex_shan_ze_sun', name: '山泽损', upper: '艮', lower: '兑', price: 30, type: 'active', rarity: 'fine', usage: [...DEFAULT_USAGE], desc: '移除牌库 1 张牌，天命 +20（无牌不可用）', effect: { kind: 'remove_card_heal', heal: 20 }, count: 1 }, price: 30 },
   { buci: { id: 'hex_shan_shui_meng', name: '山水蒙', upper: '艮', lower: '坎', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '抵挡一次事件节点造成的天命扣减', effect: { kind: 'block_event_destiny_loss' }, count: 1 }, price: 20 },
 
   // ═══ 泽宫（上兑 · 回复与资源）═══
-  { buci: { id: 'hex_dui_wei_ze', name: '兑为泽', upper: '兑', lower: '兑', price: 50, type: 'active', rarity: 'legendary', usage: [...DEFAULT_USAGE], desc: '天命 +40，且本局天命恢复效果 +5', effect: { kind: 'destiny_heal_regen', heal: 40, regenBonus: 5 }, count: 1 }, price: 50 },
-  { buci: { id: 'hex_ze_lei_sui', name: '泽雷随', upper: '兑', lower: '震', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '每次进入黄金台回复 10 天命', effect: { kind: 'heal_on_shop', amount: 10 }, count: 1 }, price: 20 },
+  { buci: { id: 'hex_dui_wei_ze', name: '兑为泽', upper: '兑', lower: '兑', price: 50, type: 'active', rarity: 'legendary', usage: [...DEFAULT_USAGE], desc: '天命 +60（一次性）', effect: { kind: 'destiny_up', maxInc: 0, curInc: 60 }, count: 1 }, price: 50 },
+  { buci: { id: 'hex_ze_lei_sui', name: '泽雷随', upper: '兑', lower: '震', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '下一次进入黄金台回复 12 天命（一次性）', effect: { kind: 'heal_on_shop_next', amount: 12 }, count: 1 }, price: 20 },
   { buci: { id: 'hex_ze_feng_da_guo', name: '泽风大过', upper: '兑', lower: '巽', price: 40, type: 'active', rarity: 'rare', usage: [...DEFAULT_USAGE], desc: '天命 +35，但下一场战斗胜利通宝奖励 -20', effect: { kind: 'overdraw_heal', heal: 35, penalty: 20 }, count: 1 }, price: 40 },
   { buci: { id: 'hex_ze_shan_xian', name: '泽山咸', upper: '兑', lower: '艮', price: 30, type: 'passive', rarity: 'fine', usage: [], desc: '使用其他主动卦时额外回 5 天命', effect: { kind: 'extra_heal_on_active', amount: 5 }, count: 1 }, price: 30 },
   { buci: { id: 'hex_ze_di_cui', name: '泽地萃', upper: '兑', lower: '坤', price: 20, type: 'passive', rarity: 'common', usage: [], desc: '事件选择非负面选项时额外回 8 天命', effect: { kind: 'heal_on_good_event', amount: 8 }, count: 1 }, price: 20 },
@@ -289,10 +289,10 @@ export function generateShopStock(run: RunState, rng: () => number): ShopItem[] 
   const items: ShopItem[] = [];
   const wantHeal = rng() < HEAL_CHANCE;
 
-  const goodsDiscount = mods.shopDiscount + mods.nextShopDiscount;
+  const goodsDiscount = mods.nextShopDiscount;
   const recruitDiscount = mods.recruitDiscount + mods.recruitDiscountAfterDefeat;
 
-  const rosterMax = ROSTER_MAX + mods.rosterMaxUp;
+  const rosterMax = ROSTER_MAX;
   const rosterFull = run.roster.length >= rosterMax;
   const unrecruited = PLAYER_CHARACTER_LIST.filter((c) => !run.roster.includes(c.id));
   const maxCharSlots = wantHeal ? 2 : 3;
@@ -322,9 +322,13 @@ export function generateShopStock(run: RunState, rng: () => number): ShopItem[] 
     items.push({ ...HEAL_ITEM, price: discountedPrice(HEAL_ITEM.price, goodsDiscount) });
   }
 
-  // 水火既济：折扣只作用于"下一次商店"的本次库存
+  // 折扣只作用于"下一次商店"的本次库存：水火既济 / 水地比
   if (mods.nextShopDiscount > 0) {
     run.buciMods = { ...mods, nextShopDiscount: 0 };
+  }
+  // 风山渐：带印概率只作用于"下一次商店"的本次库存（卡片进店时已消耗，这里清空修饰）
+  if (mods.sealChanceUp > 0) {
+    run.buciMods = { ...run.buciMods, sealChanceUp: 0 };
   }
 
   return items;
@@ -339,7 +343,7 @@ export function purchase(run: RunState, item: ShopItem): boolean {
   if (run.tongbao < item.price) {
     return false;
   }
-  const rosterMax = ROSTER_MAX + getBuciMods(run).rosterMaxUp;
+  const rosterMax = ROSTER_MAX;
   if (item.kind === 'character' && (run.roster.length >= rosterMax || run.roster.includes(item.characterId))) {
     return false;
   }

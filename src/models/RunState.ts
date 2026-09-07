@@ -63,19 +63,18 @@ export type BuCiEffect =
   | { kind: 'save_from_zero' } // 天泽履
   | { kind: 'destiny_shield'; amount: number } // 艮为山
   | { kind: 'heal_and_shield'; heal: number; shield: number } // 山火贲
-  | { kind: 'shield_power_up'; percent: number } // 山地剥
+  | { kind: 'shield_power_up_next'; percent: number } // 山地剥：下一次获得护盾 +50%
   | { kind: 'defeat_loss_half' } // 山风蛊
   | { kind: 'first_defeat_no_loss' } // 山雷颐
   | { kind: 'defeat_loss_to_max'; maxDown: number } // 火水未济
   | { kind: 'block_event_destiny_loss' } // 山水蒙
   | { kind: 'destiny_max_up'; amount: number } // 山天大畜
   // ── 天命回复（泽宫） ──
-  | { kind: 'destiny_heal_regen'; heal: number; regenBonus: number } // 兑为泽
   | { kind: 'overdraw_heal'; heal: number; penalty: number } // 泽风大过
   | { kind: 'remove_card_heal'; heal: number } // 山泽损
   | { kind: 'destiny_up_on_battle_win'; amount: number } // 天火同人
   | { kind: 'win_heal_if_low'; amount: number; threshold: number } // 泽水困
-  | { kind: 'heal_on_shop'; amount: number } // 泽雷随
+  | { kind: 'heal_on_shop_next'; amount: number } // 泽雷随：下一次进店回天命
   | { kind: 'extra_heal_on_active'; amount: number } // 泽山咸
   | { kind: 'heal_on_good_event'; amount: number } // 泽地萃
   | { kind: 'destiny_up_on_recruit'; amount: number } // 地风升
@@ -88,21 +87,21 @@ export type BuCiEffect =
   | { kind: 'event_tongbao_mult'; mult: number } // 雷火丰
   // ── 阵容 / 招募（地宫） ──
   | { kind: 'remove_character'; amount: number } // 天风姤
-  | { kind: 'roster_max_up'; amount: number } // 地天泰
+  | { kind: 'instant_recruit' } // 地天泰：随机招募一名未招募角色入阵容（一次性）
   | { kind: 'recruit_discount'; percent: number } // 地泽临
   | { kind: 'recruit_discount_after_defeat'; percent: number } // 地火明夷
   | { kind: 'refund_on_remove_character'; amount: number } // 地雷复
   // ── 通宝 / 经济（水宫） ──
-  | { kind: 'tongbao_gain_interest'; amount: number; interestPercent: number } // 坎为水
+  | { kind: 'tongbao_gain'; amount: number } // 坎为水
   | { kind: 'tongbao_gain_discount'; amount: number; nextShopDiscount: number } // 水火既济
   | { kind: 'sell_full_price' } // 水天需
   | { kind: 'sell_bonus'; percent: number } // 地山谦
-  | { kind: 'shop_discount'; percent: number } // 水地比
-  | { kind: 'cashback'; percent: number } // 水泽节
+  | { kind: 'shop_discount_next'; percent: number } // 水地比：下一次商店商品 -15%
+  | { kind: 'cashback_next'; percent: number } // 水泽节：下一次购买返还 10%
   | { kind: 'refresh_free' } // 水山蹇
-  | { kind: 'refresh_fixed'; price: number } // 雷风恒
-  | { kind: 'tongbao_per_node'; amount: number } // 水雷屯
-  | { kind: 'tongbao_per_shop'; amount: number } // 水风井
+  | { kind: 'refresh_fixed_next'; price: number } // 雷风恒：下一次刷新费用固定
+  | { kind: 'tongbao_per_node_next'; amount: number } // 水雷屯：下一次进节点
+  | { kind: 'tongbao_per_shop_next'; amount: number } // 水风井：下一次进店
   | { kind: 'replace_shop_item' } // 泽火革
   // ── 战斗奖励（雷宫·火宫） ──
   | { kind: 'battle_reward_mult'; mult: number } // 雷地豫
@@ -118,11 +117,11 @@ export type BuCiEffect =
   | { kind: 'pool_score_up_on_win'; count: number; inc: number } // 风泽中孚
   | { kind: 'remove_cards_for_tongbao'; max: number; per: number } // 巽为风
   | { kind: 'copy_card_to_pool'; count: number } // 风火家人
-  | { kind: 'extra_card_on_buy'; count: number } // 风天小畜
-  | { kind: 'card_buy_discount'; amount: number } // 风雷益
-  | { kind: 'seal_chance_up'; percent: number } // 风山渐
+  | { kind: 'extra_card_on_buy_next'; count: number } // 风天小畜：下一次买扑克牌额外+牌（一次性）
+  | { kind: 'card_buy_discount_next'; amount: number } // 风雷益：下一次买扑克牌价-
+  | { kind: 'seal_chance_up_next'; percent: number } // 风山渐：下一次商店带印概率+
   // ── 局内（战斗状态，共 5 张） ──
-  | { kind: 'vitality_up_all_battle'; amount: number } // 离为火
+  | { kind: 'vitality_up_next_battle'; amount: number } // 离为火：下一场战斗气数上限+（一次性）
   | { kind: 'battle_coefficient_boost'; amount: number } // 火雷噬嗑
   | { kind: 'remove_enemy_card'; count: number } // 火泽睽
   | { kind: 'battle_start_hand'; amount: number } // 风地观
@@ -136,69 +135,36 @@ export type BuCiEffect =
 export interface BuciModifiers {
   /** 天命护盾（抵挡后续天命扣减）——艮为山 / 山火贲 */
   destinyShield: number;
-  /** 本局天命恢复效果 +N ——兑为泽 */
-  regenBonus: number;
-  /** 护盾量 +N% ——山地剥 */
-  shieldPowerUp: number;
-  /** 阵容上限 +N——地天泰 */
-  rosterMaxUp: number;
   /** 下次招募费用 -N%（地泽临使用后，招募时消耗） */
   recruitDiscount: number;
   /** 战败后下次招募 -N%（地火明夷触发后，招募时消耗） */
   recruitDiscountAfterDefeat: number;
-  /** 通宝利息 +N%——坎为水 */
-  interestBonusPercent: number;
-  /** 下一次商店商品 -N%（水火既济，生成库存时消耗） */
+  /** 下一次商店商品 -N%（水火既济 / 水地比，生成库存时消耗） */
   nextShopDiscount: number;
-  /** 商店商品常驻 -N%——水地比 */
-  shopDiscount: number;
-  /** 购买返还 N% 通宝——水泽节 */
-  cashbackPercent: number;
-  /** 带印牌出现概率 +N%——风山渐 */
+  /** 下一次商店带印概率 +N%（风山渐触发后，生成库存时消耗） */
   sealChanceUp: number;
-  /** 商店刷新价固定（不再递增）——雷风恒 */
+  /** 下一次商店刷新价固定（雷风恒触发后，刷新时消耗） */
   refreshFixed: number | null;
   /** 免费刷新次数——水山蹇 */
   freeRefreshCount: number;
-  /** 购买扑克牌 -N 通宝——风雷益 */
-  cardBuyDiscount: number;
-  /** 购买扑克牌额外 +N 张——风天小畜 */
-  extraCardOnBuy: number;
-  /** 每进入节点 +N 通宝——水雷屯 */
-  tongbaoPerNode: number;
-  /** 每次进店 +N 通宝——水风井 */
-  tongbaoPerShop: number;
-  /** 每次进店回 N 天命——泽雷随 */
-  healPerShop: number;
   /** 下一场战斗胜利通宝 -N（泽风大过使用后，胜利时消耗） */
   nextBattleRewardPenalty: number;
-  /** 本局所有战斗气数上限 +N——离为火 */
-  vitalityUpAllBattle: number;
+  /** 下一场战斗气数上限 +N（离为火使用后，战斗开始消耗） */
+  vitalityUpNextBattle: number;
   /** 下一场战斗开始时移除敌方 N 张牌（火泽睽使用后，战斗开始消耗） */
   removeEnemyCardNext: boolean;
 }
 
 export const DEFAULT_BUCI_MODS: BuciModifiers = {
   destinyShield: 0,
-  regenBonus: 0,
-  shieldPowerUp: 0,
-  rosterMaxUp: 0,
   recruitDiscount: 0,
   recruitDiscountAfterDefeat: 0,
-  interestBonusPercent: 0,
   nextShopDiscount: 0,
-  shopDiscount: 0,
-  cashbackPercent: 0,
   sealChanceUp: 0,
   refreshFixed: null,
   freeRefreshCount: 0,
-  cardBuyDiscount: 0,
-  extraCardOnBuy: 0,
-  tongbaoPerNode: 0,
-  tongbaoPerShop: 0,
-  healPerShop: 0,
   nextBattleRewardPenalty: 0,
-  vitalityUpAllBattle: 0,
+  vitalityUpNextBattle: 0,
   removeEnemyCardNext: false,
 };
 

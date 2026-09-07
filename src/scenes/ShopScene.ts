@@ -69,11 +69,8 @@ export class ShopScene extends Phaser.Scene {
       RunManager.startNewRun();
     }
     const run = RunManager.getRun()!;
-    // 进店卦象（一次性触发 + 常驻每次进店加成）：水风井/泽雷随/雷风恒/风山渐/水地比
+    // 进店卦象（一次性触发并结算）：水风井/泽雷随/雷风恒/风山渐/水地比
     applyShopEnterHooks(run);
-    const enterMods = getBuciMods(run);
-    if (enterMods.tongbaoPerShop > 0) run.tongbao += enterMods.tongbaoPerShop;
-    if (enterMods.healPerShop > 0) run.destiny = Math.min(run.destinyMax, run.destiny + enterMods.healPerShop);
     RunManager.save();
     this.stock = generateShopStock(run, Math.random);
 
@@ -153,7 +150,7 @@ export class ShopScene extends Phaser.Scene {
     if (!run) return;
     this.destinyText?.setText(`❤ 天命 ${run.destiny}/${run.destinyMax}`);
     this.tongbaoText?.setText(`通宝 ${run.tongbao}`);
-    const rosterMax = ROSTER_MAX + getBuciMods(run).rosterMaxUp; // 地天泰：阵容上限 +1
+    const rosterMax = ROSTER_MAX;
     this.rosterText?.setText(`阵容 ${run.roster.length}/${rosterMax}`);
   }
 
@@ -455,6 +452,10 @@ export class ShopScene extends Phaser.Scene {
     if (mods.freeRefreshCount > 0) {
       // 免费次数抵扣一次（本次刷新免费）
       run.buciMods = { ...mods, freeRefreshCount: mods.freeRefreshCount - 1 };
+    }
+    if (mods.refreshFixed !== null) {
+      // 雷风恒：刷新价固定只作用于一次刷新，刷新后清除（卡片本次进店已消耗）
+      run.buciMods = { ...run.buciMods, refreshFixed: null };
     }
     this.refreshCount += 1;
     this.stock = generateShopStock(run, Math.random);
