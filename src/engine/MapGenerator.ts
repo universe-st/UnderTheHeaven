@@ -44,8 +44,13 @@ const TOTAL_FLOORS = 36;
 const NODES_PER_FLOOR = 3;
 /** 精英节点从强敌池选取的概率 */
 const ELITE_STRONG_CHANCE = 0.6;
-const SHOP_CHANCE = 0.4;
-const EVENT_CHANCE = 0.4;
+/**
+ * 商店/事件节点出现概率（每非 Boss 层至多各 1 个）。
+ * 0.9 + 0.8 = 1.7 个非战斗节点/层，战斗节点由 3 减至平均 1.3 个/层（减少 35%）。
+ * 腾出份额商店优先分配（商店 0.9 / 事件 0.8）。
+ */
+const SHOP_CHANCE = 0.9;
+const EVENT_CHANCE = 0.8;
 
 function pick<T>(list: readonly T[], rng: () => number): T {
   return list[Math.floor(rng() * list.length)]!;

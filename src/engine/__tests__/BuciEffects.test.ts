@@ -61,6 +61,8 @@ describe('useSimpleActive', () => {
 
   it('天地否：上限 -50，天命 +20（上限截断）', () => {
     const run = makeRun([makeCard({ id: 'hex_tian_di_pi', effect: { kind: 'destiny_max_down_cur_up', maxDown: 50, curUp: 20 }, price: 30 })]);
+    run.destiny = 100;
+    run.destinyMax = 100; // 本用例聚焦上限截断语义，显式固定上限避免依赖初始值
     const d0 = run.destiny; // 100
     useSimpleActive(run, 'hex_tian_di_pi');
     expect(run.destinyMax).toBe(50);
@@ -97,6 +99,7 @@ describe('被动触发', () => {
   it('天火同人：仅战斗节点胜利触发', () => {
     const run = makeRun([makeCard({ id: 'hex_tian_huo_tong_ren', type: 'passive', effect: { kind: 'destiny_up_on_battle_win', amount: 10 } })]);
     run.destiny = 90;
+    run.destinyMax = 100; // 用例聚焦触发语义，固定上限避免初始 80 造成截断
     const d0 = run.destiny;
     const desc = triggerDestinyUpOnBattleWin(run, 'normal');
     expect(desc).toContain('天命 +10');
@@ -108,6 +111,7 @@ describe('被动触发', () => {
   it('天雷无妄：事件出选项时回天命并消耗', () => {
     const run = makeRun([makeCard({ id: 'hex_tian_lei_wu_wang', type: 'passive', effect: { kind: 'event_autopick', amount: 10 } })]);
     run.destiny = 90;
+    run.destinyMax = 100;
     const d0 = run.destiny;
     const desc = triggerEventAutopick(run);
     expect(desc).toContain('天命 +10');
@@ -118,6 +122,7 @@ describe('被动触发', () => {
   it('天山遁：选战斗节点跳过 +10 天命并消耗', () => {
     const run = makeRun([makeCard({ id: 'hex_tian_shan_dun', type: 'passive', effect: { kind: 'skip_battle', amount: 10 } })]);
     run.destiny = 90;
+    run.destinyMax = 100;
     const d0 = run.destiny;
     const desc = triggerSkipBattle(run);
     expect(desc).toContain('天命 +10');
@@ -129,6 +134,7 @@ describe('被动触发', () => {
     const run = makeRun([makeCard({ id: 'hex_tian_feng_gou', type: 'active', effect: { kind: 'remove_character', amount: 10 }, price: 40 })]);
     run.roster = ['hanxin', 'zhangfei'];
     run.destiny = 90;
+    run.destinyMax = 100;
     const d0 = run.destiny;
     const desc = resolveRemoveCharacter(run, 'zhangfei');
     expect(desc).toContain('zhangfei');

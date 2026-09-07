@@ -285,8 +285,9 @@ export interface RunState {
 /** 玩家气数（单场战斗） */
 export const PLAYER_VITALITY = 500;
 
-/** 初始天命 / 通宝 */
-export const INITIAL_DESTINY = 100;
+/** 初始天命（开局现值） / 初始天命上限 / 通宝 */
+export const INITIAL_DESTINY = 40;
+export const INITIAL_DESTINY_MAX = 80;
 export const INITIAL_TONGBAO = 100;
 
 /** 各节点类型的通宝奖励区间（含端点） */
@@ -310,7 +311,7 @@ export const BUCI_BAR_MAX = 3;
 export function createNewRun(rng: () => number): RunState {
   return {
     destiny: INITIAL_DESTINY,
-    destinyMax: INITIAL_DESTINY,
+    destinyMax: INITIAL_DESTINY_MAX,
     tongbao: INITIAL_TONGBAO,
     floor: 1,
     roster: [randomPlayerCharacter(rng)],

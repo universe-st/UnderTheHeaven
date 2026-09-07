@@ -1,17 +1,19 @@
 /**
  * 卜辞栏（六十四卦）跨三场景共享组件。
- * 3 格；点击卦象露出「使用」「出售」小标签；被动卦只有「出售」。
+ * 3 格；点击卦象弹出「卜辞信息窗口」（居中弹窗，不再在栏位下方展开小标签，
+ * 避免遮挡下方界面元素）；信息窗口内含卦名、稀有度、卦象图、效果描述、数量，
+ * 以及按权限显示的「使用」「出售」按钮。
  * 使用权限（按 usage 字段 + 上下文）：
  *   - shop：主动卦可「使用」（泽火革→替换商品回调；地图行动卦除外）
  *   - battle：主动技阶段可「使用」（地图行动卦除外）
- *   - map：地图行动卦（震为雷/雷泽归妹）经 onMapAction 回调使用；其余仅展示
+ *   - map：地图行动卦（震为雷/雷泽归妹）经 onMapAction 回调使用；其余仅展示信息
  * 出售权限：仅黄金台。
  * 稀有度：边框/角标按 凡/良/珍/传 区分；传说（纯卦）金框加粗。
  * 交互类主动（山泽损/巽为风/风火家人/坤为地/天风姤）在场景弹选牌/选人 UI。
  * 同卦堆叠在同一格（显示 ×count），触发/出售消耗第一张（count-1，归零移出）。
  */
 import type Phaser from 'phaser';
-import type { BuCiCard } from '../../models/RunState';
+import type { BuCiCard, BuCiRarity } from '../../models/RunState';
 import { hexagramImageKey, BUCI_RARITY_META } from '../../models/RunState';
 import * as RunManager from '../../models/RunManager';
 import { sellBuci } from '../../models/Shop';
@@ -46,10 +48,20 @@ export interface BuciBarOptions {
   onStateChanged(): void;
 }
 
-const SLOT_W = 116;
-const SLOT_H = 100;
+export const BUCI_SLOT_W = 116;
+export const BUCI_SLOT_H = 100;
+const SLOT_W = BUCI_SLOT_W;
+const SLOT_H = BUCI_SLOT_H;
 const SLOT_GAP = 14;
 const HEX_DISPLAY = 56;
+
+/** 米白纸底（0xf2e6c8）上使用的稀有度角标加深色，保证浅底可读 */
+const MARK_ON_PARCHMENT: Record<BuCiRarity, string> = {
+  common: '#6a6a6a',
+  fine: '#1e6ab8',
+  rare: '#7a3aa8',
+  legendary: '#a8761a',
+};
 
 /** 地图行动卦（只能在 MapScene 使用，需节点选择等交互） */
 function isMapAction(card: BuCiCard): boolean {
@@ -65,13 +77,14 @@ function cardGlyph(c: Card): string {
 
 export class BuciBarManager {
   private container: Phaser.GameObjects.Container | null = null;
-  private openCardId: string | null = null;
+  private infoModal: Phaser.GameObjects.Container | null = null;
 
   constructor(private readonly scene: Phaser.Scene, private readonly options: BuciBarOptions) {}
 
-  /** 战斗主动技阶段状态变化时调用，重算「使用」可用性 */
+  /** 战斗主动技阶段状态变化时调用，重算「使用」可用性；阶段结束关闭已打开的信息窗口 */
   setBattleActivePhase(v: boolean): void {
     this.options.battleActivePhase = v;
+    if (!v) this.closeInfoModal();
     this.refresh();
   }
 
@@ -95,18 +108,18 @@ export class BuciBarManager {
   destroy(): void {
     this.container?.destroy();
     this.container = null;
-    this.openCardId = null;
+    this.closeInfoModal();
   }
 
   private renderSlot(container: Phaser.GameObjects.Container, card: BuCiCard, cx: number): void {
-    const selected = this.openCardId === card.id;
     const rarity = BUCI_RARITY_META[card.rarity];
     const isLegendary = card.rarity === 'legendary';
 
     const bg = this.scene.add.graphics();
-    bg.fillStyle(0x1a0a04, 0.78);
+    // 米白纸底（不透明）：卦象图为深墨线条，浅底 + 深墨 → 高对比，图清晰可见
+    bg.fillStyle(0xf2e6c8, 0.97);
     bg.fillRoundedRect(cx - SLOT_W / 2, -SLOT_H / 2, SLOT_W, SLOT_H, 8);
-    bg.lineStyle(selected ? 2.5 : isLegendary ? 2 : 1.2, selected ? 0xe8d5a3 : rarity.border, selected ? 1 : isLegendary ? 1 : 0.7);
+    bg.lineStyle(isLegendary ? 2 : 1.2, rarity.border, 1);
     bg.strokeRoundedRect(cx - SLOT_W / 2, -SLOT_H / 2, SLOT_W, SLOT_H, 8);
     container.add(bg);
 
@@ -115,76 +128,186 @@ export class BuciBarManager {
     container.add(img);
 
     container.add(this.scene.add.text(cx, 32, card.name, {
-      fontSize: '20px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffd98a',
-      stroke: '#1a0800', strokeThickness: 2,
+      fontSize: '20px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#5a3018',
+      stroke: '#fff8ec', strokeThickness: 2,
     }).setOrigin(0.5));
 
     if (card.count > 1) {
       container.add(this.scene.add.text(cx + SLOT_W / 2 - 12, -SLOT_H / 2 + 14, `×${card.count}`, {
-        fontSize: '18px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf80',
-        stroke: '#1a0800', strokeThickness: 2,
+        fontSize: '18px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#8a5a20',
+        stroke: '#fff8ec', strokeThickness: 2,
       }).setOrigin(0.5));
     }
 
-    // 稀有度角标（左上）
+    // 稀有度角标（左上；浅底用加深色）
     container.add(this.scene.add.text(cx - SLOT_W / 2 + 16, -SLOT_H / 2 + 14, rarity.label, {
-      fontSize: '18px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: rarity.mark,
-      stroke: '#1a0800', strokeThickness: 2,
+      fontSize: '18px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: MARK_ON_PARCHMENT[card.rarity],
+      stroke: '#fff8ec', strokeThickness: 2,
     }).setOrigin(0.5));
 
     // 地图行动卦角标「行」（右上）
     if (isMapAction(card)) {
       container.add(this.scene.add.text(cx + SLOT_W / 2 - 16, -SLOT_H / 2 + 14, '行', {
-        fontSize: '18px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffb060',
-        stroke: '#1a0800', strokeThickness: 2,
+        fontSize: '18px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#a86820',
+        stroke: '#fff8ec', strokeThickness: 2,
       }).setOrigin(0.5));
     }
 
-    // 地图：仅地图行动卦可点击（露出「使用」）
-    const interactive = this.options.context !== 'map' || isMapAction(card);
-    if (interactive) {
-      const zone = this.scene.add.zone(cx, 0, SLOT_W, SLOT_H).setInteractive({ cursor: 'pointer' });
-      zone.on('pointerdown', () => {
-        GameAudioManager.playSfx(this.scene, 'sfx_button');
-        this.openCardId = this.openCardId === card.id ? null : card.id;
-        this.refresh();
-      });
-      container.add(zone);
+    // 所有卜辞均可点击：弹出卜辞信息窗口
+    const zone = this.scene.add.zone(cx, 0, SLOT_W, SLOT_H).setInteractive({ cursor: 'pointer' });
+    zone.on('pointerdown', () => {
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
+      this.showInfoModal(card);
+    });
+    container.add(zone);
+  }
+
+  /**
+   * 卜辞信息窗口（居中弹窗）。
+   * 展示：卦名 + 稀有度角标、卦象图、上下卦/主动被动、效果描述、拥有数量/出售价；
+   * 按权限显示「使用」（canUseCard）与「出售」（仅黄金台）按钮。
+   * 点击遮罩 / ✕ 关闭；按钮点击先关窗再结算，结算后场景刷新卜辞栏。
+   * 弹窗为内容自适应高度，且 Clamp 不超出画布（2400×1080 基准）。
+   */
+  private showInfoModal(card: BuCiCard): void {
+    this.closeInfoModal();
+
+    const { width, height } = this.scene.scale;
+    const cx = width / 2;
+    const rarity = BUCI_RARITY_META[card.rarity];
+    const isActive = card.type === 'active';
+    const canUse = this.canUseCard(card);
+    const canSell = this.options.context === 'shop';
+    const sellPrice = Math.floor(card.price / 2);
+
+    const panelW = 600;
+    const padX = 44;
+    const contentW = panelW - padX * 2;
+    const descLines = this.wrapText(card.desc, contentW, '26px');
+    const descH = descLines.length * 36;
+    const hasActions = canUse || canSell;
+
+    // 高度自适应（内容自顶向下）：
+    //   标题 py+56 → 分隔线 py+100 → 卦象图 py+166（高 120 → 底 +226）
+    //   → 上下卦/主动被动标签 py+242 → 描述首行 py+280（行高 36）→ 数量行 = 末行中心+10
+    //   按钮中心 = 底部-58，按钮顶 = 底部-90，与数量行底保持 ≥ 20 gap
+    //   → hasActions 时 panelH ≥ 415 + descH；无操作按钮时收窄留底距
+    let panelH = hasActions ? 415 + descH : 360 + descH;
+    panelH = Math.max(420, Math.min(height - 80, panelH));
+    const px = cx - panelW / 2;
+    const py = (height - panelH) / 2;
+
+    const container = this.scene.add.container(0, 0).setDepth(DEPTH_OVERLAY);
+    this.infoModal = container;
+    const close = () => this.closeInfoModal();
+
+    container.add(UIFactory.modalOverlay(this.scene, width, height, close));
+    container.add(UIFactory.modalPanel(this.scene, px, py, panelW, panelH, 10));
+    // panelZone：拦截面板内点击，防止穿透触发遮罩关闭
+    container.add(this.scene.add.zone(px, py, panelW, panelH).setInteractive());
+
+    // 关闭按钮（右上）
+    container.add(this.scene.add.text(px + panelW - 38, py + 38, '✕', {
+      fontSize: '38px', fontFamily: FONT_FAMILY, fontStyle: 'bold',
+      color: '#7a5a3a', stroke: '#f5f0e2', strokeThickness: 1,
+    }).setOrigin(0.5));
+    const closeZone = this.scene.add.zone(px + panelW - 38, py + 38, 56, 56).setInteractive({ cursor: 'pointer' });
+    closeZone.on('pointerdown', () => {
+      GameAudioManager.playSfx(this.scene, 'sfx_button');
+      close();
+    });
+    container.add(closeZone);
+
+    // 卦名 + 稀有度角标
+    const titleText = this.scene.add.text(cx, py + 56, `【${card.name}】`, {
+      fontSize: '40px', fontFamily: FONT_FAMILY, fontStyle: 'bold',
+      color: '#2a1008', stroke: '#f0e8d8', strokeThickness: 3,
+    }).setOrigin(0.5);
+    container.add(titleText);
+    container.add(this.scene.add.text(cx + titleText.width / 2 + 36, py + 56, rarity.label, {
+      fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold',
+      color: rarity.mark, stroke: '#f0e8d8', strokeThickness: 2,
+    }).setOrigin(0.5));
+
+    // 分隔线
+    const divider = this.scene.add.graphics();
+    divider.lineStyle(1, 0xd0c4a8, 0.6);
+    divider.lineBetween(px + padX, py + 100, px + panelW - padX, py + 100);
+    container.add(divider);
+
+    // 卦象图（居中，120 显示）
+    const img = this.scene.add.image(cx, py + 166, hexagramImageKey(card.upper, card.lower));
+    img.setScale(120 / img.width);
+    container.add(img);
+
+    // 上下卦 + 主动/被动徽章
+    container.add(this.scene.add.text(cx, py + 242, `上${card.upper} 下${card.lower} · ${isActive ? '主动卦' : '被动卦'}`, {
+      fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold',
+      color: isActive ? '#8a4a10' : '#4a6a4a', stroke: '#f0e8d8', strokeThickness: 2,
+    }).setOrigin(0.5));
+
+    // 效果描述（逐行居中）
+    let descY = py + 280;
+    for (const line of descLines) {
+      container.add(this.scene.add.text(cx, descY, line, {
+        fontSize: '26px', fontFamily: FONT_FAMILY, color: '#4a3a22',
+        stroke: '#f5f0e2', strokeThickness: 1,
+      }).setOrigin(0.5));
+      descY += 36;
     }
 
-    if (selected) {
-      this.renderMenu(container, card, cx);
+    // 拥有数量 / 出售价信息行
+    const infoText = canSell
+      ? `拥有 ×${card.count}  ·  出售价 ${sellPrice} 通宝`
+      : `拥有 ×${card.count}`;
+    container.add(this.scene.add.text(cx, descY + 10, infoText, {
+      fontSize: '26px', fontFamily: FONT_FAMILY, color: '#6a4a2a',
+      stroke: '#f5f0e2', strokeThickness: 1,
+    }).setOrigin(0.5));
+
+    // 底部操作按钮区
+    if (hasActions) {
+      const btnY = py + panelH - 58;
+      const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+        fontSize: '28px', fontFamily: FONT_FAMILY, fontStyle: 'bold',
+        color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3,
+      };
+      if (canUse && canSell) {
+        container.add(UIFactory.button(this.scene, cx - 130, btnY, '▶', '使 用', () => {
+          GameAudioManager.playSfx(this.scene, 'sfx_button');
+          this.closeInfoModal();
+          this.doUse(card);
+        }, { w: 200, h: 68, textStyle: btnStyle }));
+        container.add(UIFactory.button(this.scene, cx + 130, btnY, '✕', `出售 ${sellPrice}`, () => {
+          GameAudioManager.playSfx(this.scene, 'sfx_button');
+          this.closeInfoModal();
+          this.doSell(card);
+        }, {
+          w: 200, h: 68,
+          textStyle: { ...btnStyle, color: '#ffdf80' },
+        }));
+      } else if (canUse) {
+        container.add(UIFactory.button(this.scene, cx, btnY, '▶', '使 用', () => {
+          GameAudioManager.playSfx(this.scene, 'sfx_button');
+          this.closeInfoModal();
+          this.doUse(card);
+        }, { w: 200, h: 68, textStyle: btnStyle }));
+      } else if (canSell) {
+        container.add(UIFactory.button(this.scene, cx, btnY, '✕', `出售 ${sellPrice}`, () => {
+          GameAudioManager.playSfx(this.scene, 'sfx_button');
+          this.closeInfoModal();
+          this.doSell(card);
+        }, {
+          w: 200, h: 68,
+          textStyle: { ...btnStyle, color: '#ffdf80' },
+        }));
+      }
     }
   }
 
-  private renderMenu(container: Phaser.GameObjects.Container, card: BuCiCard, cx: number): void {
-    const canUse = card.type === 'active' && this.canUseCard(card);
-    const canSell = this.options.context === 'shop';
-
-    let menuY = SLOT_H / 2 + 22;
-    const btnStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '22px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 2,
-    };
-
-    if (canUse) {
-      const btn = UIFactory.button(this.scene, cx, menuY, '▶', '使 用', () => {
-        GameAudioManager.playSfx(this.scene, 'sfx_button');
-        this.doUse(card);
-      }, { w: 120, h: 44, textStyle: btnStyle });
-      container.add(btn);
-      menuY += 52;
-    }
-    if (canSell) {
-      const sellLabel = `出售 ${Math.floor(card.price / 2)}`;
-      const btn = UIFactory.button(this.scene, cx, menuY, '✕', sellLabel, () => {
-        GameAudioManager.playSfx(this.scene, 'sfx_button');
-        this.doSell(card);
-      }, {
-        w: 120, h: 44,
-        textStyle: { fontSize: '22px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf80', stroke: '#2a1008', strokeThickness: 2 },
-      });
-      container.add(btn);
-    }
+  private closeInfoModal(): void {
+    this.infoModal?.destroy();
+    this.infoModal = null;
   }
 
   /** 使用权限：地图行动卦仅地图可用；其余按上下文 + usage */
@@ -209,7 +332,6 @@ export class BuciBarManager {
         this.showToast('当前场景无法使用');
         return;
       }
-      this.openCardId = null;
       this.refresh();
       this.options.onMapAction(card);
       return;
@@ -220,7 +342,6 @@ export class BuciBarManager {
         this.showToast('仅可在黄金台使用');
         return;
       }
-      this.openCardId = null;
       this.refresh();
       this.options.onReplaceShopItem(card);
       return;
@@ -231,7 +352,6 @@ export class BuciBarManager {
         this.showToast('无角色牌，无法使用');
         return;
       }
-      this.openCardId = null;
       this.showCharacterPicker(card);
       return;
     }
@@ -241,7 +361,6 @@ export class BuciBarManager {
         this.showToast('牌库无牌，无法使用');
         return;
       }
-      this.openCardId = null;
       this.showCardPicker(card, '选择要移除的牌（山泽损）', 1, run.cardPool, (uids) => {
         const desc = resolveRemoveCardHeal(run, uids[0]!);
         if (desc) this.afterResolve(`【${card.name}】${desc}`);
@@ -253,7 +372,6 @@ export class BuciBarManager {
         this.showToast('牌库无牌，无法使用');
         return;
       }
-      this.openCardId = null;
       this.showCardPicker(card, '选择要移除的牌（巽为风，可多选）', 3, run.cardPool, (uids) => {
         const desc = resolveRemoveCardsForTongbao(run, uids);
         if (desc) this.afterResolve(`【${card.name}】${desc}`);
@@ -265,7 +383,6 @@ export class BuciBarManager {
         this.showToast('牌库无牌，无法使用');
         return;
       }
-      this.openCardId = null;
       this.showCardPicker(card, '选择要复制的牌（风火家人）', 1, run.cardPool, (uids) => {
         const desc = resolveCopyCardToPool(run, uids[0]!);
         if (desc) this.afterResolve(`【${card.name}】${desc}`);
@@ -279,7 +396,6 @@ export class BuciBarManager {
       }
       // 随机抽 candidates 张候选，玩家从中选 pick 张赐玄武印
       const candidates = [...run.cardPool].sort(() => Math.random() - 0.5).slice(0, effect.candidates);
-      this.openCardId = null;
       this.showCardPicker(card, '选择赐玄武印的牌（坤为地）', effect.pick, candidates, (uids) => {
         const desc = resolveGrantSealToPool(run, uids);
         if (desc) this.afterResolve(`【${card.name}】${desc}`);
@@ -300,7 +416,6 @@ export class BuciBarManager {
     if (!run) return;
     const refund = sellBuci(run, card.id);
     if (refund <= 0) return;
-    this.openCardId = null;
     RunManager.save();
     this.refresh();
     this.options.onStateChanged();
@@ -479,11 +594,11 @@ export class BuciBarManager {
         container.destroy();
         onConfirm([...selected]);
       }, {
-        w: 200, h: 64,
+        w: 200, h: 68,
         textStyle: { fontSize: '28px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3 },
       }));
       container.add(UIFactory.button(scene, cx + 130, btnY, '✕', '取 消', close, {
-        w: 200, h: 64,
+        w: 200, h: 68,
         textStyle: { fontSize: '28px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf80', stroke: '#2a1008', strokeThickness: 3 },
       }));
     }
@@ -504,5 +619,28 @@ export class BuciBarManager {
       hold: 900,
       onComplete: () => txt.destroy(),
     });
+  }
+
+  /** 按宽度换行（用于效果描述多行居中显示） */
+  private wrapText(text: string, maxWidth: number, fontSize: string): string[] {
+    const lines: string[] = [];
+    let currentLine = '';
+
+    const measureText = this.scene.add.text(0, 0, '', { fontSize, fontFamily: FONT_FAMILY });
+
+    for (const ch of text) {
+      const testLine = currentLine + ch;
+      measureText.setText(testLine);
+      if (measureText.width > maxWidth && currentLine.length > 0) {
+        lines.push(currentLine);
+        currentLine = ch;
+      } else {
+        currentLine = testLine;
+      }
+    }
+
+    measureText.destroy();
+    if (currentLine.length > 0) lines.push(currentLine);
+    return lines;
   }
 }

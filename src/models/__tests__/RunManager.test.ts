@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { startNewRun, getRun, setRun, hasSave, save, load, clear, applyBattleResult, consumePendingInterest, consumeBuciNotes, consumeLastBattleReward, consumeLastDestinyLoss, settleNodeClear } from '../RunManager';
 import type { RunState, BuCiCard } from '../RunState';
-import { INITIAL_TONGBAO, INITIAL_DESTINY, TONGBAO_REWARD, calcDestinyLoss, interestOn } from '../RunState';
+import { INITIAL_TONGBAO, INITIAL_DESTINY, INITIAL_DESTINY_MAX, TONGBAO_REWARD, calcDestinyLoss, interestOn } from '../RunState';
 
 function createMemoryLocalStorage(): Storage {
   const map = new Map<string, string>();
@@ -30,7 +30,8 @@ describe('RunManager', () => {
   it('startNewRun returns a fresh run and sets it as current', () => {
     const run = startNewRun(42);
     expect(getRun()).toBe(run);
-    expect(run.destiny).toBe(100);
+    expect(run.destiny).toBe(INITIAL_DESTINY);
+    expect(run.destinyMax).toBe(INITIAL_DESTINY_MAX);
     expect(run.layers).toHaveLength(36);
   });
 
@@ -155,7 +156,7 @@ describe('RunManager', () => {
 function makeRun(): RunState {
   return {
     destiny: INITIAL_DESTINY,
-    destinyMax: INITIAL_DESTINY,
+    destinyMax: INITIAL_DESTINY_MAX,
     tongbao: INITIAL_TONGBAO,
     floor: 1,
     roster: ['hanxin'],
@@ -253,22 +254,24 @@ describe('applyBattleResult', () => {
 
   it('defeat deducts destiny from enemy vitality percent, doubled on boss nodes', () => {
     const run = makeRun();
+    run.destiny = 100; // 扣减测试用足额天命，避免初始 40 天命不足以覆盖多次扣减
     setRun(run);
 
     applyBattleResult({ nodeId: 'n1', victory: false, enemyVitalityPercent: 80 });
-    expect(run.destiny).toBe(INITIAL_DESTINY - 20);
+    expect(run.destiny).toBe(80);
     expect(run.floor).toBe(1);
 
     applyBattleResult({ nodeId: 'b3', victory: false, enemyVitalityPercent: 1 });
-    expect(run.destiny).toBe(INITIAL_DESTINY - 20 - 2);
+    expect(run.destiny).toBe(78);
   });
 
   it('defeat defaults to 100% enemy vitality and clamps destiny at 0', () => {
     const run = makeRun();
+    run.destiny = 100;
     setRun(run);
 
     applyBattleResult({ nodeId: 'n1', victory: false });
-    expect(run.destiny).toBe(INITIAL_DESTINY - 25);
+    expect(run.destiny).toBe(75);
 
     run.destiny = 30;
     applyBattleResult({ nodeId: 'b3', victory: false, enemyVitalityPercent: 100 });

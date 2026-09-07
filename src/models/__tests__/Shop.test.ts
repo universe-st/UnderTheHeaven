@@ -151,10 +151,10 @@ describe('purchase', () => {
 
   it('heals destiny up to destinyMax', () => {
     const run = createNewRun(createRng(1));
-    run.destiny = 95;
+    run.destiny = 75;
     run.tongbao = 100;
     expect(purchase(run, { kind: 'heal', amount: 10, price: 30 })).toBe(true);
-    expect(run.destiny).toBe(100);
+    expect(run.destiny).toBe(run.destinyMax); // 75+10=85 → 截断到上限 80
     expect(run.tongbao).toBe(70);
   });
 

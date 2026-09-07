@@ -9,13 +9,14 @@ import { getCharacterEnemyName } from '../engine/CharacterAbilities';
 import { PLAYER_VITALITY } from '../models/RunState';
 import { getRun, save as saveRun } from '../models/RunManager';
 import { battleStartBuciMods } from '../engine/BuciEffects';
-import { BuciBarManager } from './managers/BuciBarManager';
+import { BuciBarManager, BUCI_SLOT_H } from './managers/BuciBarManager';
 import { SkillEventBus, SkillRegistry, SkillRunner, SkillVisualManagerImpl, ALL_SKILL_DEFINITIONS, SkillTiming, type SkillContext, type ActiveSkillDefinition } from '../skills';
 import { clearPassiveSkills, registerAllPassiveSkills } from '../skills/PassiveSkillUtils';
 import {
   FONT_FAMILY,
   DEPTH_BG, DEPTH_BG_BORDER, DEPTH_UI,
   DEPTH_CENTER_BASE, DEPTH_DAMAGE,
+  SLOT_SIZE, VISIBLE_BAR_WIDTH,
 } from '../constants/Layout';
 import { HandSelectManager } from './managers/HandSelectManager';
 import type { HandSelectEvent, HandSelectOptions } from '../skills/HandSelect';
@@ -532,23 +533,32 @@ export class GameScene extends Phaser.Scene implements HandSelectEvent {
 
   /**
    * 战斗内卜辞栏（context:'battle'，仅 runMode 对局显示；测试模式无局不显示）。
-   * 位置：敌方信息栏右侧空白区（x=564, y=170，SLOT 116×100）。
-   * 重叠检查（2400×1080 画布）：
-   *   A 敌方信息栏:  x ∈ [120, 540]（含头像），y ∈ [56, 90]
-   *   B 牌型按钮:    x ∈ [2080, 2260]，y ∈ [34, 106]
-   *   C 设置按钮:    x ∈ [2284, 2372]，y ∈ [28, 116]
-   *   D 敌方手牌:    baseY=220（y ∈ [94, 346]），整列居中，左边缘 ≥ 840（17 张压缩时 918）
-   *   E 卜辞栏:      x ∈ [470, 658]，y ∈ [120, 220]
-   *   E 与 A/B/C 无 y 交集（E.y 下限 120 > A/C 上限）；E.x 上限 658 < D 左边缘 → 全部 gap ≥ 10 ✅
+   * 位置：角色区（右下角色条）上方水平居中。
+   * 布局计算（2400×1080 画布）：
+   *   角色条原点 = (w - 180 - VISIBLE_BAR_WIDTH, h - 420)，槽 SLOT_SIZE=120 → 顶边 y = h - 420 - 60 = 600
+   *   卜辞栏 3 格宽 = 3*116 + 2*14 = 376（x ∈ [x-188, x+188]），槽高 100 → y ∈ [y-50, y+50]
+   *   x = 角色条水平中线（w - 180 - VISIBLE_BAR_WIDTH/2 = 1865），
+   *   y = 角色条顶边 - 槽半高 - 10 = 540 → 卜辞栏 y ∈ [490, 590]，与角色条顶 gap = 10 ✅
+   * 相邻元素重叠检查：
+   *   A 敌方信息栏: x ∈ [120, 540]，y ∈ [56, 90]         → 与 [490, 590] 无 y 交集 ✅
+   *   B 敌方手牌:   y ∈ [94, 346]                        → 与 [490, 590] 无交集 ✅
+   *   C 牌型按钮:   x ∈ [2080, 2260]，y ∈ [34, 106]      → 无交集 ✅
+   *   D 角色条:     x ∈ [1510, 2220]，y ∈ [600, 720]     → 与卜辞栏 [490, 590] 无 y 交集，gap 10 ✅
+   *   E 中央牌桌:   动画中心 y≈475（CARD_H 252 → [349, 601]）位于画面中部 x≈1200~1380；
+   *                 大牌型扇面仅瞬时跨越时由 DEPTH_UI(500) > DEPTH_CENTER_BASE(100) 覆盖其上 ✅
    */
-  private createBattleBuciBar(_w: number, _h: number): void {
+  private createBattleBuciBar(w: number, h: number): void {
     const runMode = this.testConfig?.runMode;
     if (!runMode) return; // 仅 runMode 对局显示
 
+    const barTopY = h - 420 - SLOT_SIZE / 2;
+    const x = w - 180 - VISIBLE_BAR_WIDTH / 2;
+    const y = barTopY - BUCI_SLOT_H / 2 - 10;
+
     this.buciBar?.destroy();
     this.buciBar = new BuciBarManager(this, {
-      x: 564,
-      y: 170,
+      x,
+      y,
       context: 'battle',
       battleActivePhase: false,
       onStateChanged: () => {

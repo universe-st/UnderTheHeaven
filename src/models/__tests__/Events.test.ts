@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createNewRun } from '../RunState';
+import { createNewRun, INITIAL_DESTINY_MAX } from '../RunState';
 import type { RunState } from '../RunState';
 import { GAME_EVENTS, applyEventChoice, rollEvent } from '../Events';
 import type { GameEvent } from '../Events';
@@ -13,7 +13,7 @@ function makeRun(floor: number, opts: { roster?: string[]; tongbao?: number; des
   run.floor = floor;
   run.roster = (opts.roster ?? ['hanxin']) as RunState['roster'];
   run.tongbao = opts.tongbao ?? 100;
-  run.destiny = opts.destiny ?? 100;
+  run.destiny = opts.destiny ?? INITIAL_DESTINY_MAX;
   run.buciCards = opts.buci
     ? [{ ...HEXAGRAM_CATALOG.find((c) => c.buci.id === 'hex_qian_wei_tian')!.buci, count: 1 }]
     : [];
@@ -108,10 +108,10 @@ describe('rollEvent 概率池抽取', () => {
 
 describe('稀松平常事件结算', () => {
   it('山神庙：祭拜天命 +15 且不超过上限', () => {
-    const run = makeRun(1, { destiny: 95 });
+    const run = makeRun(1, { destiny: 70 });
     const result = applyEventChoice(run, eventById('shan_shen_miao'), 0, createRng(2));
     expect(result.success).toBe(true);
-    expect(run.destiny).toBe(100);
+    expect(run.destiny).toBe(INITIAL_DESTINY_MAX);
   });
 
   it('山神庙：离开无变化', () => {
@@ -134,7 +134,7 @@ describe('稀松平常事件结算', () => {
     const run = makeRun(1);
     const biteRng = () => 0.1; // < 0.25 → 被咬
     applyEventChoice(run, eventById('shihuang'), 1, biteRng);
-    expect(run.destiny).toBe(92);
+    expect(run.destiny).toBe(INITIAL_DESTINY_MAX - 8);
   });
 
   it('算命先生：问前程 60% 得 +15，40% 扣 10', () => {

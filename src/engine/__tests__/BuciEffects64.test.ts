@@ -77,6 +77,7 @@ describe('新主动卦（useSimpleActive）', () => {
 
   it('泽风大过：天命 +35，下一场战斗胜利奖励 -20', () => {
     const run = makeRun([cardFromCatalog('hex_ze_feng_da_guo')]);
+    run.destinyMax = 200; // 固定上限，使 50+35=85 不被初始 80 上限截断
     run.destiny = 50;
     useSimpleActive(run, 'hex_ze_feng_da_guo');
     expect(run.destiny).toBe(85);

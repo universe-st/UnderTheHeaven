@@ -12,6 +12,7 @@ import {
   enemyVitalityFor,
   PLAYER_VITALITY,
   INITIAL_DESTINY,
+  INITIAL_DESTINY_MAX,
   INITIAL_TONGBAO,
 } from '../RunState';
 import { createRng } from '../../engine/MapGenerator';
@@ -24,7 +25,7 @@ describe('createNewRun', () => {
   it('initializes destiny/tongbao/floor/roster and a 36-layer map', () => {
     const run = createNewRun(createRng(1));
     expect(run.destiny).toBe(INITIAL_DESTINY);
-    expect(run.destinyMax).toBe(INITIAL_DESTINY);
+    expect(run.destinyMax).toBe(INITIAL_DESTINY_MAX);
     expect(run.tongbao).toBe(INITIAL_TONGBAO);
     expect(run.floor).toBe(1);
     expect(run.roster).toHaveLength(1);
@@ -142,12 +143,14 @@ describe('applyVictory', () => {
 describe('applyDefeat', () => {
   it('deducts destiny by remaining enemy vitality percent', () => {
     const run = createNewRun(createRng(1));
+    run.destiny = 100; // 扣减测试用足额天命，避免初始 40 天命不足以覆盖多次扣减
     applyDefeat(run, 80, false);
     expect(run.destiny).toBe(80);
   });
 
   it('floors destiny at 0', () => {
     const run = createNewRun(createRng(1));
+    run.destiny = 100;
     applyDefeat(run, 100, true);
     expect(run.destiny).toBe(50);
     applyDefeat(run, 100, true);
