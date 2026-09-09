@@ -24,7 +24,10 @@ export const NanmanJunTengJiaBlack: SkillDefinition = {
   name: '藤甲',
   description: '单牌伤害结算时，黑色牌不计算分数',
   timing: SkillTiming.ON_SINGLE_CARD_SETTLEMENT,
-  priority: 20,
+  // 覆盖式归零：priority 置大（最后执行），确保在玩家方各类加分/倍率技能
+  // （默认 100，如程咬金「猛斧」+25、狄青「稳进」+20）之后把 scoreBonus
+  // 覆盖为 -baseScore，黑色牌始终不计算分数（参照周公旦「制礼」nullify 段）。
+  priority: 200,
   dialogLines: ['刀枪不入，水火不侵！'],
 
   filter: (ctx: SkillContext): boolean => {

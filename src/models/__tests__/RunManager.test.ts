@@ -41,6 +41,11 @@ describe('RunManager', () => {
     expect(a).toEqual(b);
   });
 
+  it('startNewRun with an initial character sets the starting roster', () => {
+    const run = startNewRun(42, 'bianque');
+    expect(run.roster).toEqual(['bianque']);
+  });
+
   it('hasSave is false before saving, true after', () => {
     startNewRun(1);
     expect(hasSave()).toBe(false);

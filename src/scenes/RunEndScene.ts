@@ -124,11 +124,11 @@ export class RunEndScene extends Phaser.Scene {
 
     UIFactory.button(this, cx - 260, height - 140, '↻', '再来一局', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
-      RunManager.startNewRun();
+      // 进入开局三选一（选定人杰后才创建新局）
       GameAudioManager.stopBgm(this);
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.start('MapScene');
+        this.scene.start('StartSelectScene');
       });
     }, { w: 380, h: 76, textStyle: BUTTON_STYLE });
 

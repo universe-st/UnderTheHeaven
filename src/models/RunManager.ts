@@ -1,5 +1,6 @@
 import type { MapNode, NodeType, RunState, BuCiCard } from './RunState';
 import { createNewRun, applyVictory, tongbaoReward, calcDestinyLoss } from './RunState';
+import type { PlayerCharacterId } from './Character';
 import { createRng } from '../engine/MapGenerator';
 import {
   adjustBattleReward,
@@ -112,9 +113,12 @@ export function consumeLastDestinyLoss(): number {
   return v;
 }
 
-/** 开启新一局（可选种子，相同种子生成相同地图与初始角色） */
-export function startNewRun(seed?: number): RunState {
-  currentRun = createNewRun(createRng(seed ?? Date.now()));
+/**
+ * 开启新一局（可选种子，相同种子生成相同地图与初始角色）。
+ * `initialCharacter` 为开局三选一确定的初始角色；缺省时随机抽取（原行为）。
+ */
+export function startNewRun(seed?: number, initialCharacter?: PlayerCharacterId): RunState {
+  currentRun = createNewRun(createRng(seed ?? Date.now()), initialCharacter);
   pendingInterest = 0;
   pendingBuciNotes = [];
   pendingBattleReward = 0;

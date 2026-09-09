@@ -7,6 +7,7 @@ import { ShopScene } from './scenes/ShopScene';
 import { RunEndScene } from './scenes/RunEndScene';
 import { TestSelectScene } from './scenes/TestSelectScene';
 import { HallOfFameScene } from './scenes/HallOfFameScene';
+import { StartSelectScene } from './scenes/StartSelectScene';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -17,5 +18,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [LoadingScene, MenuScene, GameScene, MapScene, ShopScene, RunEndScene, TestSelectScene, HallOfFameScene]
+  scene: [LoadingScene, MenuScene, GameScene, MapScene, ShopScene, RunEndScene, TestSelectScene, HallOfFameScene, StartSelectScene]
 };

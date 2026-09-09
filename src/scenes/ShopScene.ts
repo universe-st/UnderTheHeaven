@@ -230,10 +230,10 @@ export class ShopScene extends Phaser.Scene {
         fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffdf90',
         stroke: '#1a0800', strokeThickness: 3,
       }).setOrigin(0.5));
-      container.add(this.add.text(cx, cy + 2, item.buci.desc, {
+      container.add(UIFactory.wrappedText(this, cx, cy + 2, item.buci.desc, {
         fontSize: '24px', fontFamily: FONT_FAMILY, color: '#e0b878',
-        align: 'center', wordWrap: { width: CARD_W - 40 },
-      }).setOrigin(0.5));
+        align: 'center',
+      }, CARD_W - 40).setOrigin(0.5));
       container.add(this.add.text(cx, cy + 52, item.buci.type === 'active' ? '主动 · 使用消耗' : '被动 · 触发消耗', {
         fontSize: '22px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#e0b878',
         stroke: '#1a0800', strokeThickness: 2,

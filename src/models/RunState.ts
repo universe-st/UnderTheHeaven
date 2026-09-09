@@ -274,13 +274,17 @@ export const ROSTER_MAX = 10;
 /** 卜辞栏格数上限 */
 export const BUCI_BAR_MAX = 3;
 
-export function createNewRun(rng: () => number): RunState {
+/**
+ * 开启新一局。`initialCharacter` 指定初始阵容角色（开局三选一）；
+ * 缺省时从默认开局池随机抽取（保持原有行为）。
+ */
+export function createNewRun(rng: () => number, initialCharacter?: PlayerCharacterId): RunState {
   return {
     destiny: INITIAL_DESTINY,
     destinyMax: INITIAL_DESTINY_MAX,
     tongbao: INITIAL_TONGBAO,
     floor: 1,
-    roster: [randomPlayerCharacter(rng)],
+    roster: [initialCharacter ?? randomPlayerCharacter(rng)],
     buciCards: [],
     cardPool: [],
     layers: generateMap(rng),

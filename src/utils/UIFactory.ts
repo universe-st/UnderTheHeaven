@@ -113,6 +113,25 @@ export class UIFactory {
     }
   }
 
+  /**
+   * 创建带强制中文换行的文本。
+   * 中文没有空格，Phaser 默认 wordWrap 按「词」（空格）切分，整段中文会被当成
+   * 一个词而不换行、直接溢出；本方法始终启用 useAdvancedWrap（按字符测量换行）。
+   * 新增任何需要换行的中文文本必须使用本方法，禁止手写 wordWrap。
+   */
+  static wrappedText(
+    scene: Phaser.Scene,
+    x: number, y: number,
+    content: string,
+    style: Phaser.Types.GameObjects.Text.TextStyle,
+    wrapWidth: number,
+  ): Phaser.GameObjects.Text {
+    return scene.add.text(x, y, content, {
+      ...style,
+      wordWrap: { width: wrapWidth, useAdvancedWrap: true },
+    });
+  }
+
   static titleFrame(scene: Phaser.Scene, cx: number, cy: number, w: number, h: number): void {
     const gfx = scene.add.graphics();
     const hw = w / 2;

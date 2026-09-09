@@ -231,10 +231,10 @@ export class DeckModal {
     }).setOrigin(0.5));
 
     if (card.seal) {
-      container.add(this.scene.add.text(cx, py + 166, `【${SEAL_LABELS[card.seal]}】${SEAL_DESCRIPTIONS[card.seal]}`, {
+      container.add(UIFactory.wrappedText(this.scene, cx, py + 166, `【${SEAL_LABELS[card.seal]}】${SEAL_DESCRIPTIONS[card.seal]}`, {
         fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#7a4e1a',
-        align: 'center', wordWrap: { width: w - 80 },
-      }).setOrigin(0.5));
+        align: 'center',
+      }, w - 80).setOrigin(0.5));
     } else {
       container.add(this.scene.add.text(cx, py + 166, '（无四象印）', {
         fontSize: '24px', fontFamily: FONT_FAMILY, color: '#7a6a50',

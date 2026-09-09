@@ -474,6 +474,7 @@ this.load.atlas('图集键名', '图集文件.png', '图集数据文件.json');
 - [ ] 游戏对象是否通过场景工厂方法创建（`this.add.*`、`this.load.*`）？
 - [ ] TypeScript 严格模式是否通过（`npm run build` 无类型错误）？
 - [ ] 新增 UI 是否使用了 `UIFactory` 共享工具（非手写 Graphics 绘制）？
+- [ ] 中文换行文本是否使用 `UIFactory.wrappedText`？（禁止手写 `wordWrap` 不带 `useAdvancedWrap: true`，否则 CJK 无空格整段不换行溢出——见「中文换行（强制）」）
 - [ ] `FONT_FAMILY`、`CARD_W`、`AVATAR_SOURCE_SIZE` 等常量是否从 `src/constants/Layout.ts` 导入？
 - [ ] 角色名称是否从 `PLAYER_CHARACTERS[id].name` 直接获取（禁止 switch 映射）？
 - [ ] 纯逻辑变更（engine/）是否添加了对应的单元测试？
@@ -518,5 +519,14 @@ this.load.atlas('图集键名', '图集文件.png', '图集数据文件.json');
 | 圆角统一 | 12-16px | 按钮和面板 |
 
 **以上数值基于画布分辨率 2400×1080，在手机屏幕上通过 Phaser.Scale.FIT 等比缩放适配。**
+
+### 中文换行（强制）
+
+所有需要换行的中文文本必须使用 `UIFactory.wrappedText(scene, x, y, content, style, wrapWidth)`：
+
+- 中文没有空格，Phaser 默认 `wordWrap` 按「词」（空格）切分，**整段中文会被当成一个词而不换行、直接溢出容器**。
+- `UIFactory.wrappedText` 内部强制 `wordWrap: { width, useAdvancedWrap: true }`，按字符测量换行，中文/数字混排也能正确断行。
+- ❌ 禁止手写 `wordWrap: { width: ... }`（不带 `useAdvancedWrap: true`）——本项目已多次因此溢出。
+- ✅ 既有正确参照：`src/scenes/managers/MapEventModal.ts` 的 `makeBodyTextStyle`（同样带 `useAdvancedWrap: true`）。
 
 

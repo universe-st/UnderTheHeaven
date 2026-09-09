@@ -39,6 +39,11 @@ describe('createNewRun', () => {
   it('is reproducible for the same seed', () => {
     expect(createNewRun(createRng(9))).toEqual(createNewRun(createRng(9)));
   });
+
+  it('uses the given initialCharacter as the starting roster', () => {
+    const run = createNewRun(createRng(1), 'niugao');
+    expect(run.roster).toEqual(['niugao']);
+  });
 });
 
 describe('calcDestinyLoss', () => {

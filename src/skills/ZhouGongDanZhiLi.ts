@@ -15,7 +15,8 @@ const ZHI_LI_MAX = 5;
  *   1. ZhouGongDanZhiLi — 对局开始时（开局 ON_GAIN_TURN，仅首次）经公共事件「选择手牌」
  *      弃置 1~5 张有点数且点数不同的手牌，点数记入 battle.player.zhiliRanks；
  *   2. ZhouGongDanZhiLiNullify — 本次对局中，你与对方打出这些点数的牌不再计算伤害
- *      （ON_SINGLE_CARD_SETTLEMENT，对双方生效，priority 20 先于加分技能归零）；
+ *      （ON_SINGLE_CARD_SETTLEMENT，对双方生效，priority 200 覆盖式归零——
+ *       最后执行，确保在各类加分/倍率技能之后仍归零）；
  *   3. ZhouGongDanZhiLiActive — 主动技：有牌权时弃置任意张这些点数的手牌摸等量的牌。
  *
  * 状态存于 battle.player.zhiliRanks（战斗内），对局结束 battle 丢弃即清空。

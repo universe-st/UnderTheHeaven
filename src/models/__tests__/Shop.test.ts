@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PLAYER_CHARACTERS } from '../Character';
 import { createNewRun } from '../RunState';
-import { HEXAGRAM_CATALOG, generateShopStock, purchase, characterPrice, cardPrice, randomShopCard, CHARACTER_PRICES, refreshPrice } from '../Shop';
+import { HEXAGRAM_CATALOG, generateShopStock, purchase, characterPrice, cardPrice, randomShopCard, CHARACTER_PRICES, refreshPrice, cheapestTierCharacterIds, randomCheapCharacterChoices } from '../Shop';
 import type { ShopItem } from '../Shop';
 import { SEAL_PRICE_EXTRA } from '../FourSeal';
 import { createRng } from '../../engine/MapGenerator';
@@ -103,6 +103,45 @@ describe('characterPrice', () => {
   it('returns the fixed price table value', () => {
     expect(characterPrice('hanxin')).toBe(120);
     expect(characterPrice('bianque')).toBe(45);
+  });
+});
+
+describe('cheapestTierCharacterIds', () => {
+  it('only includes positive-price characters priced at most 75', () => {
+    const ids = cheapestTierCharacterIds();
+    expect(ids.length).toBeGreaterThanOrEqual(8);
+    for (const id of ids) {
+      const price = CHARACTER_PRICES[id]!;
+      expect(price).toBeGreaterThan(0);
+      expect(price).toBeLessThanOrEqual(75);
+    }
+  });
+
+  it('excludes negative-price special characters (赵高/严嵩) and the expensive tier', () => {
+    const ids = cheapestTierCharacterIds();
+    expect(ids).not.toContain('zhaogao');
+    expect(ids).not.toContain('yansong');
+    expect(ids).not.toContain('hanxin');
+    expect(ids).not.toContain('zhugeliang');
+  });
+});
+
+describe('randomCheapCharacterChoices', () => {
+  it('returns count distinct cheapest-tier ids', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const picks = randomCheapCharacterChoices(3, createRng(seed));
+      expect(picks).toHaveLength(3);
+      expect(new Set(picks).size).toBe(3);
+      for (const id of picks) {
+        const price = CHARACTER_PRICES[id]!;
+        expect(price).toBeGreaterThan(0);
+        expect(price).toBeLessThanOrEqual(75);
+      }
+    }
+  });
+
+  it('is reproducible for the same seed', () => {
+    expect(randomCheapCharacterChoices(3, createRng(5))).toEqual(randomCheapCharacterChoices(3, createRng(5)));
   });
 });
 

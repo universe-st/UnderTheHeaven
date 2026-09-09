@@ -1230,7 +1230,7 @@ export class BattleFlowManager {
 
     if (buciSubText) {
       // 卦象触发提示行（若超长自动换行，最多两行）
-      this.scene.add.text(width / 2, height / 2 + 64, buciSubText, {
+      UIFactory.wrappedText(this.scene, width / 2, height / 2 + 64, buciSubText, {
         fontSize: '26px',
         fontFamily: FONT_FAMILY,
         fontStyle: 'bold',
@@ -1238,8 +1238,7 @@ export class BattleFlowManager {
         stroke: '#1a0800',
         strokeThickness: 3,
         align: 'center',
-        wordWrap: { width: width * 0.8 },
-      }).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
+      }, width * 0.8).setOrigin(0.5).setDepth(DEPTH_OVERLAY_TEXT);
     }
 
     this.scene.add.text(width / 2, height / 2 + (buciSubText ? 108 : 90), '点击继续', {

@@ -202,6 +202,33 @@ export const CHARACTER_PRICES: Record<PlayerCharacterId, number> = {
   lili: 105,
 };
 
+/**
+ * 最便宜档角色 id：招募价 > 0 且 ≤ 75（负价格特殊角色不计入）。
+ * 当前含 45 档（扁鹊、李时珍、牛皋、海瑞）与 75 档（刘伯温、文天祥、罗成、
+ * 薛万彻、高顺、张飞、章邯、祖冲之、蓝玉、张居正、花木兰、魏征、苏秦、伊尹、
+ * 程咬金、东方朔、弦高、陆羽），共 22 位。
+ */
+export function cheapestTierCharacterIds(): PlayerCharacterId[] {
+  return (Object.keys(CHARACTER_PRICES) as PlayerCharacterId[]).filter((id) => {
+    const price = CHARACTER_PRICES[id]!;
+    return price > 0 && price <= 75;
+  });
+}
+
+/**
+ * 从最便宜档随机抽取 count 个不重复角色（开局三选一候选）。
+ * 使用传入 rng，保证同种子结果可复现。
+ */
+export function randomCheapCharacterChoices(count: number, rng: () => number = Math.random): PlayerCharacterId[] {
+  const pool = cheapestTierCharacterIds();
+  // Fisher–Yates 洗牌
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i]!, pool[j]!] = [pool[j]!, pool[i]!];
+  }
+  return pool.slice(0, Math.min(count, pool.length));
+}
+
 /** 黄金台刷新费用：基础 5 通宝，每刷新一次 +1 */
 export const REFRESH_BASE_PRICE = 5;
 

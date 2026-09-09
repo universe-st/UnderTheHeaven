@@ -82,7 +82,7 @@ export class MenuScene extends Phaser.Scene {
         this.showNewRunConfirm();
         return;
       }
-      this.startNewRunAndGotoMap();
+      this.gotoStartSelect();
     }, { textStyle: { fontSize: '34px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#ffe9b0', stroke: '#2a1008', strokeThickness: 3 } });
 
     // 「继续游戏」：有存档时可用，无存档时置灰占位
@@ -207,12 +207,12 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
-  private startNewRunAndGotoMap(): void {
-    RunManager.startNewRun();
+  /** 开始新游戏：进入开局三选一场景（选定人杰后才创建新局） */
+  private gotoStartSelect(): void {
     GameAudioManager.stopBgm(this);
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.scene.start('MapScene');
+      this.scene.start('StartSelectScene');
     });
   }
 
@@ -264,7 +264,7 @@ export class MenuScene extends Phaser.Scene {
     container.add(UIFactory.button(this, sw / 2 - 150, py + 225, '✓', '确认', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
       this.hideNewRunConfirm();
-      this.startNewRunAndGotoMap();
+      this.gotoStartSelect();
     }, { w: 240, h: 64, textStyle: btnTextStyle }).setDepth(DEPTH_OVERLAY_TEXT));
     container.add(UIFactory.button(this, sw / 2 + 150, py + 225, '✕', '取消', () => {
       GameAudioManager.playSfx(this, 'sfx_button');
