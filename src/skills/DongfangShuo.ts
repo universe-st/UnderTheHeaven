@@ -9,7 +9,8 @@ import { drawCardsToHand, discardCardsFromHand } from '../utils/CardActions';
  * - 仅玩家获得牌权时触发（filter 排除敌方获得牌权的 ON_GAIN_TURN）。
  * - 摸一张：drawCardsToHand 自动处理牌堆不足时重洗弃牌堆；
  * - 弃一张「不同的牌」（≠ 刚摸的那张）：经由公共事件「选择手牌」交互选 1 张，
- *   确认后 discardCardsFromHand 弃置；若手牌除刚摸那张外无其他牌 → 仅摸牌、自动跳过弃置。
+ *   确认后 discardCardsFromHand 弃置（forced：不可取消，选定即弃）；
+ *   若手牌除刚摸那张外无其他牌 → 仅摸牌、自动跳过弃置。
  */
 export const DongfangShuoFengJian: SkillDefinition = {
   id: 'dongfangshuo_fengjian',
@@ -52,7 +53,7 @@ export const DongfangShuoFengJian: SkillDefinition = {
       side: 'player',
       want: (sel) => sel.length === 1,
       filter: (c) => c.uid !== drawnUid,
-      forced: false,
+      forced: true, // 弃牌不可取消
       title: '讽谏 · 选择一张牌弃置',
     });
     if (chosen?.length !== 1) return;

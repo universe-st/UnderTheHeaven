@@ -199,22 +199,25 @@ describe('DongfangShuoFengJian execute（讽谏摸牌弃牌）', () => {
     expect(opts.filter({ ...card(10), uid: deckTop.uid })).toBe(false);
     expect(opts.filter(card(7, 'heart'))).toBe(true);
     expect(opts.title).toContain('讽谏');
+    // 弃牌不可取消（forced：不显示取消按钮）
+    expect(opts.forced).toBe(true);
   });
 
-  it('取消弃置（返回 null）：仅摸牌、不弃牌', async () => {
+  it('forced 模式（无取消按钮）：选定即弃、不可取消', async () => {
     const visuals = makeVisuals();
     const battle = makeBattle();
-    battle.player.deck = [card(3), card(5), card(10)];
-    battle.player.hand = [card(7, 'heart'), card(8, 'club'), card(9, 'diamond')];
+    const deckTop = card(10);
+    battle.player.deck = [card(3), deckTop];
+    battle.player.hand = [card(7, 'heart'), card(8, 'club')];
     const { scene, selectHandCards } = makeMockScene(battle);
-    selectHandCards.mockResolvedValue(null);
+    selectHandCards.mockResolvedValue([card(7, 'heart')]);
     const ctx = makeCtx({ battle, gameScene: scene });
 
     await DongfangShuoFengJian.execute(ctx, visuals);
 
-    expect(battle.player.hand.length).toBe(4); // 只摸 1 张
-    expect(battle.player.discardPile.length).toBe(0);
-    expect(battle.player.deck.length).toBe(2);
+    const opts = selectHandCards.mock.calls[0]![0];
+    // forced 模式：UI 不渲染取消按钮，选定即弃、不可取消（与周公旦「制礼」一致）
+    expect(opts.forced).toBe(true);
   });
 
   it('手牌除刚摸那张外无其他牌 → 仅摸牌、自动跳过弃置（不卡死）', async () => {
