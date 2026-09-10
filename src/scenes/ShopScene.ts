@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PLAYER_CHARACTERS } from '../models/Character';
 import { ROSTER_MAX, getBuciMods, hexagramImageKey, BUCI_RARITY_META, type BuCiCard } from '../models/RunState';
+import type { Card } from '../models/Card';
 import * as RunManager from '../models/RunManager';
 import type { ShopItem } from '../models/Shop';
 import { generateShopStock, purchase, effectiveRefreshPrice } from '../models/Shop';
@@ -8,6 +9,7 @@ import { applyShopEnterHooks, consumeActiveBuci } from '../engine/BuciEffects';
 import { UIFactory } from '../utils/UIFactory';
 import { createPokerCardVisual } from '../utils/CardVisual';
 import { GameAudioManager } from '../utils/GameAudioManager';
+import { SEAL_LABELS, SEAL_DESCRIPTIONS } from '../models/FourSeal';
 import { FONT_FAMILY, AVATAR_SOURCE_SIZE, CURRENCY_ICON_DISPLAY } from '../constants/Layout';
 import { BuciBarManager } from './managers/BuciBarManager';
 
@@ -15,6 +17,10 @@ const CARD_W = 500;
 const CARD_H = 620;
 const CARD_GAP = 60;
 const CARD_TOP = 360;
+/** 长按商品弹出「商品介绍」的触发时长（毫秒） */
+const LONG_PRESS_MS = 450;
+/** 扑克牌商品展示倍率（基准 180×252，1.5× → 270×378，略小于原 1.9× 便于看清卡面） */
+const SHOP_CARD_SCALE = 1.5;
 
 /**
  * 黄金台商店：4 件商品（角色 / 卜辞 / 天命回复），每件限购一次。
@@ -218,10 +224,18 @@ export class ShopScene extends Phaser.Scene {
         fontSize: '24px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: rarity.mark,
         stroke: '#1a0800', strokeThickness: 2,
       }).setOrigin(0.5));
-      // 上X下X 小标签（§16.7.1 布局首行，卦象图上方）
+      // 米白纸底：卦象图为深墨线条，直接放在深檀木底上几乎不可见（看不清）；
+      // 浅底 + 深墨 → 高对比，与卜辞栏（BuciBarManager）一致
+      const hexPanel = this.add.graphics();
+      hexPanel.fillStyle(0xf2e6c8, 0.97);
+      hexPanel.fillRoundedRect(cx - 105, cy - 252, 210, 180, 8);
+      hexPanel.lineStyle(isLegendary ? 2 : 1.2, rarity.border, 0.9);
+      hexPanel.strokeRoundedRect(cx - 105, cy - 252, 210, 180, 8);
+      container.add(hexPanel);
+      // 上X下X 小标签（§16.7.1 布局首行，卦象图上方；位于纸底上，用深色保证可读）
       container.add(this.add.text(cx, cy - 200, `上${item.buci.upper}下${item.buci.lower}`, {
-        fontSize: '22px', fontFamily: FONT_FAMILY, color: '#c8b090',
-        stroke: '#1a0800', strokeThickness: 2,
+        fontSize: '22px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#5a3018',
+        stroke: '#fff8ec', strokeThickness: 2,
       }).setOrigin(0.5));
       const hexImg = this.add.image(cx, cy - 160, hexagramImageKey(item.buci.upper, item.buci.lower));
       hexImg.setScale(150 / hexImg.width);
@@ -239,9 +253,9 @@ export class ShopScene extends Phaser.Scene {
         stroke: '#1a0800', strokeThickness: 2,
       }).setOrigin(0.5));
     } else if (item.kind === 'card') {
-      // 与游戏内完全相同的扑克牌卡面样式，放大展示
+      // 与游戏内完全相同的扑克牌卡面样式，放大展示（1.5×，略小于原 1.9× 便于看清整张卡面）
       const cardVisual = createPokerCardVisual(this, item.card, cx, cy - 50);
-      cardVisual.setScale(1.9);
+      cardVisual.setScale(SHOP_CARD_SCALE);
       container.add(cardVisual);
     } else {
       container.add(this.add.text(cx, cy - 170, '❤', {
@@ -267,7 +281,169 @@ export class ShopScene extends Phaser.Scene {
     priceGroup.add([coin, priceTxt]);
     container.add(priceGroup);
 
+    // 长按商品卡弹出介绍（zone 在购买按钮之下，按钮区仍优先响应购买）
+    this.attachItemInfo(container, item, cx, cy);
     this.createBuyButton(container, item, index, cx, btnY, bought, affordable);
+  }
+
+  // ── 商品介绍（长按） ──
+
+  /**
+   * 长按商品卡 LONG_PRESS_MS 毫秒弹出「商品介绍」弹窗。
+   * 按下购买按钮不触发（按钮 zone 在卡面 zone 之后加入，命中优先）；松手/移出即取消。
+   */
+  private attachItemInfo(container: Phaser.GameObjects.Container, item: ShopItem, cx: number, cy: number): void {
+    const zone = this.add.zone(cx, cy, CARD_W - 20, CARD_H - 20).setInteractive({ cursor: 'pointer' });
+    let holdTimer: Phaser.Time.TimerEvent | null = null;
+    let holding = false;
+
+    const cancelHold = (): void => {
+      holding = false;
+      if (holdTimer) {
+        holdTimer.destroy();
+        holdTimer = null;
+      }
+    };
+
+    zone.on('pointerdown', () => {
+      if (this.replaceModal) return; // 替换商品弹窗打开时不响应
+      holding = true;
+      holdTimer = this.time.delayedCall(LONG_PRESS_MS, () => {
+        if (!holding) return;
+        holding = false;
+        GameAudioManager.playSfx(this, 'sfx_button');
+        this.showItemInfo(item);
+      });
+    });
+    zone.on('pointerup', cancelHold);
+    zone.on('pointerout', cancelHold);
+    container.add(zone);
+  }
+
+  /** 商品介绍弹窗：居中米白面板，展示该商品完整介绍；轻触空白处关闭 */
+  private showItemInfo(item: ShopItem): void {
+    if (this.replaceModal) return;
+    const { width, height } = this.scale;
+    const cx = width / 2;
+    const panelW = 640;
+    const bodyX = (width - panelW) / 2 + 34;
+    const wrapW = panelW - 68;
+
+    const sections = this.itemInfoSections(item);
+
+    // 先量算内容高度（Phaser Text 构建时即完成换行布局，height 立即可用）→ 面板高度自适应
+    let contentH = 0;
+    const lineHeights: number[] = [];
+    for (const sec of sections) {
+      contentH += 38; // 小节标题行
+      for (const line of sec.lines) {
+        const probe = UIFactory.wrappedText(this, 0, 0, line, {
+          fontSize: '24px', fontFamily: FONT_FAMILY,
+        }, wrapW);
+        const h = probe.height + 12;
+        probe.destroy();
+        contentH += h;
+        lineHeights.push(h);
+      }
+      contentH += 18;
+    }
+    const panelH = Math.min(840, 130 + contentH);
+    const py = (height - panelH) / 2;
+    const px = (width - panelW) / 2;
+
+    const container = this.add.container(0, 0).setDepth(915);
+    const close = () => container.destroy();
+    container.add(UIFactory.modalOverlay(this, width, height, close));
+    container.add(UIFactory.modalPanel(this, px, py, panelW, panelH, 10));
+    container.add(this.add.zone(px, py, panelW, panelH).setInteractive());
+
+    container.add(this.add.text(cx, py + 40, this.itemInfoTitle(item), {
+      fontSize: '38px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#3a2010',
+      stroke: '#f0e8d8', strokeThickness: 3,
+    }).setOrigin(0.5));
+
+    let y = py + 92;
+    let lineIdx = 0;
+    for (const sec of sections) {
+      container.add(this.add.text(bodyX, y, sec.heading, {
+        fontSize: '26px', fontFamily: FONT_FAMILY, fontStyle: 'bold', color: '#8a5a1a',
+        stroke: '#f0e8d8', strokeThickness: 2,
+      }).setOrigin(0, 0.5));
+      y += 38;
+      for (const line of sec.lines) {
+        const t = UIFactory.wrappedText(this, bodyX, y, line, {
+          fontSize: '24px', fontFamily: FONT_FAMILY, color: '#4a3a22',
+        }, wrapW);
+        t.setOrigin(0, 0.5);
+        container.add(t);
+        y += lineHeights[lineIdx]!;
+        lineIdx += 1;
+      }
+      y += 18;
+    }
+
+    container.add(this.add.text(cx, py + panelH - 26, '轻触空白处关闭', {
+      fontSize: '20px', fontFamily: FONT_FAMILY, color: '#9a8a70',
+    }).setOrigin(0.5));
+  }
+
+  private itemInfoTitle(item: ShopItem): string {
+    switch (item.kind) {
+      case 'character':
+        return `招募 · ${PLAYER_CHARACTERS[item.characterId].name}`;
+      case 'buci':
+        return `卜辞 · ${item.buci.name}`;
+      case 'card':
+        return '扑克牌';
+      case 'heal':
+        return '天命回复';
+    }
+  }
+
+  /** 商品介绍内容分节：{小节标题, 正文行} */
+  private itemInfoSections(item: ShopItem): Array<{ heading: string; lines: string[] }> {
+    const sections: Array<{ heading: string; lines: string[] }> = [];
+    switch (item.kind) {
+      case 'character': {
+        const char = PLAYER_CHARACTERS[item.characterId];
+        sections.push({ heading: `${char.dynasty} · 人物小传`, lines: [char.bio] });
+        const visible = char.abilities.filter((a) => !a.hidden);
+        if (visible.length > 0) {
+          sections.push({ heading: '技能', lines: visible.map((a) => `【${a.name}】${a.description}`) });
+        }
+        break;
+      }
+      case 'buci': {
+        const rarity = BUCI_RARITY_META[item.buci.rarity];
+        const typeLabel = item.buci.type === 'active' ? '主动 · 使用消耗' : '被动 · 触发消耗';
+        sections.push({ heading: '卦象', lines: [`上${item.buci.upper}下${item.buci.lower}`] });
+        sections.push({ heading: '类型', lines: [typeLabel] });
+        sections.push({ heading: `稀有度 · ${rarity.label}`, lines: [] });
+        sections.push({ heading: '效果', lines: [item.buci.desc] });
+        break;
+      }
+      case 'card': {
+        const c = item.card;
+        const lines = [`牌面：${this.cardGlyphLabel(c)}`, `点数：${c.rank}`, `分数：${c.score}`];
+        if (c.seal) {
+          lines.push(`四象印 · ${SEAL_LABELS[c.seal]}：${SEAL_DESCRIPTIONS[c.seal]}`);
+        }
+        sections.push({ heading: '属性', lines });
+        sections.push({ heading: '说明', lines: ['购买后加入牌库，可用于对战出牌。'] });
+        break;
+      }
+      case 'heal':
+        sections.push({ heading: '说明', lines: [`回复 ${item.amount} 点天命（不超过天命上限）。`] });
+        break;
+    }
+    return sections;
+  }
+
+  /** 扑克牌牌面字符（♠A / 虎 / 龍） */
+  private cardGlyphLabel(c: Card): string {
+    if (!c.suit) return c.rank >= 30 ? '龍' : '虎';
+    const glyph: Record<string, string> = { spade: '♠', heart: '♥', club: '♣', diamond: '♦' };
+    return `${glyph[c.suit] ?? ''}${c.rankLabel}`;
   }
 
   private createBuyButton(
